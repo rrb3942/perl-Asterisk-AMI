@@ -1,0 +1,907 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+AMI::Common - Extends the AMI module to provide simple access to common AMI commands and functions
+
+=head1 VERSION
+
+0.1.1
+
+=head1 SYNOPSIS
+
+	use AMI::Common;
+
+	my $astman = AMI->new(	PeerAddr	=>	'127.0.0.1',
+				PeerPort	=>	'5038',
+				Username	=>	'admin',
+				Secret		=>	'supersecret'
+			);
+
+	die "Unable to connect to asterisk" unless ($astman);
+
+	$astman->db_get();
+
+=head1 DESCRIPTION
+
+This module extends the AMI module to provide easier access to common actions and commands available
+through the AMI.
+
+=head2 Constuctor
+
+=head3 new([ARGS])
+
+Creates new a AMI::Common object which takes the arguments as key-value pairs.
+
+This module inherits all options from the AMI module.
+
+=head2 Methods
+
+commands ( [ TIMEOUT ] )
+
+	Returns a hash reference of commands available through the AMI. TIMEOUT is optional
+
+	$hashref->{'CommandName'}->{'Desc'}	Contains the command description
+				   {'Priv'}	Contains list of required privliges.
+
+db_get ( FAMILY, KEY [, TIMEOUT ])
+
+	Returns the value of the Asterisk database entry specified by the FAMILY and KEY pair, or undef if
+	does not exist or an error occured. TIMEOUT is optional.
+
+db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
+
+	Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success
+	or 0 if an error was encountered. TIMEOUT is optional.
+
+db_show ( [ TIMEOUT ] )
+
+	Returns a hash reference containing the contents of the Asterisk database, or undef if an error occured.
+	TIMEOUT is optional.
+
+	Values in the hash reference are stored as below:
+	$hashref->{FAMILY}->{KEY}
+
+get_var ( CHANNEL, VARIABLE [, TIMEOUT ])
+
+	Returns the value of VARIABLE for CHANNEL, or under if an error occured. TIMEOUT is optional.
+
+set_var ( CHANNEL, VARIABLE, VALUE [, TIMEOUT ])
+
+	Sets VARIABLE to VALUE for CHANNEL. Returns 1 on success, or 0 if an error occured.
+	TIMEOUT is optional.
+
+hangup ( CHANNEL [, TIMEOUT ])
+
+	Hangsup CHANNEL. Returns 1 on success, or 0 if an error occured. TIMEOUT is optional.
+
+exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
+
+	Returns the state of the EXTEN in CONTEXT, or undef if an error occured. TIMEOUT is optional
+
+	States:
+	-1 = Extension not found
+	0 = Idle
+	1 = In Use
+	2 = Busy
+	4 = Unavailable
+	8 = Ringing
+	16 = On Hold
+
+park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
+
+	Parks CHANNEL and announces park information to CHANNEL2. CHANNEL2 is also the channel the call will return to if it timesout. 
+	PARKTIME is optional and can be used to control how long a person is parked for. TIMEOUT is optional.
+
+	Returns 1 if the call was parked, or 0 if an error was encountered.
+
+parked_calls ( [ TIMEOUT ] )
+
+	Returns a hash reference containing parking lots and their members, or under if an error occured or no calls
+	were parked. TIMEOUT is optional.
+
+	Hash reference structure:
+
+	$hashref->{lotnumber}->{'Channel'}
+			       {'Timeout'}
+			       {'CallerID'}
+			       {'CallerIDName'}
+
+sip_peers ( [ TIMEOUT ] )
+
+	Returns a hash reference containing all SIP peers, or undef if an error occured. TIMEOUT is optional.
+
+	Hash reference structure:
+
+	$hashref->{peername}->{'Channeltype'}
+			      {'ChanObjectType'}
+			      {'IPaddress'}
+			      {'IPport'}
+			      {'Dynamic'}
+			      {'Natsupport'}
+			      {'VideoSupport'}
+			      {'ACL'}
+			      {'Status'}
+			      {'RealtimeDevice'}
+
+sip_peer ( PEERNAME [, TIMEOUT ] )
+
+	Returns a hash reference containing the information for PEERNAME, or undef if an error occured.
+	TIMEOUT is optional.
+
+	Hash reference structure:
+
+	$hashref->{'SIPLastMsg'}
+		  {'SIP-UserPhone'}
+		  {'Dynamic'}
+		  {'TransferMode'}
+		  {'SIP-NatSupport'}
+		  {'Call-limit'}
+		  {'CID-CallingPres'}
+		  {'LastMsgsSent'}
+		  {'Status'}
+		  {'Address-IP'}
+		  {'RegExpire'}
+		  {'ToHost'}
+		  {'Codecs'},
+		  {'Default-addr-port'}
+		  {'SIP-DTMFmode'}
+		  {'Channeltype'}
+		  {'ChanObjectType'}
+		  {'AMAflags'}
+		  {'SIP-AuthInsecure'}
+		  {'SIP-VideoSupport'}
+		  {'Callerid'}
+		  {'Address-Port'}
+		  {'Context'}
+		  {'ObjectName'}
+		  {'ACL'}
+		  {'Default-addr-IP'}
+		  {'SIP-PromiscRedir'}
+		  {'MaxCallBR'}
+		  {'MD5SecretExist'}
+		  {'SIP-CanReinvite'}
+		  {'CodecOrder'}
+		  {'SecretExist'}
+
+
+mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
+
+	Returns an hash reference containing the message counts for the mailbox EXTENSION@CONTEXT, or undef if an error
+	occured. TIMEOUT is optional.
+
+	Hash reference structure:
+
+	$hashref->{'Mailbox'}
+		  {'NewMessages'}
+		  {'OldMessages'}
+
+mailboxstatus ( EXTENSION, CONTEXT [, TIMEOUT ] )
+	
+	Returns the status of the mailbox or undef if an error occured. TIMEOUT is optinal
+
+chan_timeout ( CHANNEL, CHANNELTIMEOUT [, TIMEOUT ] )
+
+	Sets CHANNEL to timeout in CHANNELTIMEOUT seconds. Returns 1 on success and 0 on failure.
+	TIMEOUT is optinal.
+
+queues ( [ TIMEOUT ] )
+
+	Returns a hash reference containing all queues, queue members, and people currently waiting in the queue,
+	or undef if an error occured.
+
+	Hash reference structure:
+
+	$hashref->{queue}->{'Max'}
+			   {'Calls'}
+			   {'Holdtime'}
+			   {'Completed'}
+			   {'Abandoned'}
+			   {'ServiceLevel'}
+			   {'ServicelevelPerf'}
+			   {'Weight'}
+			   {'MEMBERS'}->{name}->{'Location'}
+						{'Membership'}
+						{'Penalty'}
+						{'CallsTaken'}
+						{'LastCall'}
+						{'Status'}
+						{'Paused'}
+			   {'ENTRIES'}->{position}->{'Channel'}
+						    {'CallerID'}
+						    {'CallerIDName'}
+						    {'Wait'}
+
+queue_status ( QUEUE [, TIMEOUT ] )
+
+	Returns a hash reference containing the queue status, members, and people currently waiting in the queue,
+	or undef if an erro roccured. TIMEOUT is optional.
+
+	Hash reference structure
+
+	$hashref->{'Max'}
+		  {'Calls'}
+		  {'Holdtime'}
+		  {'Completed'}
+		  {'Abandoned'}
+		  {'ServiceLevel'}
+		  {'ServicelevelPerf'}
+		  {'Weight'}
+		  {'MEMBERS'}->{name}->{'Location'}
+				       {'Membership'}
+				       {'Penalty'}
+				       {'CallsTaken'}
+				       {'LastCall'}
+				       {'Status'}
+				       {'Paused'}
+		  {'ENTRIES'}->{position}->{'Channel'}
+					   {'CallerID'}
+					   {'CallerIDName'}
+					   {'Wait'}
+queue_member_pause ( QUEUE, MEMBER, PAUSEVALUE [, TIMEOUT ] )
+
+	Sets the MEMBER of QUEUE to PAUSEVALUE. A value of 0 will unpause a member, and 1 will pause them.
+	Returns 1 if the PAUSEVALUE was set, or 0 if an error occured. TIMEOUT is optional.
+
+queue_member_toggle ( QUEUE, MEMBER [, TIMEOUT ] )
+
+	Toggles MEMBER of QUEUE pause status. From paused to unpaused, and unpaused to paused.
+	Returns 1 if the the pause status was toggled, 0 if an error occured.
+
+queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
+
+	Adds MEMBER to QUEUE. Returns 1 if the MEMBER was added, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+queue_remove ( QUEUE, MEMEBER [, TIMEOUT ] )
+
+	Removes MEMBER from QUEUE. Returns 1 if the MEMBER was removed, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
+
+	Plays the dtmf DIGIT on CHANNEL. Returns 1 if the DIGIT was queued on the channel, or 0 if an 
+	error was encountered. TIMEOUT is optional.
+
+channels ( [ TIMEOUT ] )
+
+	Returns a hash reference containing all channels with their information, or undef if an error
+	was encounted. TIMEOUT is optional.
+
+	Hash reference structure:
+
+	$hashref->{channel}->{'Context'}
+			     {'Extension'}
+			     {'Prio'}
+			     {'State'}
+			     {'Application'}
+			     {'Data'}
+			     {'CallerID'}
+			     {'Duration'}
+			     {'Accountcode'}
+			     {'BridgedTo'}
+			     {'Amaflags''}
+
+chan_status ( CHANNEL [, TIMEOUT ] )
+	
+	Returns a hash reference containing the status of the channel, or undef if an error was encountered.
+	TIMEOUT is optional.
+
+	Hash reference structure:
+	
+	$hashref->{'Channel'}
+		  {'CallerID'}
+ 		  {'Account'}
+ 		  {'State'}
+ 		  {'Context'} 
+ 		  {'Extension'}
+ 		  {'Priority'}
+ 		  {'Seconds'}
+ 		  {'Link'}
+ 		  {'Uniqueid'}
+
+transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
+
+	Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transfered, or 0 if an error
+	was encountered. TIMEOUT is optional.
+
+meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
+
+	Mutes USERNUM in CONFERENCE. Returns 1 if the user was muted, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+meetme_unmute ( CONFERENCE, USERNUM [, TIMEOUT ] )
+
+	Unmutes USERNUM in CONFERENCE. Returns 1 if the user was unmuted, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+monitor ( CHANNEL, FILE [, TIMEOUT ] )
+
+	Begins recording CHANNEL to FILE. Uses the 'wav' format and also mixes both directions into a single file. 
+	Returns 1 if the channel was set to record, or 0 if an error was encountered. TIMEOUT is optional.
+
+monitor_stop ( CHANNEL [, TIMEOUT ])
+
+	Stops recording CHANNEL. Returns 1 if recording on the channel was stopped, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+monitor_pause ( CHANNEL [, TIMEOUT ])
+
+	Pauses recording on CHANNEL. Returns 1 if recording on the channel was paused, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+monitor_unpause ( CHANNEL [, TIMEOUT ])
+
+	Unpauses recording on CHANNEL. Returns 1 if recording on the channel was unpaused, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
+	
+	Changes the monitor file for CHANNEL to FILE. Returns 1 if the file was change, or 0 if an error was encountered.
+	TIMEOUT is optional.
+
+=head1 See Also
+
+AMI, AMI::Events
+
+=head1 AUTHOR
+
+Ryan Bullock (rrb3942@gmail.com)
+
+=head1 BUG REPORTING AND FEEBACK
+
+All bugs should be reported to bugs@voipnerd.net.
+Please address any feedback about this module to feedback@voipnerd.net
+
+=head1 COPYRIGHT
+
+Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+
+This library is free software; you can redistribute it and/or
+modify it under the same terms as Perl itself.
+
+=cut
+
+package AMI::Common;
+
+
+use strict;
+use warnings;
+use version;
+use parent qw(AMI);
+
+our $VERSION = qv(0.1.1);
+
+
+my $basicparse = qr/^([^:]+): ([^.]+)$/;
+my $cmdparse = qr/^([^:]+): (.+) \(Priv: (.+)\)$/;
+
+#Trims trailing white space
+#When chomp is not enough
+my $trim = qr/\s+$/;
+
+my @channelfields = ( 'Context', 'Extension', 'Prio', 'State', 'Application', 'Data', 'CallerID', 'Accountcode', 'Amaflags', 'Duration', 'BridgedTo' );
+
+
+sub new {
+	my ($class, %options) = @_;
+
+        my $self = $class->SUPER::new(%options);
+
+	return $self;
+}
+
+#Returns a hash
+sub commands {
+
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({ Action => 'ListCommands' }, $timeout);
+
+	my %commands;
+
+	if ($action) {
+		foreach my $cmd (@{$action->{'DATA'}}) {
+			$cmd =~ $cmdparse;
+			$commands{$1}->{'Desc'} = $2;
+			my @privs = split /,/,$3;
+			$commands{$1}->{'Priv'} = \@privs;
+		}
+	}
+
+	return \%commands;
+
+}
+
+sub db_get {
+
+	my ($self, $family, $key, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'DBGet',
+			 	     	Family => $family,
+			      		Key => $key }, $timeout);
+
+	my $value;
+
+	if ($action && exists $action->{'EVENTS'}) {
+		$value = $action->{'EVENTS'}->[0]->{'Val'};
+	}
+	
+	return $value;
+}
+
+sub db_put {
+
+	my ($self, $family, $key, $value, $timeout) = @_;
+
+	return $self->simple_action({ 	Action => 'DBPut',
+					Family => $family,
+					Key => $key,
+					Val => $value }, $timeout);
+}
+
+sub db_show {
+
+	my ($self) = @_;
+
+	my $action = $self->action({	Action => 'Command',
+					Command => 'database show'});
+
+	my %database;
+	
+	if ($action) {
+		foreach my $family (keys %{$action->{'PARSED'}}) {
+			my $hkey = $family;
+			my $key;
+
+			my @split = split /\//,$family;
+
+			$key = pop(@split);
+
+			$key =~ s/$trim//;
+
+			$family = join('/', @split);
+
+			$family = substr($family, 1);
+
+			$database{$family}->{$key} = $action->{'PARSED'}->{$hkey};
+		}
+	}
+
+	return \%database;	
+}
+
+sub get_var {
+
+	my ($self, $channel, $variable, $timeout) = @_;
+
+	my $action = $self-action({	Action => 'GetVar',
+					Channel => $channel,
+					Variable => $variable }, $timeout);
+
+	my $value;
+
+	if ($action) {
+		$value = $action->{'PARSED'}->{'Value'};
+	}
+
+	return $value;
+}
+
+sub set_var {
+
+	my ($self, $channel, $varname, $value, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'Setvar',
+					Channel => $channel,
+					Variable => $varname,
+					Value => $value }, $timeout);
+}
+
+sub hangup {
+
+	my ($self, $channel, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'Hangup',
+					Channel => $channel }, $timeout);
+}
+
+sub exten_state {
+
+	my ($self, $exten, $context, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'ExtensionState',
+					Exten	=> $exten,
+					Context	=> $context }, $timeout);
+
+	my $state;
+
+	if ($action) {
+		$state = $action->{'PARSED'}->{'Status'};
+	}
+
+	return $state;
+
+}
+
+sub park {
+	my ($self, $chan1, $chan2, $parktime, $timeout) = @_;
+
+	my %action = ( 	Action => 'Park',
+			Channel => $chan1,
+			Channel2 => $chan2 );
+
+	if ($parktime) {
+		$action{'Timeout'} = $parktime;
+	}
+
+
+	return $self->simple_action(\%action, $timeout);
+}
+
+sub parked_calls {
+
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
+
+	my %parkinglots;
+
+	if ($action) {
+		foreach my $lot (@{$action->{'EVENTS'}}) {
+			delete $lot->{'ActionID'};
+			delete $lot->{'Event'};
+
+			my $lotnum = $lot->{'Exten'};
+
+			delete $lot->{'Exten'};
+
+			$parkinglots{$lotnum} = $lot;
+		}
+	}
+
+	return \%parkinglots;
+}
+
+sub sip_peers {
+
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({ Action => 'Sippeers' }, $timeout);
+
+	my %peers;
+
+	if ($action) {
+		foreach my $peer (@{$action->{'EVENTS'}}) {
+			delete $peer->{'ActionID'};
+			delete $peer->{'Event'};
+
+			my $peername = $peer->{'ObjectName'};
+
+			delete $peer->{'ObjectName'};
+
+			$peers{$peername} = $peer;
+		}
+	}
+
+	return \%peers;
+}
+
+sub sip_peer {
+
+	my ($self, $peername, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'SIPshowpeer',
+					Peer => $peername }, $timeout);
+
+	my $peer;
+
+	if ($action) {
+		$peer = $action->{'PARSED'};
+	}
+
+	return $peer;
+}
+
+
+sub mailboxcount {
+
+	my ($self, $exten, $context, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'MailboxCount',
+					Mailbox => $exten . '@' . $context }, $timeout);
+
+	my $mailbox;
+
+	if ($action) {
+		$mailbox = $action->{'PARSED'};
+	}
+
+	return $mailbox;
+}
+
+sub mailboxstatus {
+
+	my ($self, $exten, $context, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'MailboxStatus',
+					Mailbox => $exten . '@' . $context }, $timeout);
+
+	my $mailbox;
+
+	if ($action) {
+		$mailbox = $action->{'PARSED'}->{'Waiting'};
+	}
+
+	return $mailbox;
+}
+
+sub chan_timeout {
+
+	my ($self, $channel, $chantimeout, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'AbsoluteTimeout',
+					Channel => $channel,
+					Timeout => $chantimeout }, $timeout);
+}
+
+sub queues {
+	
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
+
+	my %queues;
+
+	if ($action) {
+		foreach my $event (@{$action->{'EVENTS'}}) {
+
+			my $qevent = $event->{'Event'};
+			my $queue = $event->{'Queue'};
+
+			delete $event->{'Event'};
+			delete $event->{'ActionID'};
+			delete $event->{'Queue'};
+			
+			if ($qevent eq 'QueueParams') {
+				foreach my $key (keys %{$event}) {
+					$queues{$queue}->{$key} = $event->{$key};
+				}
+			} elsif ($qevent eq 'QueueMember') {
+
+				my $name = $event->{'Name'};
+
+				delete $event->{'Name'};
+
+				$queues{$queue}->{'MEMBERS'}->{$name} = $event;
+
+			} elsif ($qevent eq 'QueueEntry') {
+
+				my $pos = $event->{'Channel'};
+
+				delete $event->{'Position'};
+			
+				$queues{$queue}->{'ENTRIES'}->{$pos} = $event;
+			}
+
+		}
+	}
+
+	return \%queues;	
+}
+
+sub queue_status {
+	
+	my ($self, $queue, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'QueueStatus',
+				 	Queue => $queue }, $timeout);
+
+	my %queueobj;
+
+	if ($action) {
+		foreach my $event (@{$action->{'EVENTS'}}) {
+
+			my $qevent = $event->{'Event'};
+
+			delete $event->{'Event'};
+			delete $event->{'ActionID'};
+			
+			if ($qevent eq 'QueueParams') {
+				foreach my $key (keys %{$event}) {
+					$queueobj{$key} = $event->{$key};
+				}
+			} elsif ($qevent eq 'QueueMember') {
+
+				my $name = $event->{'Name'};
+
+				delete $event->{'Name'};
+				delete $event->{'Queue'};
+
+				$queueobj{'MEMBERS'}->{$name} = $event;
+
+			} elsif ($qevent eq 'QueueEntry') {
+
+				my $pos = $event->{'Channel'};
+
+				delete $event->{'Queue'};
+				delete $event->{'Position'};
+			
+				$queueobj{'ENTRIES'}->{$pos} = $event;
+			}
+
+		}
+	}
+
+	return \%queueobj;	
+}
+
+sub queue_member_pause {
+
+	my ($self, $queue, $member, $paused, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'QueuePause',
+					Queue => $queue,
+					Interface => $member,
+					Paused => $paused }, $timeout);
+}
+
+sub queue_member_toggle {
+
+	my ($self, $queue, $member, $timeout) = @_;
+
+	my $queueobj = $self->queue_status($queue, $timeout);
+
+	my $paused;
+
+	if ($queueobj->{'MEMBERS'}->{'Paused'} == 0) {
+		$paused = 1;
+	} else {
+		$paused = 0;
+	}
+
+	if (!$self->queue_pause($queue, $member, $paused, $timeout)) {
+		undef $paused;
+	}
+
+	return $paused;
+}
+
+sub queue_add {
+
+	my ($self, $queue, $member, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'QueueAdd',
+					Queue => $queue,
+					Interface => $member }, $timeout);
+}
+
+sub queue_remove {
+
+	my ($self, $queue, $member, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'QueueRemove',
+					Queue => $queue,
+					Interface => $member }, $timeout);
+}
+
+sub play_dtmf {
+
+	my ($self, $channel, $digit, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'PlayDTMF',
+					Channel => $channel,
+					Digit => $digit }, $timeout);
+}
+
+sub channels {
+	
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'Command',
+					Command => 'core show channels concise'});
+
+	my %channels;
+
+	if ($action) {
+		foreach my $chan (@{$action->{'DATA'}}) {
+			my @fields = split /\!/, $chan;
+
+			my $channel = shift(@fields);
+			
+			foreach my $field (@channelfields) {
+				$channels{$channel}->{$field} = shift(@fields);
+			}
+		}
+	}
+
+	return \%channels;
+}
+
+sub chan_status {
+
+	my ($self, $channel, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'Status',
+					Channel	=> $channel}, $timeout);
+
+	my $status;
+
+	if ($action) {
+		$status = $action->{'EVENTS'}->[0];
+
+		delete $status->{'ActionID'};
+		delete $status->{'Event'};
+	}
+
+	return $status;
+}
+
+sub transfer {
+
+	my ($self, $channel, $exten, $context, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'Redirect',
+					Channel => $channel,
+					Exten => $exten,
+					Context => $context,
+					Priority => 1 }, $timeout);
+
+}
+
+sub meetme_mute {
+	my ($self, $conf, $user, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'MeetmeMute',
+					Meetme => $conf,
+					Usernum => $user }, $timeout);
+}
+
+sub meetme_unmute {
+	my ($self, $conf, $user, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'MeetmeUnmute',
+					Meetme => $conf,
+					Usernum => $user }, $timeout);
+}
+
+sub monitor {
+	my ($self, $channel, $file, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'Monitor',
+					Channel => $channel,
+					File => $file,
+					Format => 'wav',
+					Mix => '1' }, $timeout);
+}
+
+sub monitor_stop {
+	my ($self, $channel, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'StopMonitor',
+					Channel => $channel }, $timeout);
+}
+
+sub monitor_pause {
+	my ($self, $channel, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'PauseMonitor',
+					Channel => $channel }, $timeout);
+}
+
+sub monitor_unpause {
+	my ($self, $channel, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'UnpauseMonitor',
+					Channel => $channel }, $timeout);
+}
+
+sub monitor_change {
+	my ($self, $channel, $file, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'ChangeMonitor',
+					Channel => $channel,
+					File => $file }, $timeout);
+}
+
+return 1;

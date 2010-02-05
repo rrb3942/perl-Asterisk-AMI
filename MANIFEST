@@ -1,0 +1,8 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+t/AMI.t
+lib/AMI.pm
+lib/AMI/Common.pm
+lib/AMI/Events.pm
