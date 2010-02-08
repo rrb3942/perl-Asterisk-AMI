@@ -6,7 +6,7 @@ AMI - Perl moduling for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.1.1
+0.1.2
 
 =head1 SYNOPSIS
 
@@ -25,7 +25,7 @@ AMI - Perl moduling for interacting with the Asterisk Manager Interface
 
 =head1 DESCRIPTION
 
-This module provides an interface to the Asterisk Manager Interface. It's goal is to flexible, powerful, and reliable way to
+This module provides an interface to the Asterisk Manager Interface. It's goal is to provide a flexible, powerful, and reliable way to
 interact with Asterisk upon which other applications may be built.
 
 =head2 Constructor
@@ -39,11 +39,10 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	PeerPort	Remote host port	<service>
 	Events		Enable/Disable Events		'on'|'off'
 	ResponseEvents	Match Events to Actions 	0 | 1
-	AutoClear	How often to clear out the Action buffer
-	AutoAge		Maximum age of item in the Action Buffer
 	Username	Username to access the AMI
 	Secret		Secret used to connect to AMI
-
+	BufferSize	Maximum size of buffer, in number of actions
+	Timeout		Default timeout of all actions in seconds
 
 	'PeerAddr' defaults to 127.0.0.1.\n
 	'PeerPort' defaults to 5038.
@@ -51,13 +50,10 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	Default is 'off.
 	'ResponseEvents' defaults controls whether or not events associated with an action are matched to and stored
 	with the response to that action. The default value of 1 groups Events with their actions.
-	'AutoClear' determines how often we clean out the action buffer. It is measure in actions sent. A value
-	of 10 would mean every 10th action you sent would trigger a check for cleaning out old events. it
-	must be a positive integer. 
-	Default value is 1000.
-	'AutoAge' is the maximum age of an item in the action buffer in seconds. Default is 300 seconds (5 minutes)
 	'Username' has no default and must be supplied.
 	'Secret' has no default and must be supplied.
+	'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
+	'Timeout' has a default of 0, which means no timeout.
 
 =head2 Actions
 
@@ -97,25 +93,26 @@ value in the array is append as a different line to the action. For example:
 More detailed information on these individual methods is available below
 
 The send_action() method can be used to send an action to the AMI. It will return a positive integer, which is the 
-ActionID of the action, on success and will return 0 in the event it is unable to send the event.
+ActionID of the action, on success and will return undef in the event it is unable to send the action.
 	
 After sending an action you can then get its response in one of two methods.
 
-The method check_response() accepts an actionid and will return 1 if the action was considered successful and 0 if 
-it failed or an error occured.
+The method check_response() accepts an actionid and will return 1 if the action was considered successful, 0 if 
+it failed and undef if an error occured or on timeout.
 
 The method get_action() accepts an actionid and will return a Response object (really just a fancy hash) with the 
-contents of the Action Response as well as any associated Events it generated. If the action failed it will return 
-undef.
+contents of the Action Response as well as any associated Events it generated. It will return undef if an error 
+occured or on timeout.
 
 All responses and events are buffered, therefor you can issue several send_action()s and then retrieve/check their 
-responses out of order without losing any information. Infact if you are issuing many actions in series you can get 
+responses out of order without losing any information. Infact, if you are issuing many actions in series you can get 
 much better performance sending them all first and then retrieving them later, rather than waiting for responses 
 immediatly after issuing an action.
 
 Alternativley you can also use simple_action() and action().
-simple_action() combines send_action() and check_response(), and therefore returns 1 on success and 2 on failure.
-action() combines send_action() and get_action(), and therefore returns and Response object or undef.
+simple_action() combines send_action() and check_response(), and therefore returns 1 on success and 0 on failure,
+and undef on error or timeout.
+action() combines send_action() and get_action(), and therefore returns a Response object or undef.
 
 =head4 Examples
 
@@ -194,35 +191,40 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 =head2 Methods
 
+process_packet ( [TIMEOUT )
+
+	Tells the AMI object to process input from asterisk. Returns 1 if it succesfully read in a packet and buffered it.
+	Returns 0 if it failed to read in a packet and buffer it. If this fails you should check your connection. 
+
 send_action ( ACTION )
 
 	Sends the action to asterisk. If no errors occured while sending it returns the ActionID for the action,
-	which is a positive integer above 0. If it encounters and error it will return 0.
+	which is a positive integer above 0. If it encounters an error it will return undef.
 	
 check_response( [ ACTIONID ], [ TIMEOUT ] )
 
-	Returns 1 if the action was considered successful, or 0 if it failed. If no ACTIONID is specified the ACTIONID
-	of the last action sent will be used. If no TIMEOUT is given it blocks, reading in packets until the action
-	completes. Unlike get_action, this will not remove a response from the buffer.
+	Returns 1 if the action was considered successful, 0 if it failed, or undef on timeout or error. If no ACTIONID
+	is specified the ACTIONID of the last action sent will be used. If no TIMEOUT is given it blocks, reading in
+	packets until the action completes. Unlike get_action, this will not remove a response from the buffer.
 
 get_action ( [ ACTIONID ], [ TIMEOUT ] )
 
-	Returns the response object for the action. If the action failed, or an error was encountered it returns undef.
+	Returns the response object for the action. Returns undef on error or timeout.
 	If no ACTIONID is specified the ACTIONID of the last action sent will be used. If no TIMEOUT is given it 
 	blocks, reading in packets until the action completes. This will remove the response from the buffer.
 
 action ( ACTION [, TIMEOUT ] )
 
-	Sends the action and returns the response object for the action. If the action failed, or an error was 
-	encountered it returns undef. If no ACTIONID is specified the ACTIONID of the last action sent will be used.
+	Sends the action and returns the response object for the action. Returns undef on error or timeout.
+	If no ACTIONID is specified the ACTIONID of the last action sent will be used.
 	If no TIMEOUT is given it blocks, reading in packets until the action completes. This will remove the
 	response from the buffer.
 
 simple_action ( ACTION [, TIMEOUT ] )
 
-	Sends the action and returns 1 if the action was considered successful, or 0 if it failed. If no ACTIONID is
-	specified the ACTIONID of the last action sent will be used. If no TIMEOUT is given it blocks, reading in
-	packets until the action completes. This will remove the response from the buffer.
+	Sends the action and returns 1 if the action was considered successful, 0 if it failed, or undef on error
+	and timeout. If no ACTIONID is specified the ACTIONID of the last action sent will be used. If no TIMEOUT is
+	given it blocks, reading in packets until the action completes. This will remove the response from the buffer.
 
 completed ( ACTIONID )
 
@@ -231,7 +233,7 @@ completed ( ACTIONID )
 	It returns 1 if the action has completed and 0 if it has not.
 	This will not remove the response from the buffer.
 
-close ()
+disconnect ()
 
 	Logoff and disconnects from the AMI. Returns 1 on success and 0 if any errors were encountered.
 
@@ -268,14 +270,14 @@ clear_old_events ( MAXAGE )
 
 clear_old ( MAXAGE )
 
-	This removes all responses and events older than MAXAGE seconds ago. If MAXAGE is not give, nothing will
+	This removes all responses and events older than MAXAGE seconds ago. If MAXAGE is not given, nothing will
 	be removed.
 
 amiver ()
 
 	Returns the version of the Asterisk Manager Interface we are connected to.
 
-check_connection ( [ TIMEOUT ] )
+connected ( [ TIMEOUT ] )
 
 	This checks the connection to the AMI to ensure it is still functional. It checks at the socket layer and
 	also sends a 'PING' to the AMI to ensure it is still responding. If no TIMEOUT is given this will block
@@ -289,7 +291,7 @@ error ()
 
 =head1 See Also
 
-AMI::Common, AMI::Events
+AMI::Common, AMI::Common::Dev, AMI::Events
 
 =head1 AUTHOR
 
@@ -314,9 +316,13 @@ modify it under the same terms as Perl itself.
 #Enable and disable events Done
 #Digest Auth With MD5
 #Timeouts? Done
-#Periodic Actionbuffer cleansing? Done
 #Hashes to build actions? Done
 #Perf Testing? More references? 30000 actions in 11-13 seconds with asterisk on local system
+#Pre-clear actions when sending (delete ACTIONBUFFER{id}) could replace periodic cleanse?
+#Linked to above -> Set max increment id
+#send_action should return undef on err
+#Default timeout? Done
+
 package AMI;
 
 use strict;
@@ -326,8 +332,7 @@ use Digest::MD5;
 use version;
 
 #Duh
-our $VERSION = qv(0.1.1);
-#my $VERSION = '0.01';
+our $VERSION = qv(0.1.2);
 
 #Keep track if we are logged in
 my $LOGGEDIN = 0;
@@ -374,11 +379,14 @@ my $amistring = qr/^Asterisk Call Manager\/([0-9]\.[0-9])$/;
 my $AMIVER;
 
 #Regex that will identify positive AMI responses
-my $amipositive = qr/^(?:Success|Goodbye|Events Off|Pong)$/;
+my $amipositive = qr/^(?:Success|Goodbye|Events Off|Pong|Follows)$/;
 
 #Regex to identify the end of an action via Event
 my $completed  = qr/[cC]omplete|^(?:DBGetResponse)$/;
 my $store = qr/^(?:DBGetResponse)$/;
+
+#Die string sent from our alarm timeouts
+my $die = "alarm\n";
 
 #Regex to identify responses with things yet to come
 my $follows = qr/[fF]ollow/;
@@ -392,27 +400,19 @@ my $idseq = 1;
 #ActionID of the last command sent
 my $lastid;
 
-#Our Socket, Yo.
-my $socket;
-
 #Required settings
 my @required = ( 'Username', 'Secret' );
 
-#Hash to store settings
-#Pre populated with defaults
-my %settings = (	PeerAddr =>	'127.0.0.1',
-			PeerPort => 	'5038',
-			Events	 =>	'off',
-			ResponseEvents => 1,
-			AutoClear => 1000,
-			AutoAge => 300
-);
-
-#Actuall Setting Variables that get populated from the hash
-my $EVENTS;
-my $RESPEVENTS;
-my $AUTOCLEAR;
-my $AUTOAGE;
+#Defaults
+my $PEER = '127.0.0.1';
+my $PORT = '5038';
+my $USERNAME;
+my $SECRET;
+my $EVENTS = 'off';
+my $STOREEVENTS = 1;
+my $RESPEVENTS = 1;
+my $TIMEOUT = 0;
+my $BUFFERSIZE = 30000;
 
 #Create a new object and return it;
 #If required options are missing, returns undef
@@ -422,71 +422,53 @@ sub new {
 	my $self;
 
 	#Configure our new object, else return undef
-	if ($class->_configure(%values) && $class->_connect() && $class->_login()) {
-		$self = $class;
+	if ($class->_configure(%values)) {
+		my $socket = $class->_connect();
+
+		$class = bless($socket, $class);
+		if ($class->_login()) {
+			$self = $class;
+		}
 	}
 
 	return $self;
 }
 
 #Sub to use for alarms
-sub _sig_alrm { die "alarm\n" };
+sub _sig_alrm { die $die };
 
 #Sets variables for this object
 #Also checks for minimum settings
 #Returns 1 if everything was set, 0 if options were missing
 sub _configure {
-	my ($self, %values) = @_;
+	my ($self, %settings) = @_;
 
 	#Check for required options
 	foreach my $req (@required) {
-		if (!exists $values{$req}) {
+		if (!exists $settings{$req}) {
 			return 0;
 		}
 	}
 
 	#Set values
-	foreach my $setting (keys %values) {
-		$settings{$setting} = $values{$setting};
-	}
+	$PEER = $settings{'PeerAddr'} if (defined $settings{'PeerAddr'});
+	$PORT = $settings{'PeerPort'} if (defined $settings{'PeerPort'});
+	$USERNAME = $settings{'Username'} if (defined $settings{'Username'});
+	$SECRET = $settings{'Secret'} if (defined $settings{'Secret'});
+	$EVENTS = $settings{'Events'} if (defined $settings{'Events'});
+	$STOREEVENTS = 0 if ($EVENTS eq 'off');
+	$RESPEVENTS = $settings{'ResponseEvents'} if (defined $settings{'ResponseEvents'});
+	$TIMEOUT = $settings{'Timeout'} if (defined $settings{'Timeout'});
+	$BUFFERSIZE = $settings{'BufferSize'} if (defined $settings{'BufferSize'});
 
-	if ($settings{'Events'} ne 'off') {
-		$EVENTS = 1;
-	} else {
-		$EVENTS = 0;
-	}
-
-	if ($settings{'ResponseEvents'} == 1) {
-		$RESPEVENTS = 1;
-	} elsif ($settings{'ResponseEvents'} == 0) {
-		$RESPEVENTS = 0;
-	} else {
-		warn "Invalid value for option 'ResponseEvents'";
-		return 0;
-	}
-
-	if ($settings{'AutoClear'} != 0 && ($settings{'AutoClear'} = int($settings{'AutoClear'}))) {
-		$AUTOCLEAR = $settings{'AutoClear'};
-	} else {
-		warn "Invalid value for option 'AutoClear'";
-		return 0;
-	}
-
-	if ($settings{'AutoAge'} = int($settings{'AutoAge'})) {
-		$AUTOAGE = $settings{'AutoAge'};
-	} else { 
-		warn "Invalid value for option 'AutoAge'";
-		return 0;
-	}
-	
 	return 1;
 }
 
 #Connects to the AMI
 #Returns 1 on success, 0 on failure
 sub _connect {
-	$socket = IO::Socket::INET->new (	PeerAddr =>	$settings{'PeerAddr'},
-						PeerPort =>	$settings{'PeerPort'},
+	my $socket = IO::Socket::INET->new (	PeerAddr =>	$PEER,
+						PeerPort =>	$PORT,
 						Proto =>	'tcp'
 	);
 
@@ -496,14 +478,14 @@ sub _connect {
 		$line =~ s/$trim//;
 		if ($line =~ $amistring) {
 			$AMIVER = $1;
-			return 1;
 		} else {
 			warn "Connection Failed: Unknown Protocol/AMI Version";
 		}
+	} else {
+		warn "Connection Refused";
 	}
 
-	warn "Connection Refused";
-	return 0;
+	return $socket;
 }
 
 #Reads in and parses packet from the AMI
@@ -515,12 +497,9 @@ sub _read_packet {
 
 	my %packet;
 
-	while (my $line = <$socket>) {
+	while (defined(my $line = <$self>)) {
 		#Trim trailing whitespace
 		$line =~ s/$trim//;
-
-		#Faster but less accurate
-		#$line =~ tr/\r\n//d;
 
 		#Can we parse and store this line nicely in a hash?
 		if ($line =~ $parse) {
@@ -546,70 +525,83 @@ sub _sort_and_buffer {
 
 	my ($self, $packet) = @_;
 
-	#Yeah
-	if ($packet) {
-		#Associated with an action?
+	if (exists $packet->{'ActionID'}) {
+		#Snag our actionid
+		my $actionid = $packet->{'ActionID'};
+
 		if (exists $packet->{'Response'}) {
-			#Response packet?
-			if (exists $packet->{'ActionID'}) {
-				#No indication of future packets, mark as completed
-				if ($packet->{'Response'} ne 'Follows') {
-					if (!exists $packet->{'Message'} || (!$RESPEVENTS || $packet->{'Message'} !~ $follows)) {
-						$packet->{'COMPLETED'} = 1;
-					}
-				} 
-
-				#Copy the response into the buffer
-				#We dont just assign the hash reference to the ActionID becase it is possible, though unlikely
-				#that event data can arrive for an action before the response packet
-
-				foreach my $key (keys %{$packet}) {
-					if ($key =~ $respcontents) {
-						$ACTIONBUFFER{$packet->{'ActionID'}}->{$key} =  $packet->{$key};
-					} elsif ($key eq 'DATA') {
-						push(@{$ACTIONBUFFER{$packet->{'ActionID'}}->{'DATA'}}, @{$packet->{'DATA'}});
-					} else {
-						$ACTIONBUFFER{$packet->{'ActionID'}}->{'PARSED'}->{$key} = $packet->{$key};
-					}
+			#No indication of future packets, mark as completed
+			if ($packet->{'Response'} ne 'Follows') {
+				if (!exists $packet->{'Message'} || (!$RESPEVENTS || $packet->{'Message'} !~ $follows)) {
+					$packet->{'COMPLETED'} = 1;
 				}
+			} 
 
-				#This is actually slower than the above foreach?
-				#$ACTIONBUFFER{$packet->{'ActionID'}} = $packet;
-
-				return 1;
-			#ActionID but not a Response or an Event?
-			#Must be some kind of fragment/partial/corrupt/bad packet
-			} else {
-				return 0;
+			#Copy the response into the buffer
+			#We dont just assign the hash reference to the ActionID becase it is possible, though unlikely
+			#that event data can arrive for an action before the response packet
+			while (my ($key, $value) = each %{$packet}) {
+				if ($key =~ $respcontents) {
+					$ACTIONBUFFER{$actionid}->{$key} =  $value;
+				} elsif ($key eq 'DATA') {
+					push(@{$ACTIONBUFFER{$actionid}->{$key}}, @{$value});
+				} else {
+					$ACTIONBUFFER{$actionid}->{'PARSED'}->{$key} = $value;
+				}
 			}
-		#An event?
+			
 		} elsif (exists $packet->{'Event'}) {
-			if ($RESPEVENTS && exists $packet->{'ActionID'}) {
+			if ($RESPEVENTS) {
 				#Update timestamp
-				$ACTIONBUFFER{$packet->{'ActionID'}}->{'TIMESTAMP'} = $packet->{'TIMESTAMP'};
+				$ACTIONBUFFER{$actionid}->{'TIMESTAMP'} = $packet->{'TIMESTAMP'};
 				
 				#EventCompleted Event?
 				if ($packet->{'Event'} =~ $completed) {
-					$ACTIONBUFFER{$packet->{'ActionID'}}->{'COMPLETED'} = 1;
+					$ACTIONBUFFER{$actionid}->{'COMPLETED'} = 1;
 					if ($packet->{'Event'} !~ $store) {
 						return 1;
 					}
 				}
 		
-				push(@{$ACTIONBUFFER{$packet->{'ActionID'}}->{'EVENTS'}}, $packet);
-						
+				push(@{$ACTIONBUFFER{$actionid}->{'EVENTS'}}, $packet);
+				
 			} else {
 				push(@EVENTBUFFER, $packet);
 			}
-
-			return 1;
-		#What the hell is this?
-		} else {
-			return 0;
 		}
+	#Is it an event? Are events on? Discard otherwise
+	} elsif (exists $packet->{'Event'} && $STOREEVENTS) {
+				push(@EVENTBUFFER, $packet);
+	#Not a response, not an Event, bad packet
+	} else {
+		return 0;
 	}
 
-	return 0;
+	return 1;
+}
+
+#Publicly available version of _process_packet with a supported timeout
+sub process_packet {
+
+	my ($self, $timeout) = @_;
+
+	$timeout = $TIMEOUT unless (defined $timeout);
+
+	my $packet;
+
+	my $eval = eval {
+		local $SIG{ALRM} = \&_sig_alrm;
+		alarm $timeout;
+
+		$packet = $self->_read_packet();
+
+		alarm 0;
+	};
+
+	#Timeout
+	warn "Timed out waiting for event" unless (defined $eval);
+
+	return $self->_sort_and_buffer($packet);
 }
 
 #Proccesses a packet
@@ -626,16 +618,10 @@ sub _process_packet {
 sub _gen_actionid {
 	my $actionid;
 
-	#Limit the length of our actionID
-	#Know limit in asterisk is around 69 characters
-	#Limit it sooner just to be safe
-	if (length($idseq) < 61) {
-		$actionid = $idseq;
-	#Reset the counter
-	} else {
-		$idseq = 1;
-		$actionid = $idseq;
-	}
+	#Reset the seq number if we hit our max
+	$idseq = 1 if ($idseq > $BUFFERSIZE);
+
+	$actionid = $idseq;
 
 	$idseq++;
 
@@ -648,80 +634,76 @@ sub _gen_actionid {
 sub send_action {
 	my ($self, $actionhash) = @_;
 
+	my $return;
+
 	#Create and Action ID
 	my $id = _gen_actionid();
 
 	#Store the Action ID
 	$lastid = $id;
 
-	$actionhash->{'ActionID'} = $id;
-
-	#Every 100th action clear actions older than 5 minutes
-	if (($id % $AUTOCLEAR) == 0) {
-		$self->clear_old_actions($AUTOAGE);
-	}
+	#Delete anything that might be in the buffer
+	delete $ACTIONBUFFER{$id};
 
 	my $action;
 
 	#Create an action out of a hash
-	foreach my $key (keys %{$actionhash}) {
-		if (ref($actionhash->{$key}) eq 'ARRAY') {
-			foreach my $var (@{$actionhash->{$key}}) {
+	while (my ($key, $value) = each(%{$actionhash})) {
+
+		#Clean out user ActionIDs
+		next if (lc $key eq 'actionid');
+
+		if (ref($value) eq 'ARRAY') {
+			foreach my $var (@{$value}) {
 				$action .= $key . ': ' . $var . $EOL;
 			}
 		} else {
-			$action .= $key . ': ' . $actionhash->{$key} . $EOL;
+			$action .= $key . ': ' . $value . $EOL;
 		}
 	}
 
-	#End command
-	$action .= $EOR;
+	#Append ActionID and End Command
+	$action .= 'ActionID: ' . $id . $EOL . $EOR;	
 
 	#Send it!
-	#print $socket $action;
-	if (defined($socket->send($action))) {
+	if (print $self $action) {
 		$ACTIONBUFFER{$id}->{'SENDTIME'} = time();
-		return $id;
+		$return = $id;
 	} else {
 		$SOCKERR = 1;
 		warn "Error writing to socket";
 	}
 
 
-	return 0;
+	return $return;
 }
 #Wait for an action to complete
 #also handles socket/connection errors
 sub _complete_action {
 	my ($self, $actionid, $timeout) = @_;
 
-	my $completed = 0;
+	my $complete;
 
 	#Disable timeout if none set
-	if (!defined $timeout) {
-		$timeout = 0;
-	}
+	$timeout = $TIMEOUT unless (defined $timeout);
 
-	eval {
-		#local $SIG{ALRM} = sub { print "GOT ALARM!\n"; die "alarm\n" };
+	my $eval = eval {
 		local $SIG{ALRM} = \&_sig_alrm;
 		alarm $timeout;
 
 		#We need our command to be completed before we can return it
-		while (!exists $ACTIONBUFFER{$actionid}->{'COMPLETED'}) {
-			$self->_process_packet();
+		until (exists $ACTIONBUFFER{$actionid}->{'COMPLETED'}) {
+			$self->_process_packet() or return 0;
 		}
 
-		$completed = 1;		
+		$complete = 1;		
 
 		alarm 0;
 	};
 
-	if ($@ && $@ eq "alarm\n") {
-		warn "Timed out waiting for response to action";
-	}
+	warn "Timed out waiting for event" unless (defined $eval);
 
-	return $completed;
+	return $complete;
 }
 
 #Checks for a response to an action
@@ -730,21 +712,17 @@ sub _complete_action {
 sub check_response {
 	my ($self, $actionid, $timeout) = @_;
 
-	my $return = 0;
-
 	#Check if an actionid was passed, else us last
-	if (!defined $actionid) {
-		$actionid = $lastid;
-	}
+	$actionid = $lastid unless (defined $actionid);
+
+	my $return;
 
 	if ($self->_complete_action($actionid, $timeout)) {
-		#Straight up positive response?
+		#Positive response?
 		if ($ACTIONBUFFER{$actionid}->{'Response'} =~ $amipositive) {
 			$return = 1;
-		#If it was a 'Follows' then we also need the command to be completed
-		#Otherwise shit be broken
-		} elsif ($ACTIONBUFFER{$actionid}->{'Response'} eq 'Follows' && exists $ACTIONBUFFER{$actionid}->{'COMPLETED'}) {
-			$return = 1;
+		} else {
+			$return = 0;
 		}
 	}
 
@@ -758,25 +736,17 @@ sub check_response {
 sub get_action {
 	my ($self, $actionid, $timeout) = @_;
 
+	#Check if an actionid was passed, else us last
+	$actionid = $lastid unless (defined $actionid);
+
 	#The action we will be returning
 	my $action;
 
-	#Check if an actionid was passed, else us last
-	if (!defined $actionid) {
-		$actionid = $lastid;
-	}
-
-	#Disable timeout if none set
-	if (!defined $timeout) {
-		$timeout = 0;
-	}
-
 	#Wait for the action to complete
-	if ($self->check_response($actionid, $timeout)) {
-		$action = $ACTIONBUFFER{$actionid};
+	$action = $ACTIONBUFFER{$actionid} if $self->_complete_action($actionid, $timeout);
 
-		delete $ACTIONBUFFER{$actionid};		
-	}
+	#clear it out of the buffer
+	delete $ACTIONBUFFER{$actionid};		
 
 	return $action;
 }
@@ -791,10 +761,8 @@ sub action {
 	#Send action
 	my $actionid = $self->send_action($action);
 	
-	if ($actionid) {
-		#Get response
-		$data = $self->get_action($actionid,$timeout);
-	}
+	#Get response
+	$data = $self->get_action($actionid,$timeout) if (defined $actionid);
 
 	return $data;
 }
@@ -804,12 +772,12 @@ sub action {
 sub simple_action {
 	my ($self, $action, $timeout) = @_;
 
-	my $response = 0;
+	my $response;
 
 	#Send action
 	my $actionid = $self->send_action($action);
 
-	if ($actionid) {	
+	if (defined $actionid) {
 		#Check response
 		$response = $self->check_response($actionid,$timeout);
 
@@ -824,11 +792,9 @@ sub simple_action {
 sub completed {
 	my ($self, $actionid) = @_;
 
-	if (!defined $actionid) {
-		$actionid = $lastid;
-	}
+	$actionid = $lastid unless (defined $actionid);
 
-	if (exists $ACTIONBUFFER{$actionid}->{'COMPLETED'}) {
+	if ($ACTIONBUFFER{$actionid}->{'COMPLETED'}) {
 		return 1;
 	}
 
@@ -840,13 +806,12 @@ sub _login {
 	my $self = shift;
 
 	my %action = ( 	Action => 'login',
-			Username =>  $settings{'Username'},
-			Secret =>  $settings{'Secret'}
+			Username =>  $USERNAME,
+			Secret =>  $SECRET
 	);
 
-	$LOGGEDIN = 1;
-
 	if ($self->simple_action(\%action)){
+		$LOGGEDIN = 1;
 		return 1;
 	} else {
 		$LOGGEDIN = 0;
@@ -862,7 +827,7 @@ sub _logoff {
 
 	my %action = (Action => 'logoff');
 
-	if ($self->simple_action(\%action)){
+	if ($self->simple_action(\%action)) {
 		$LOGGEDIN = 0;
 		return 1;
 	}
@@ -872,20 +837,15 @@ sub _logoff {
 
 #Disconnect from the AMI
 #If logged in will first issue a _logoff
-sub close {
+sub disconnect {
 	my ($self) = @_;
 
-	if (defined($socket)) {
-		if ($LOGGEDIN) {
-			$self->send_action({ Action => 'logoff' });
-		}
+	$self->send_action({ Action => 'logoff' }) if ($LOGGEDIN);
 		
-		$LOGGEDIN = 0;
+	$LOGGEDIN = 0;
 
-		return $socket->close();
+	close($self);
 	
-	}
-
 	#No socket? No Problem.
 	return 1;
 }
@@ -895,28 +855,24 @@ sub close {
 sub get_event {
 	my ($self, $timeout) = @_;
 
-	if (!defined $timeout) {
-		$timeout = 0;
-	}
+	$timeout = $TIMEOUT unless (defined $timeout);
 
 	my $event = shift @EVENTBUFFER;
 
-	eval {
+	my $eval = eval {
 		local $SIG{ALRM} = \&_sig_alrm;
 		alarm $timeout;
 
-		while (!defined $event) {
-			$self->_process_packet();
-	
+		until (defined $event) {
+			$self->_process_packet() or return 0;
+
 			$event = shift @EVENTBUFFER;
 		}
 
 		alarm 0;
 	};
 
-	if ($@ && $@ eq "alarm\n") {
-		warn "Timed out waiting for event";
-	}
+	warn "Timed out waiting for event" unless (defined $eval);
 
 	return $event;
 }
@@ -930,9 +886,7 @@ sub get_buffered_event {
 sub clear_action {
 	my ($self, $actionid) = @_;
 
-	if (exists($ACTIONBUFFER{$actionid})) {
-		delete $ACTIONBUFFER{$actionid};
-	}
+	delete $ACTIONBUFFER{$actionid}	if (defined $actionid);
 
 	return 1;
 }
@@ -951,19 +905,10 @@ sub clear_old_actions {
 
 	if (defined $age) {
 		foreach my $action (keys %ACTIONBUFFER) {
-			my $old;
 
-			#If we got a packet for the action base the time difference off when it was received
-			if (exists $ACTIONBUFFER{$action}->{'TIMESTAMP'}) {
-				$old = $ACTIONBUFFER{$action}->{'TIMESTAMP'} - $curtime;
-			#Else use the time we sent the packet
-			} else {
-				$old = $ACTIONBUFFER{$action}->{'SENDTIME'} - $curtime;
-			}
+			my $old = ($ACTIONBUFFER{$action}->{'TIMESTAMP'} || $ACTIONBUFFER{$action}->{'SENDTIME'}) - $curtime;
 
-			if ($old > $age) {
-				delete $ACTIONBUFFER{$action};
-			}
+			delete $ACTIONBUFFER{$action} if ($old > $age);
 		}
 	}
 
@@ -978,11 +923,9 @@ sub clear_old_actions {
 sub clear_events {
 	my ($self, $type) = @_;
 
-	if (defined($type)) {
+	if (defined $type) {
 		foreach my $event (@EVENTBUFFER) {
-			if ($event->{'Event'} eq $type) {
-				undef $event;
-			}
+			undef $event if ($event->{'Event'} eq $type);
 		}
 	} else {	
 		undef @EVENTBUFFER;
@@ -1021,23 +964,21 @@ sub amiver {
 }
 
 #Checks the connection, returns 1 if the connection is good
-sub check_connection {
+sub connected {
 	my ($self, $timeout) = @_;
-	if ($socket->opened()) {	
-		return $self->simple_action({ Action => 'Ping'}, $timeout);
+	
+	my $return = 0;
+
+	if ($self) {	
+		$return = 1 if ($self->simple_action({ Action => 'Ping'}, $timeout));
 	} 
 
-	return 0;
+	return $return;
 }
 
 #Returns if we have a current error on the socket
 sub error {
-
-	if ($SOCKERR) {
-		return $SOCKERR;
-	}
-
-	return $socket->error();
+	return $SOCKERR;
 }
 
 return 1;

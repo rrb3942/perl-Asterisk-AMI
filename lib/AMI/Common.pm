@@ -6,17 +6,17 @@ AMI::Common - Extends the AMI module to provide simple access to common AMI comm
 
 =head1 VERSION
 
-0.1.1
+0.1.2
 
 =head1 SYNOPSIS
 
 	use AMI::Common;
 
-	my $astman = AMI->new(	PeerAddr	=>	'127.0.0.1',
-				PeerPort	=>	'5038',
-				Username	=>	'admin',
-				Secret		=>	'supersecret'
-			);
+	my $astman = AMI::Common->new(	PeerAddr	=>	'127.0.0.1',
+					PeerPort	=>	'5038',
+					Username	=>	'admin',
+					Secret		=>	'supersecret'
+				);
 
 	die "Unable to connect to asterisk" unless ($astman);
 
@@ -51,12 +51,12 @@ db_get ( FAMILY, KEY [, TIMEOUT ])
 
 db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
 
-	Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success
-	or 0 if an error was encountered. TIMEOUT is optional.
+	Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success, if it
+	failed or undef on error or timeout. TIMEOUT is optional.
 
 db_show ( [ TIMEOUT ] )
 
-	Returns a hash reference containing the contents of the Asterisk database, or undef if an error occured.
+	Returns a hash reference containing the contents of the Asterisk database, or undef on error or timeout.
 	TIMEOUT is optional.
 
 	Values in the hash reference are stored as below:
@@ -64,20 +64,20 @@ db_show ( [ TIMEOUT ] )
 
 get_var ( CHANNEL, VARIABLE [, TIMEOUT ])
 
-	Returns the value of VARIABLE for CHANNEL, or under if an error occured. TIMEOUT is optional.
+	Returns the value of VARIABLE for CHANNEL, or undef on error or timeout. TIMEOUT is optional.
 
 set_var ( CHANNEL, VARIABLE, VALUE [, TIMEOUT ])
 
-	Sets VARIABLE to VALUE for CHANNEL. Returns 1 on success, or 0 if an error occured.
+	Sets VARIABLE to VALUE for CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
 hangup ( CHANNEL [, TIMEOUT ])
 
-	Hangsup CHANNEL. Returns 1 on success, or 0 if an error occured. TIMEOUT is optional.
+	Hangsup CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
 
-	Returns the state of the EXTEN in CONTEXT, or undef if an error occured. TIMEOUT is optional
+	Returns the state of the EXTEN in CONTEXT, or undef on error or timeout. TIMEOUT is optional
 
 	States:
 	-1 = Extension not found
@@ -90,14 +90,15 @@ exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
 
 park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
 
-	Parks CHANNEL and announces park information to CHANNEL2. CHANNEL2 is also the channel the call will return to if it timesout. 
+	Parks CHANNEL and announces park information to CHANNEL2. CHANNEL2 is also the channel the call will return to if
+	it timesout. 
 	PARKTIME is optional and can be used to control how long a person is parked for. TIMEOUT is optional.
 
-	Returns 1 if the call was parked, or 0 if an error was encountered.
+	Returns 1 if the call was parked, or 0 if it failed, or undef on error and timeout.
 
 parked_calls ( [ TIMEOUT ] )
 
-	Returns a hash reference containing parking lots and their members, or under if an error occured or no calls
+	Returns a hash reference containing parking lots and their members, or undef if an error/timeout or if no calls
 	were parked. TIMEOUT is optional.
 
 	Hash reference structure:
@@ -109,7 +110,7 @@ parked_calls ( [ TIMEOUT ] )
 
 sip_peers ( [ TIMEOUT ] )
 
-	Returns a hash reference containing all SIP peers, or undef if an error occured. TIMEOUT is optional.
+	Returns a hash reference containing all SIP peers, or undef on error or timeout. TIMEOUT is optional.
 
 	Hash reference structure:
 
@@ -126,7 +127,7 @@ sip_peers ( [ TIMEOUT ] )
 
 sip_peer ( PEERNAME [, TIMEOUT ] )
 
-	Returns a hash reference containing the information for PEERNAME, or undef if an error occured.
+	Returns a hash reference containing the information for PEERNAME, or undef on error or timeout.
 	TIMEOUT is optional.
 
 	Hash reference structure:
@@ -167,8 +168,8 @@ sip_peer ( PEERNAME [, TIMEOUT ] )
 
 mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
 
-	Returns an hash reference containing the message counts for the mailbox EXTENSION@CONTEXT, or undef if an error
-	occured. TIMEOUT is optional.
+	Returns an hash reference containing the message counts for the mailbox EXTENSION@CONTEXT, or undef on error or
+	timeout. TIMEOUT is optional.
 
 	Hash reference structure:
 
@@ -178,17 +179,17 @@ mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
 
 mailboxstatus ( EXTENSION, CONTEXT [, TIMEOUT ] )
 	
-	Returns the status of the mailbox or undef if an error occured. TIMEOUT is optinal
+	Returns the status of the mailbox or undef on error or timeout. TIMEOUT is optinal
 
 chan_timeout ( CHANNEL, CHANNELTIMEOUT [, TIMEOUT ] )
 
-	Sets CHANNEL to timeout in CHANNELTIMEOUT seconds. Returns 1 on success and 0 on failure.
+	Sets CHANNEL to timeout in CHANNELTIMEOUT seconds. Returns 1 on success, 0 on failure, or undef on error or timeout.
 	TIMEOUT is optinal.
 
 queues ( [ TIMEOUT ] )
 
 	Returns a hash reference containing all queues, queue members, and people currently waiting in the queue,
-	or undef if an error occured.
+	or undef on error or timeout. TIMEOUT is optional
 
 	Hash reference structure:
 
@@ -215,7 +216,7 @@ queues ( [ TIMEOUT ] )
 queue_status ( QUEUE [, TIMEOUT ] )
 
 	Returns a hash reference containing the queue status, members, and people currently waiting in the queue,
-	or undef if an erro roccured. TIMEOUT is optional.
+	or undef on error or timeout. TIMEOUT is optional.
 
 	Hash reference structure
 
@@ -241,32 +242,38 @@ queue_status ( QUEUE [, TIMEOUT ] )
 queue_member_pause ( QUEUE, MEMBER, PAUSEVALUE [, TIMEOUT ] )
 
 	Sets the MEMBER of QUEUE to PAUSEVALUE. A value of 0 will unpause a member, and 1 will pause them.
-	Returns 1 if the PAUSEVALUE was set, or 0 if an error occured. TIMEOUT is optional.
+	Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 queue_member_toggle ( QUEUE, MEMBER [, TIMEOUT ] )
 
 	Toggles MEMBER of QUEUE pause status. From paused to unpaused, and unpaused to paused.
-	Returns 1 if the the pause status was toggled, 0 if an error occured.
+	Returns 1 if the the pause status was toggled, 0 if failed, or undef on error or timeout. TIMEOUT is optional
 
 queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
 
-	Adds MEMBER to QUEUE. Returns 1 if the MEMBER was added, or 0 if an error was encountered.
+	Adds MEMBER to QUEUE. Returns 1 if the MEMBER was added, or 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
 queue_remove ( QUEUE, MEMEBER [, TIMEOUT ] )
 
-	Removes MEMBER from QUEUE. Returns 1 if the MEMBER was removed, or 0 if an error was encountered.
+	Removes MEMBER from QUEUE. Returns 1 if the MEMBER was removed, 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
 play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
 
-	Plays the dtmf DIGIT on CHANNEL. Returns 1 if the DIGIT was queued on the channel, or 0 if an 
-	error was encountered. TIMEOUT is optional.
+	Plays the dtmf DIGIT on CHANNEL. Returns 1 if the DIGIT was queued on the channel, or 0 if it failed, or
+	undef on error or timeout.
+	TIMEOUT is optional.
+
+play_digits ( CHANNLS, DIGITS [, TIMEOUT ] )
+
+	Plays the dtmf DIGITS on CHANNEL. DIGITS should be passed as an array reference. Returns 1 if all DIGITS
+	were queued on the channel, or 0 if an any queuing failed. TIMEOUT is optional.
 
 channels ( [ TIMEOUT ] )
 
-	Returns a hash reference containing all channels with their information, or undef if an error
-	was encounted. TIMEOUT is optional.
+	Returns a hash reference containing all channels with their information, or undef on error or timeout.
+	TIMEOUT is optional.
 
 	Hash reference structure:
 
@@ -284,7 +291,7 @@ channels ( [ TIMEOUT ] )
 
 chan_status ( CHANNEL [, TIMEOUT ] )
 	
-	Returns a hash reference containing the status of the channel, or undef if an error was encountered.
+	Returns a hash reference containing the status of the channel, or undef on error or timeout.
 	TIMEOUT is optional.
 
 	Hash reference structure:
@@ -302,47 +309,51 @@ chan_status ( CHANNEL [, TIMEOUT ] )
 
 transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
 
-	Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transfered, or 0 if an error
-	was encountered. TIMEOUT is optional.
+	Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transfered, 0 if it failed, 
+	or undef on error or timeout. TIMEOUT is optional.
 
 meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
-	Mutes USERNUM in CONFERENCE. Returns 1 if the user was muted, or 0 if an error was encountered.
+	Mutes USERNUM in CONFERENCE. Returns 1 if the user was muted, 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
 meetme_unmute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
-	Unmutes USERNUM in CONFERENCE. Returns 1 if the user was unmuted, or 0 if an error was encountered.
+	Unmutes USERNUM in CONFERENCE. Returns 1 if the user was unmuted, or 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
 monitor ( CHANNEL, FILE [, TIMEOUT ] )
 
 	Begins recording CHANNEL to FILE. Uses the 'wav' format and also mixes both directions into a single file. 
-	Returns 1 if the channel was set to record, or 0 if an error was encountered. TIMEOUT is optional.
+	Returns 1 if the channel was set to record, or 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 monitor_stop ( CHANNEL [, TIMEOUT ])
 
-	Stops recording CHANNEL. Returns 1 if recording on the channel was stopped, or 0 if an error was encountered.
+	Stops recording CHANNEL. Returns 1 if recording on the channel was stopped, 0 if it failed, or undef on error
+	or timeout.
 	TIMEOUT is optional.
 
 monitor_pause ( CHANNEL [, TIMEOUT ])
 
-	Pauses recording on CHANNEL. Returns 1 if recording on the channel was paused, or 0 if an error was encountered.
+	Pauses recording on CHANNEL. Returns 1 if recording on the channel was paused, 0 if it failed, or undef on error
+	or timeout.
 	TIMEOUT is optional.
 
 monitor_unpause ( CHANNEL [, TIMEOUT ])
 
-	Unpauses recording on CHANNEL. Returns 1 if recording on the channel was unpaused, or 0 if an error was encountered.
+	Unpauses recording on CHANNEL. Returns 1 if recording on the channel was unpaused, 0 if it failed, or undef on error
+	or timeout.
 	TIMEOUT is optional.
 
 monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
 	
-	Changes the monitor file for CHANNEL to FILE. Returns 1 if the file was change, or 0 if an error was encountered.
+	Changes the monitor file for CHANNEL to FILE. Returns 1 if the file was change, 0 if it failed, or undef on error
+	or timeout.
 	TIMEOUT is optional.
 
 =head1 See Also
 
-AMI, AMI::Events
+AMI, AMI::Common::Dev, AMI::Events
 
 =head1 AUTHOR
 
@@ -421,13 +432,7 @@ sub db_get {
 			 	     	Family => $family,
 			      		Key => $key }, $timeout);
 
-	my $value;
-
-	if ($action && exists $action->{'EVENTS'}) {
-		$value = $action->{'EVENTS'}->[0]->{'Val'};
-	}
-	
-	return $value;
+	return $action->{'EVENTS'}->[0]->{'Val'};
 }
 
 sub db_put {
@@ -449,23 +454,21 @@ sub db_show {
 
 	my %database;
 	
-	if ($action) {
-		foreach my $family (keys %{$action->{'PARSED'}}) {
-			my $hkey = $family;
-			my $key;
+	while (my ($hkey, $value) = each %{$action->{'PARSED'}}) {
+		my $family = $hkey;
+		my $key;
 
-			my @split = split /\//,$family;
+		my @split = split /\//,$family;
 
-			$key = pop(@split);
+		$key = pop(@split);
 
-			$key =~ s/$trim//;
+		$key =~ s/$trim//;
 
-			$family = join('/', @split);
+		$family = join('/', @split);
 
-			$family = substr($family, 1);
+		$family = substr($family, 1);
 
-			$database{$family}->{$key} = $action->{'PARSED'}->{$hkey};
-		}
+		$database{$family}->{$key} = $value;
 	}
 
 	return \%database;	
@@ -479,13 +482,7 @@ sub get_var {
 					Channel => $channel,
 					Variable => $variable }, $timeout);
 
-	my $value;
-
-	if ($action) {
-		$value = $action->{'PARSED'}->{'Value'};
-	}
-
-	return $value;
+	return $action->{'PARSED'}->{'Value'};
 }
 
 sub set_var {
@@ -514,14 +511,7 @@ sub exten_state {
 					Exten	=> $exten,
 					Context	=> $context }, $timeout);
 
-	my $state;
-
-	if ($action) {
-		$state = $action->{'PARSED'}->{'Status'};
-	}
-
-	return $state;
-
+	return $action->{'PARSED'}->{'Status'};
 }
 
 sub park {
@@ -531,10 +521,7 @@ sub park {
 			Channel => $chan1,
 			Channel2 => $chan2 );
 
-	if ($parktime) {
-		$action{'Timeout'} = $parktime;
-	}
-
+	$action{'Timeout'} = $parktime if (defined $parktime);
 
 	return $self->simple_action(\%action, $timeout);
 }
@@ -547,17 +534,15 @@ sub parked_calls {
 
 	my %parkinglots;
 
-	if ($action) {
-		foreach my $lot (@{$action->{'EVENTS'}}) {
-			delete $lot->{'ActionID'};
-			delete $lot->{'Event'};
+	foreach my $lot (@{$action->{'EVENTS'}}) {
+		delete $lot->{'ActionID'};
+		delete $lot->{'Event'};
 
-			my $lotnum = $lot->{'Exten'};
+		my $lotnum = $lot->{'Exten'};
 
-			delete $lot->{'Exten'};
+		delete $lot->{'Exten'};
 
-			$parkinglots{$lotnum} = $lot;
-		}
+		$parkinglots{$lotnum} = $lot;
 	}
 
 	return \%parkinglots;
@@ -571,17 +556,15 @@ sub sip_peers {
 
 	my %peers;
 
-	if ($action) {
-		foreach my $peer (@{$action->{'EVENTS'}}) {
-			delete $peer->{'ActionID'};
-			delete $peer->{'Event'};
+	foreach my $peer (@{$action->{'EVENTS'}}) {
+		delete $peer->{'ActionID'};
+		delete $peer->{'Event'};
 
-			my $peername = $peer->{'ObjectName'};
+		my $peername = $peer->{'ObjectName'};
 
-			delete $peer->{'ObjectName'};
+		delete $peer->{'ObjectName'};
 
-			$peers{$peername} = $peer;
-		}
+		$peers{$peername} = $peer;
 	}
 
 	return \%peers;
@@ -594,13 +577,7 @@ sub sip_peer {
 	my $action = $self->action({	Action => 'SIPshowpeer',
 					Peer => $peername }, $timeout);
 
-	my $peer;
-
-	if ($action) {
-		$peer = $action->{'PARSED'};
-	}
-
-	return $peer;
+	return $action->{'PARSED'};
 }
 
 
@@ -611,13 +588,7 @@ sub mailboxcount {
 	my $action = $self->action({	Action => 'MailboxCount',
 					Mailbox => $exten . '@' . $context }, $timeout);
 
-	my $mailbox;
-
-	if ($action) {
-		$mailbox = $action->{'PARSED'};
-	}
-
-	return $mailbox;
+	return $action->{'PARSED'};
 }
 
 sub mailboxstatus {
@@ -627,13 +598,8 @@ sub mailboxstatus {
 	my $action = $self->action({	Action => 'MailboxStatus',
 					Mailbox => $exten . '@' . $context }, $timeout);
 
-	my $mailbox;
+	return $action->{'PARSED'}->{'Waiting'};
 
-	if ($action) {
-		$mailbox = $action->{'PARSED'}->{'Waiting'};
-	}
-
-	return $mailbox;
 }
 
 sub chan_timeout {
@@ -653,38 +619,36 @@ sub queues {
 
 	my %queues;
 
-	if ($action) {
-		foreach my $event (@{$action->{'EVENTS'}}) {
+	foreach my $event (@{$action->{'EVENTS'}}) {
 
-			my $qevent = $event->{'Event'};
-			my $queue = $event->{'Queue'};
+		my $qevent = $event->{'Event'};
+		my $queue = $event->{'Queue'};
 
-			delete $event->{'Event'};
-			delete $event->{'ActionID'};
-			delete $event->{'Queue'};
+		delete $event->{'Event'};
+		delete $event->{'ActionID'};
+		delete $event->{'Queue'};
 			
-			if ($qevent eq 'QueueParams') {
-				foreach my $key (keys %{$event}) {
-					$queues{$queue}->{$key} = $event->{$key};
-				}
-			} elsif ($qevent eq 'QueueMember') {
-
-				my $name = $event->{'Name'};
-
-				delete $event->{'Name'};
-
-				$queues{$queue}->{'MEMBERS'}->{$name} = $event;
-
-			} elsif ($qevent eq 'QueueEntry') {
-
-				my $pos = $event->{'Channel'};
-
-				delete $event->{'Position'};
-			
-				$queues{$queue}->{'ENTRIES'}->{$pos} = $event;
+		if ($qevent eq 'QueueParams') {
+			while (my ($key, $value) = each %{$event}) {
+				$queues{$queue}->{$key} = $value;
 			}
+		} elsif ($qevent eq 'QueueMember') {
 
+			my $name = $event->{'Name'};
+
+			delete $event->{'Name'};
+
+			$queues{$queue}->{'MEMBERS'}->{$name} = $event;
+
+		} elsif ($qevent eq 'QueueEntry') {
+
+			my $pos = $event->{'Position'};
+
+			delete $event->{'Position'};
+			
+			$queues{$queue}->{'ENTRIES'}->{$pos} = $event;
 		}
+
 	}
 
 	return \%queues;	
@@ -699,38 +663,36 @@ sub queue_status {
 
 	my %queueobj;
 
-	if ($action) {
-		foreach my $event (@{$action->{'EVENTS'}}) {
+	foreach my $event (@{$action->{'EVENTS'}}) {
 
-			my $qevent = $event->{'Event'};
+		my $qevent = $event->{'Event'};
 
-			delete $event->{'Event'};
-			delete $event->{'ActionID'};
+		delete $event->{'Event'};
+		delete $event->{'ActionID'};
 			
-			if ($qevent eq 'QueueParams') {
-				foreach my $key (keys %{$event}) {
-					$queueobj{$key} = $event->{$key};
-				}
-			} elsif ($qevent eq 'QueueMember') {
-
-				my $name = $event->{'Name'};
-
-				delete $event->{'Name'};
-				delete $event->{'Queue'};
-
-				$queueobj{'MEMBERS'}->{$name} = $event;
-
-			} elsif ($qevent eq 'QueueEntry') {
-
-				my $pos = $event->{'Channel'};
-
-				delete $event->{'Queue'};
-				delete $event->{'Position'};
-			
-				$queueobj{'ENTRIES'}->{$pos} = $event;
+		if ($qevent eq 'QueueParams') {
+			while (my ($key, $value) = each %{$event}) {
+				$queueobj{$key} = $value;
 			}
+		} elsif ($qevent eq 'QueueMember') {
 
+			my $name = $event->{'Name'};
+
+			delete $event->{'Name'};
+			delete $event->{'Queue'};
+
+			$queueobj{'MEMBERS'}->{$name} = $event;
+
+		} elsif ($qevent eq 'QueueEntry') {
+
+			my $pos = $event->{'Position'};
+
+			delete $event->{'Queue'};
+			delete $event->{'Position'};
+			
+			$queueobj{'ENTRIES'}->{$pos} = $event;
 		}
+
 	}
 
 	return \%queueobj;	
@@ -754,15 +716,13 @@ sub queue_member_toggle {
 
 	my $paused;
 
-	if ($queueobj->{'MEMBERS'}->{'Paused'} == 0) {
+	if ($queueobj->{'MEMBERS'}->{$member}->{'Paused'} == 0) {
 		$paused = 1;
-	} else {
+	} elsif ($queueobj->{'MEMBERS'}->{$member}->{'Paused'}) {
 		$paused = 0;
 	}
 
-	if (!$self->queue_pause($queue, $member, $paused, $timeout)) {
-		undef $paused;
-	}
+	if (defined $paused) { $self->queue_pause($queue, $member, $paused, $timeout) or undef $paused };
 
 	return $paused;
 }
@@ -794,6 +754,35 @@ sub play_dtmf {
 					Digit => $digit }, $timeout);
 }
 
+sub play_digits {
+
+	my ($self, $channel, $digits, $timeout) = @_;
+
+	my $return = 1;
+	my $err = 0;
+
+	my @actions = map { $self->send_action({ Action => 'PlayDTMF',
+						 Channel => $channel,
+						 Digit => $_}) } @{$digits};
+
+	foreach my $action (@actions) {
+		my $resp = $self->check_response($action,$timeout);
+		$self->clear_action($action);
+
+		next if ($err);
+
+		unless (defined $resp) {
+			undef $return;
+			$err = 1;
+			next;
+		}
+
+		$return = 0 unless ($resp);
+	}
+
+	return $return;
+}
+
 sub channels {
 	
 	my ($self, $timeout) = @_;
@@ -803,15 +792,13 @@ sub channels {
 
 	my %channels;
 
-	if ($action) {
-		foreach my $chan (@{$action->{'DATA'}}) {
-			my @fields = split /\!/, $chan;
+	foreach my $chan (@{$action->{'DATA'}}) {
+		my @fields = split /\!/, $chan;
 
-			my $channel = shift(@fields);
+		my $channel = shift(@fields);
 			
-			foreach my $field (@channelfields) {
-				$channels{$channel}->{$field} = shift(@fields);
-			}
+		foreach my $field (@channelfields) {
+			$channels{$channel}->{$field} = shift(@fields);
 		}
 	}
 
@@ -827,12 +814,10 @@ sub chan_status {
 
 	my $status;
 
-	if ($action) {
-		$status = $action->{'EVENTS'}->[0];
+	$status = $action->{'EVENTS'}->[0];
 
-		delete $status->{'ActionID'};
-		delete $status->{'Event'};
-	}
+	delete $status->{'ActionID'};
+	delete $status->{'Event'};
 
 	return $status;
 }

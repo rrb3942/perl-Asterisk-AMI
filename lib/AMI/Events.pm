@@ -6,7 +6,7 @@ AMI::Events - Extends the AMI module to provide basic event dispatching.
 
 =head1 VERSION
 
-0.1.1
+0.1.2
 
 =head1 SYNOPSIS
 
@@ -15,7 +15,8 @@ AMI::Events - Extends the AMI module to provide basic event dispatching.
 					PeerPort	=>	'5038',
 					Username	=>	'admin',
 					Secret		=>	'supersecret',
-					Events		=>	'on'
+					Events		=>	'on',
+					Handlers	=> { default => \&do_event };
 					);
 
 	die "Unable to connect to asterisk" unless ($astman);
@@ -25,8 +26,6 @@ AMI::Events - Extends the AMI module to provide basic event dispatching.
 
 		print 'Yeah! Event Type: ' . $event->{'Event'} . "\r\n";
 	}
-
-	$astman->handlers( { 'default' => \&do_event } );
 
 	$astman->event_loop();
 	
@@ -42,32 +41,19 @@ This module extends the standard AMI module to include basic event dispatching a
 Creates a new AMI::Events object which takes arguments as key-value pairs. In addition to the options available
 from the AMI module this accepts the following additional options:
 
-	EventPreempt		Event processing Preempts reading packets.	0 | 1
+	FastEvents		Event processing immediatly after reading a packet	0 | 1
+	Handlers		Hash referencecontaining event handlers
 
-	'EventPreempt' causes events to be dispatched even when waiting for action responses. Default is off.
-	Care should be taken with this option. If the event handlers being triggered create actions themselves 
-	it may be possible to cause very deep recursive behavior.
+	'FastEvents' causes any buffered events to be processed after we process a packet. Default is 0. This is useful
+	if you want events to continued to be processed while waiting for a response to an action.
 
-=head2 Methods
-
-eventmask ( EVENTMASK )
-
-	Can be used to set the eventmask. Accepts any value that can be used by the Eventmask Parameter of the
-	Asterisk Event action. Returns 1 if it was set succesfully, 0 otherwise. Setting eventmask to 'on' is
-	unreliable, as certain versions of asterisk generate no response to this action.
-
-handlers ( { EVENT => \&handler } )
-
-	Accepts a hash reference setting a callback handler for the specfied event. EVENT should match the what the
-	contents of the {'Event'} key of the event object will will. The handler should be a subroutine reference that
+	'Handlers' accepts a hash reference setting a callback handler for the specfied event. EVENT should match the what the
+	contents of the {'Event'} key of the event object will be. The handler should be a subroutine reference that
 	will be passed the event object. The 'default' keyword can be used to set a default event handler.
 
-	Default action is to simply discard the event.
+	Default handler is to simply discard the event.
 
-	Example:
-	$astman->handlers({ QueueParams => \&queuehandler,
-			    default	=> \&defaulthandler
-			});
+=head2 Methods
 
 event_loop ()
 
@@ -75,7 +61,7 @@ event_loop ()
 
 =head1 See Also
 
-AMI, AMI::Common
+AMI, AMI::Common, AMI::Common::Dev
 
 =head1 AUTHOR
 
@@ -100,14 +86,42 @@ package AMI::Events;
 use strict;
 use warnings;
 use version;
-use parent qw(AMI);
+
+#This begin block is to handle becomeing a child of
+#AMI::Common if the user already loaded it
+#Thus auto-magicly granting us all of its methods
+BEGIN {
+	#What Are We?
+	our @ISA;
+	
+	#Always need atleast the AMI module;
+	require AMI;
+
+	my $isa;
+
+	if (exists $INC{'AMI/Common/Dev.pm'}){
+		$isa = 'AMI::Common::Dev';
+	#If they loaded AMI::Common, use that 
+	} elsif (exists $INC{'AMI/Common.pm'}) {
+		$isa = 'AMI::Common';
+	#Otherwise we are always an AMI
+	} else {
+		$isa = 'AMI';
+	}
+
+	#Yes we are
+	push(@ISA, $isa);
+}
+
+#use parent qw(AMI);
+#use parent -norequire, qw(AMI::Common);
 
 our $VERSION = qv(0.1.1);
 
-my %settings = ('EventPreempt' => 0);
+#Yeah, fast! yeah!
+my $FASTEVENTS = 0;
 
-my $EVENTPREEMPT;
-
+#Hash ref for holding event handlers
 my $HANDLERS;
 
 sub new {
@@ -115,20 +129,13 @@ sub new {
 	
 	my $self;
 
-	foreach my $key (keys %options) {
-		$settings{$key} = $options{$key};
+	if ($class->_configure_events(%options)){
+		$class = $class->SUPER::new(%options);
+	
+		if ($class) {
+			$self = $class;
+		}
 	}
-
-
-	delete $options{'EventPreempt'};
-
-	$class->SUPER::new(%options);
-
-	if (!$class->_configure_events()){
-		return $self;
-	}
-
-	$self = $class;
 
 	return $self;
 }
@@ -137,36 +144,22 @@ sub _configure_events {
 
 	my ($self, %options) = @_;
 
-	if ($settings{'EventPreempt'} == 1) {
-		$EVENTPREEMPT = 1;
-	} elsif ($settings{'EventPreempt'} != 0) {
-		warn "Bad value for EventPreempt";
-		return 0;			
-	}
+	$HANDLERS = $options{'Handlers'} if (defined $options{'Handlers'});
+	$FASTEVENTS = $options{'FastEvents'} if (defined $options{'FastEvents'});
 	
 	return 1;
 }
 
-sub eventmask {
-	my ($self, $mask) = @_;
+#Public version of _process_packet with timeout support
+sub process_packet {
 
-	if ($mask eq 'on') {
-		return $self->send_action( { Action => 'Events',
-					     EventMask => 'on' });
-	} else {
-		return $self->simple_action( { Action => 'Events',
-					     EventMask => $mask });
-	}
+	my ($self, $timeout) = @_;
 
-	return 0;
-}
+	my $return = $self->SUPER::process_packet($timeout);
 
-sub handlers {
-	my ($self, $handlers) = @_;
+	$self->dispatch_events() if $FASTEVENTS;
 
-	$HANDLERS = $handlers;
-	
-	return 1;
+	return $return;
 }
 
 #Proccesses a packet
@@ -174,13 +167,11 @@ sub handlers {
 sub _process_packet {
 	my ($self) = @_;
 
-	if ($EVENTPREEMPT) {
-		$self->_dispatch_buffered_events();
-	}
+	my $return = $self->SUPER::_process_packet();
 
-	my $packet = $self->_read_packet();
+	$self->dispatch_events() if $FASTEVENTS;
 
-	return $self->_sort_and_buffer($packet);
+	return $return;
 }
 
 #Event handler, accepts an event packet and handles it
@@ -198,11 +189,11 @@ sub _dispatch_event {
 }
 
 #Proccess all buffered events 
-sub _dispatch_buffered_events {
+sub dispatch_events {
 
 	my ($self) = @_;
 
-	while (my $event = $self->get_buffered_event()) {
+	while (defined (my $event = $self->get_buffered_event())) {
 		$self->_dispatch_event($event);
 	}
 
@@ -214,11 +205,13 @@ sub event_loop {
 
 	my ($self) = @_;
 
-	while (my $event = $self->get_event()) {
+	while (defined(my $event = $self->get_event(0))) {
 		$self->_dispatch_event($event);
 	}
 
-	return 1;
+	warn "Error while reading in event";
+
+	return 0;
 }
 
 1;

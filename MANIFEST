@@ -5,4 +5,5 @@ README
 t/AMI.t
 lib/AMI.pm
 lib/AMI/Common.pm
+lib/AMI/Common/Dev.pm
 lib/AMI/Events.pm
