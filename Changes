@@ -1,4 +1,54 @@
 Revision history for Perl extension AMI.
+0.1.4
+	- Changed namespace from AMI to Asterisk::AMI
+
+	- Massive Internal changes. Entire core re-written to use AnyEvent. This module is still usuable without an event loop, but now can integrate
+	easily into any event loop supported by AnyEvent.
+
+	- Out put from cli commands (from issueing Action: Command) is now placed in $response->{'CMD'}.
+	As a bonus from rewriting how we parse packets (to work with anyevent) we can now very easily identify all lines
+	associated with command output.
+
+	- Object is no longer also a filehandle. No longer required because of the use of AnyEvent
+
+	- Event handling from AMI::Event merged into Core.
+	
+	- Add more advance options for error handling, check the documentation for the constructor.
+
+	- Removed number of 'useless' functions. You should check the documentation.
+	
+	- Fixed a memory 'leak' (total consumtion was still capped by our ring buffer) that could happen when many responses were timeing out.
+	Essentially we were still buffering the subsequent packets even if they action had already timed out. Now we properly discard them. 
+
+	- AMI::get_action is now AMI::get_response. Behavior is the same, only the name has changed.
+
+	- Re-wrote event_proxy.pl example to utilize the new integration with AnyEvent.
+
+	- New example server called 'cmd_server.pl' which allows for a few basic commands. It demonstrates the use of callbacks.
+
+0.1.3
+	- Changed version requirements from 5.10 to 5.8. Those running 5.8 may need to install the 'version' and 'parent'
+	pragmas. (install version and install parent in cpan).
+
+	- Now using "\015\012" as the end of line delimiter, more portable and better practice than "\r\n"
+
+	- AMI::Common::channels() was not accepting timeouts
+
+	- Changed AMI::Common::channels() to use the status command, which has changed the information it returns (more is better).
+
+	- New key {'GOOD'} added to the Response Obj. It is 1 when an object is complete and had no errors and 0 if it
+	had an error or never finished. Should make it very easy to check if a response is usuable.
+
+	- AMI::check_response() now also removes the action from the buffer
+
+	- We were not properly returning undef on error for several AMI::Common functions. These should now properly
+	return undef if the action failed.
+
+	- Added Callbacks on for Actions to core AMI, read the documentation for more information.
+
+	- New code example 'cmd_server.pl', a simple server, gives examples on how to use callbacks.
+
+	- New Module AMI::Common:Dev contains additional functions for working with Asterisk 1.6+
 
 0.1.2
 	- All AMI Objects can now also be used a normal IO Handles. It is not recommended

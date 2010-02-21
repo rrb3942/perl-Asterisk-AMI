@@ -1,4 +1,4 @@
-AMI version 0.1.1
+AMI version 0.1.4
 ================
 
 INSTALLATION
@@ -14,8 +14,11 @@ DEPENDENCIES
 
 This module requires these other modules and libraries:
 
-  IO::Socket::INET
-  Digest::MD5
+	AnyEvent
+	AnyEvent::Handle
+	AnyEvent::Socket
+	version
+	parent
 
 COPYRIGHT AND LICENCE
 

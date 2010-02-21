@@ -2,20 +2,20 @@
 
 =head1 NAME
 
-AMI::Common - Extends the AMI module to provide simple access to common AMI commands and functions
+Asterisk::AMI::Common - Extends the AMI module to provide simple access to common AMI commands and functions
 
 =head1 VERSION
 
-0.1.2
+0.1.4
 
 =head1 SYNOPSIS
 
-	use AMI::Common;
+	use Asterisk::AMI::Common;
 
-	my $astman = AMI::Common->new(	PeerAddr	=>	'127.0.0.1',
-					PeerPort	=>	'5038',
-					Username	=>	'admin',
-					Secret		=>	'supersecret'
+	my $astman = Asterisk::AMI::Common->new(PeerAddr	=>	'127.0.0.1',
+						PeerPort	=>	'5038',
+						Username	=>	'admin',
+						Secret		=>	'supersecret'
 				);
 
 	die "Unable to connect to asterisk" unless ($astman);
@@ -31,7 +31,7 @@ through the AMI.
 
 =head3 new([ARGS])
 
-Creates new a AMI::Common object which takes the arguments as key-value pairs.
+Creates new a Asterisk::AMI::Common object which takes the arguments as key-value pairs.
 
 This module inherits all options from the AMI module.
 
@@ -278,16 +278,17 @@ channels ( [ TIMEOUT ] )
 	Hash reference structure:
 
 	$hashref->{channel}->{'Context'}
-			     {'Extension'}
-			     {'Prio'}
-			     {'State'}
-			     {'Application'}
-			     {'Data'}
 			     {'CallerID'}
-			     {'Duration'}
-			     {'Accountcode'}
-			     {'BridgedTo'}
-			     {'Amaflags''}
+			     {'CallerIDNum'}
+			     {'CallerIDName'}
+ 			     {'Account'}
+ 			     {'State'}
+ 			     {'Context'} 
+ 			     {'Extension'}
+ 			     {'Priority'}
+ 			     {'Seconds'}
+ 			     {'Link'}
+ 			     {'Uniqueid'}
 
 chan_status ( CHANNEL [, TIMEOUT ] )
 	
@@ -298,6 +299,8 @@ chan_status ( CHANNEL [, TIMEOUT ] )
 	
 	$hashref->{'Channel'}
 		  {'CallerID'}
+		  {'CallerIDNum'}
+		  {'CallerIDName'}
  		  {'Account'}
  		  {'State'}
  		  {'Context'} 
@@ -353,7 +356,7 @@ monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
 
 =head1 See Also
 
-AMI, AMI::Common::Dev, AMI::Events
+Asterisk::AMI, Asterisk::AMI::Common::Dev
 
 =head1 AUTHOR
 
@@ -373,18 +376,18 @@ modify it under the same terms as Perl itself.
 
 =cut
 
-package AMI::Common;
+package Asterisk::AMI::Common;
 
 
 use strict;
 use warnings;
 use version;
-use parent qw(AMI);
+use parent qw(Asterisk::AMI);
 
-our $VERSION = qv(0.1.1);
+our $VERSION = qv(0.1.4);
 
 
-my $basicparse = qr/^([^:]+): ([^.]+)$/;
+my $basicparse = qr/^(.+?)\s*:\s*([^.]+)$/;
 my $cmdparse = qr/^([^:]+): (.+) \(Priv: (.+)\)$/;
 
 #Trims trailing white space
@@ -409,18 +412,19 @@ sub commands {
 
 	my $action = $self->action({ Action => 'ListCommands' }, $timeout);
 
-	my %commands;
+	my $commands;
 
-	if ($action) {
-		foreach my $cmd (@{$action->{'DATA'}}) {
-			$cmd =~ $cmdparse;
-			$commands{$1}->{'Desc'} = $2;
-			my @privs = split /,/,$3;
-			$commands{$1}->{'Priv'} = \@privs;
-		}
+	#Early bail out on bad response
+	return $commands unless ($action->{'GOOD'});
+
+	foreach my $cmd (@{$action->{'DATA'}}) {
+		$cmd =~ $cmdparse;
+		$commands->{$1}->{'Desc'} = $2;
+		my @privs = split /,/o,$3;
+		$commands->{$1}->{'Priv'} = \@privs;
 	}
 
-	return \%commands;
+	return $commands;
 
 }
 
@@ -432,7 +436,9 @@ sub db_get {
 			 	     	Family => $family,
 			      		Key => $key }, $timeout);
 
-	return $action->{'EVENTS'}->[0]->{'Val'};
+	my $return = $action->{'EVENTS'}->[0]->{'Val'} if ($action->{'GOOD'});
+
+	return $return;
 }
 
 sub db_put {
@@ -452,26 +458,27 @@ sub db_show {
 	my $action = $self->action({	Action => 'Command',
 					Command => 'database show'});
 
-	my %database;
-	
-	while (my ($hkey, $value) = each %{$action->{'PARSED'}}) {
-		my $family = $hkey;
+	my $database;
+
+	return $database unless ($action->{'GOOD'});
+
+	foreach my $dbentry (@{$action->{'CMD'}}) {
+		next unless $dbentry =~ $basicparse;
+		my $family = $1;
 		my $key;
 
-		my @split = split /\//,$family;
+		my @split = split /\//o,$family;
 
 		$key = pop(@split);
-
-		$key =~ s/$trim//;
 
 		$family = join('/', @split);
 
 		$family = substr($family, 1);
 
-		$database{$family}->{$key} = $value;
+		$database->{$family}->{$key} = $2;
 	}
 
-	return \%database;	
+	return $database;	
 }
 
 sub get_var {
@@ -482,7 +489,9 @@ sub get_var {
 					Channel => $channel,
 					Variable => $variable }, $timeout);
 
-	return $action->{'PARSED'}->{'Value'};
+	my $return = $action->{'PARSED'}->{'Value'} if ($action->{'GOOD'});
+
+	return $return;
 }
 
 sub set_var {
@@ -511,12 +520,15 @@ sub exten_state {
 					Exten	=> $exten,
 					Context	=> $context }, $timeout);
 
-	return $action->{'PARSED'}->{'Status'};
+	my $return = $action->{'PARSED'}->{'Status'} if ($action->{'GOOD'});
+
+	return $return;
 }
 
 sub park {
 	my ($self, $chan1, $chan2, $parktime, $timeout) = @_;
 
+	#Why did I format this one like this? weird, still fine though.
 	my %action = ( 	Action => 'Park',
 			Channel => $chan1,
 			Channel2 => $chan2 );
@@ -532,7 +544,9 @@ sub parked_calls {
 
 	my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
 
-	my %parkinglots;
+	my $parkinglots;
+
+	return $parkinglots unless ($action->{'GOOD'});
 
 	foreach my $lot (@{$action->{'EVENTS'}}) {
 		delete $lot->{'ActionID'};
@@ -542,10 +556,10 @@ sub parked_calls {
 
 		delete $lot->{'Exten'};
 
-		$parkinglots{$lotnum} = $lot;
+		$parkinglots->{$lotnum} = $lot;
 	}
 
-	return \%parkinglots;
+	return $parkinglots;
 }
 
 sub sip_peers {
@@ -554,7 +568,9 @@ sub sip_peers {
 
 	my $action = $self->action({ Action => 'Sippeers' }, $timeout);
 
-	my %peers;
+	my $peers;
+
+	return $peers unless ($action->{'GOOD'});
 
 	foreach my $peer (@{$action->{'EVENTS'}}) {
 		delete $peer->{'ActionID'};
@@ -564,10 +580,10 @@ sub sip_peers {
 
 		delete $peer->{'ObjectName'};
 
-		$peers{$peername} = $peer;
+		$peers->{$peername} = $peer;
 	}
 
-	return \%peers;
+	return $peers;
 }
 
 sub sip_peer {
@@ -577,7 +593,9 @@ sub sip_peer {
 	my $action = $self->action({	Action => 'SIPshowpeer',
 					Peer => $peername }, $timeout);
 
-	return $action->{'PARSED'};
+	my $return = $action->{'PARSED'} if ($action->{'GOOD'});
+
+	return $return;
 }
 
 
@@ -588,7 +606,9 @@ sub mailboxcount {
 	my $action = $self->action({	Action => 'MailboxCount',
 					Mailbox => $exten . '@' . $context }, $timeout);
 
-	return $action->{'PARSED'};
+	my $return = $action->{'PARSED'} if ($action->{'GOOD'});
+
+	return $return;
 }
 
 sub mailboxstatus {
@@ -598,8 +618,9 @@ sub mailboxstatus {
 	my $action = $self->action({	Action => 'MailboxStatus',
 					Mailbox => $exten . '@' . $context }, $timeout);
 
-	return $action->{'PARSED'}->{'Waiting'};
+	my $return = $action->{'PARSED'}->{'Waiting'} if ($action->{'GOOD'});
 
+	return $return;
 }
 
 sub chan_timeout {
@@ -617,7 +638,9 @@ sub queues {
 
 	my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
 
-	my %queues;
+	my $queues;
+
+	return $queues unless ($action->{'GOOD'});
 
 	foreach my $event (@{$action->{'EVENTS'}}) {
 
@@ -630,7 +653,7 @@ sub queues {
 			
 		if ($qevent eq 'QueueParams') {
 			while (my ($key, $value) = each %{$event}) {
-				$queues{$queue}->{$key} = $value;
+				$queues->{$queue}->{$key} = $value;
 			}
 		} elsif ($qevent eq 'QueueMember') {
 
@@ -638,7 +661,7 @@ sub queues {
 
 			delete $event->{'Name'};
 
-			$queues{$queue}->{'MEMBERS'}->{$name} = $event;
+			$queues->{$queue}->{'MEMBERS'}->{$name} = $event;
 
 		} elsif ($qevent eq 'QueueEntry') {
 
@@ -646,12 +669,12 @@ sub queues {
 
 			delete $event->{'Position'};
 			
-			$queues{$queue}->{'ENTRIES'}->{$pos} = $event;
+			$queues->{$queue}->{'ENTRIES'}->{$pos} = $event;
 		}
 
 	}
 
-	return \%queues;	
+	return $queues;
 }
 
 sub queue_status {
@@ -661,7 +684,9 @@ sub queue_status {
 	my $action = $self->action({	Action => 'QueueStatus',
 				 	Queue => $queue }, $timeout);
 
-	my %queueobj;
+	my $queueobj;
+
+	return $queueobj unless ($action->{'GOOD'});
 
 	foreach my $event (@{$action->{'EVENTS'}}) {
 
@@ -672,7 +697,7 @@ sub queue_status {
 			
 		if ($qevent eq 'QueueParams') {
 			while (my ($key, $value) = each %{$event}) {
-				$queueobj{$key} = $value;
+				$queueobj->{$key} = $value;
 			}
 		} elsif ($qevent eq 'QueueMember') {
 
@@ -681,7 +706,7 @@ sub queue_status {
 			delete $event->{'Name'};
 			delete $event->{'Queue'};
 
-			$queueobj{'MEMBERS'}->{$name} = $event;
+			$queueobj->{'MEMBERS'}->{$name} = $event;
 
 		} elsif ($qevent eq 'QueueEntry') {
 
@@ -690,12 +715,12 @@ sub queue_status {
 			delete $event->{'Queue'};
 			delete $event->{'Position'};
 			
-			$queueobj{'ENTRIES'}->{$pos} = $event;
+			$queueobj->{'ENTRIES'}->{$pos} = $event;
 		}
 
 	}
 
-	return \%queueobj;	
+	return $queueobj;
 }
 
 sub queue_member_pause {
@@ -715,6 +740,8 @@ sub queue_member_toggle {
 	my $queueobj = $self->queue_status($queue, $timeout);
 
 	my $paused;
+
+	return $paused unless ($queueobj);
 
 	if ($queueobj->{'MEMBERS'}->{$member}->{'Paused'} == 0) {
 		$paused = 1;
@@ -767,7 +794,6 @@ sub play_digits {
 
 	foreach my $action (@actions) {
 		my $resp = $self->check_response($action,$timeout);
-		$self->clear_action($action);
 
 		next if ($err);
 
@@ -787,22 +813,25 @@ sub channels {
 	
 	my ($self, $timeout) = @_;
 
-	my $action = $self->action({	Action => 'Command',
-					Command => 'core show channels concise'});
+	my $action = $self->action({Action => 'Status'},$timeout);
 
-	my %channels;
+	my $channels;
 
-	foreach my $chan (@{$action->{'DATA'}}) {
-		my @fields = split /\!/, $chan;
+	return $channels unless ($action->{'GOOD'});
 
-		my $channel = shift(@fields);
-			
-		foreach my $field (@channelfields) {
-			$channels{$channel}->{$field} = shift(@fields);
-		}
+	foreach my $chan (@{$action->{'EVENTS'}}) {
+		#Clean out junk
+		delete $chan->{'Event'};
+		delete $chan->{'Privilege'};
+
+		my $name = $chan->{'Channel'};
+	
+		delete $chan->{'Channel'};
+
+		$channels->{$name} = $chan;
 	}
 
-	return \%channels;
+	return $channels;
 }
 
 sub chan_status {
@@ -813,6 +842,8 @@ sub chan_status {
 					Channel	=> $channel}, $timeout);
 
 	my $status;
+
+	return $status unless ($action->{'GOOD'});
 
 	$status = $action->{'EVENTS'}->[0];
 
