@@ -2,7 +2,7 @@ Changes
 Makefile.PL
 MANIFEST
 README
-t/Asterisk/AMI.t
+t/AMI.t
 lib/Asterisk/AMI.pm
 lib/Asterisk/AMI/Common.pm
 lib/Asterisk/AMI/Common/Dev.pm

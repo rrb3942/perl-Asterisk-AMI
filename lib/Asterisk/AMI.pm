@@ -6,7 +6,7 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 
 =head1 VERSION
 
-0.1.4
+0.1.5
 
 =head1 SYNOPSIS
 
@@ -410,7 +410,7 @@ use AnyEvent::Socket;
 
 
 #Duh
-our $VERSION = qv(0.1.4);
+our $VERSION = qv(0.1.5);
 
 #Keep track if we are logged in
 my $LOGGEDIN = 0;

@@ -1,4 +1,6 @@
 Revision history for Perl extension AMI.
+0.1.5
+	- Bad test, which broken installing from cpan
 0.1.4
 	- Changed namespace from AMI to Asterisk::AMI
 
