@@ -434,11 +434,21 @@ my %ACTIONBUFFER;
 
 my %CALLBACKS;
 
+my $vertical;
+#Backwards compatability with 5.8, does not support \v, but on 5.10 \v is much faster than the below char class
+{
+	no warnings;
+
+	if ($] > 5.010000) {
+		$vertical = qr/\v+/;
+	} else {
+		$vertical = qr/[\x0A-\x0D\x85\x{2028}\x{2029}]+/;
+	}
+}
+
 #Regex for parsing lines
 #my $parse  = qr/^([^:\[]+): (.+)$/;
 my $parse  = qr/^([^:]+): ([^:]+)$/;
-
-my $readreg = qr/^(.+)(?:\015\012\015\012)/s;
 
 my $endcommand = qr/--END COMMAND--$/;
 
@@ -536,7 +546,7 @@ sub anyevent_read_type {
 	my ($handle, $cb) = @_;
 
 	return sub {
-		$_[0]{rbuf} =~ s/$readreg//o or return 0;
+		$_[0]{rbuf} =~ s/^(.+)(?:\015\012\015\012)//so or return 0;
 		$cb->($_[0], $1);
 		return 0;
 	}
@@ -653,6 +663,21 @@ sub _on_timeout {
 	$SOCKERR = 1;
 }
 
+#Things to do after our initial connect
+sub _on_connect {
+
+	my ($fh, $line) = @_;
+
+	if ($line =~ $amistring) {
+		$AMIVER = $1;
+	} else {
+		warn "Unknown Protocol/AMI Version from $PEER:$PORT";
+	}
+			
+	$handle->push_read( 'Asterisk::AMI' => \&_handle_packet );
+
+}
+
 #Connects to the AMI
 #Returns 1 on success, 0 on failure
 sub _connect {
@@ -665,31 +690,14 @@ sub _connect {
 		on_connect_err => sub { $process->send(0) if ($BLOCK); $self->_on_connect_err(1,$_[1]); },
 		on_error => sub { $self->_on_error($_[1],$_[2]) },
 		on_eof => sub { $self->_on_disconnect; },
-		on_connect => sub {
-				$handle->push_read( line => sub { 
-					my ($fh, $line) = @_;
-
-					if ($line =~ $amistring) {
-						$AMIVER = $1;
-					} else {
-						warn "Unknown Protocol/AMI Version from $PEER:$PORT";
-					}
-			
-					$handle->push_read( 'AMI::AnyEvent' => \&_handle_packet );
-
-					#Set keep alive;
-					$keepalive = AnyEvent-> timer (	after => $KEEPALIVE,
-									interval => $KEEPALIVE,
-									cb => sub { $self->_send_keepalive; }
-									) if ($KEEPALIVE);
-				} );
-		}
+		on_connect => sub { $handle->push_read( line => \&_on_connect ); }
 	);
 
 	return $self->_login if ($BLOCK); 
 
 	#Queue our login
 	$self->_login;
+
 	return 0 unless ($handle);
 
         return 1;
@@ -714,7 +722,8 @@ sub _handle_packet {
 			#Is this our command output?
 			} elsif ($line =~ $endcommand) {
 				$parsed{'COMPLETED'} = 1;
-				push(@{$parsed{'CMD'}}, grep { s/$trim//o } split(/\v+/o, $line));
+
+				push(@{$parsed{'CMD'}}, grep { s/$trim//o } split(/$vertical/o, $line));
 
 				#Get rid of the '---END COMMAND---'
 				pop @{$parsed{'CMD'}};
@@ -1048,6 +1057,12 @@ sub _login {
 
 		$self->send_action(\%action);
 
+		#Set keep alive;
+		$keepalive = AnyEvent-> timer (	after => $KEEPALIVE,
+						interval => $KEEPALIVE,
+						cb => \&_send_keepalive
+						) if ($KEEPALIVE);
+
 		return 1;
 	}
 
@@ -1135,16 +1150,16 @@ sub error {
 #Sends a keep alive
 sub _send_keepalive {
 
-	my ($self) = @_;
+	#my ($self) = @_;
 
 	my $timeout = 5 unless ($TIMEOUT);
 
 	my %action = (	Action => 'Ping',
-			CALLBACK => sub { $self->_on_timeout("Asterisk failed to respond to keepalive - $PEER:$PORT") unless ($_[1]->{'GOOD'}); },
+			CALLBACK => sub { $myself->_on_timeout("Asterisk failed to respond to keepalive - $PEER:$PORT") unless ($_[1]->{'GOOD'}); },
 			TIMEOUT => $timeout
 		);
 	
-	$self->send_action(\%action);
+	$myself->send_action(\%action);
 }
 
 #Cleans up 
