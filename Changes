@@ -1,4 +1,10 @@
 Revision history for Perl extension AMI.
+
+0.1.6 
+	- Fixes calling wrong modules (leftover from name change)
+
+	- Adds backwards compatability for perl 5.8
+
 0.1.5
 	- Bad test, which broken installing from cpan
 0.1.4
