@@ -439,7 +439,7 @@ my $vertical;
 {
 	no warnings;
 
-	if ($] > 5.010000) {
+	if ($] >= 5.010000) {
 		$vertical = qr/\v+/;
 	} else {
 		$vertical = qr/[\x0A-\x0D\x85\x{2028}\x{2029}]+/;
@@ -447,7 +447,7 @@ my $vertical;
 }
 
 #Regex for parsing lines
-#my $parse  = qr/^([^:\[]+): (.+)$/;
+#my $parse  = qr/^([^:]+): ([^:]+)$/;
 my $parse  = qr/^([^:]+): ([^:]+)$/;
 
 my $endcommand = qr/--END COMMAND--$/;
@@ -505,7 +505,7 @@ my $myself;
 my $keepalive;
 
 #Module wide condvar
-#my $process = AnyEvent->condvar;
+#my $process = AE::cv;
 
 #Defaults
 my $PEER = '127.0.0.1';
@@ -683,7 +683,7 @@ sub _on_connect {
 sub _connect {
 	my ($self) = @_;
 
-	my $process = AnyEvent->condvar;
+	my $process = AE::cv;
 
 	$handle = new AnyEvent::Handle(
 		connect => [$PEER => $PORT],
@@ -703,16 +703,9 @@ sub _connect {
         return 1;
 }
 
-#Reads in and parses packet from the AMI
-#Creates a hash
-# Response: Success stores 'Success' in %packet{'Response'}, etc.
-#Returns a hash of the parsed packet
 sub _handle_packet {
 
-	my ($self, $packets) = @_;
-
-	foreach my $packet (split /$DELIM/o, $packets) {
-
+	foreach my $packet (split /$DELIM/o, $_[1]) {
 		my %parsed;
 
 		foreach my $line (split /$EOL/o, $packet) {
@@ -720,13 +713,11 @@ sub _handle_packet {
 			if ($line =~ $parse) {
 				$parsed{$1} = $2;
 			#Is this our command output?
-			} elsif ($line =~ $endcommand) {
+			} elsif ($line =~ s/$endcommand//o) {
 				$parsed{'COMPLETED'} = 1;
 
 				push(@{$parsed{'CMD'}}, grep { s/$trim//o } split(/$vertical/o, $line));
 
-				#Get rid of the '---END COMMAND---'
-				pop @{$parsed{'CMD'}};
 			} elsif ($line) {
 				push(@{$parsed{'DATA'}}, $line);
 			}
@@ -742,7 +733,7 @@ sub _handle_packet {
 #Returns 1 on buffered, 0 on discard
 sub _sort_and_buffer {
 
-	my ($packet) = @_;
+	my $packet = $_[0];
 
 	if (exists $packet->{'ActionID'}) {
 
@@ -760,17 +751,16 @@ sub _sort_and_buffer {
 			} 
 
 			#Copy the response into the buffer
-			#We dont just assign the hash reference to the ActionID becase it is possible, though unlikely
-			#that event data can arrive for an action before the response packet
-			while (my ($key, $value) = each %{$packet}) {
-				if ($key =~ $respcontents) {
-					$ACTIONBUFFER{$actionid}->{$key} =  $value;
-				} elsif ($key eq 'DATA') {
-					push(@{$ACTIONBUFFER{$actionid}->{$key}}, @{$value});
+			map {	
+				if ($_ =~ $respcontents) {
+					$ACTIONBUFFER{$actionid}->{$_} =  $packet->{$_};
+				} elsif ($_ eq 'DATA') {
+					push(@{$ACTIONBUFFER{$actionid}->{$_}}, @{$packet->{$_}});
 				} else {
-					$ACTIONBUFFER{$actionid}->{'PARSED'}->{$key} = $value;
+					$ACTIONBUFFER{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
 				}
-			}
+
+			 } keys %{$packet};
 			
 		} elsif (exists $packet->{'Event'}) {
 			my $save = 1;
@@ -788,7 +778,6 @@ sub _sort_and_buffer {
 		if ($ACTIONBUFFER{$actionid}->{'COMPLETED'}) {
 			return 0 unless (exists $ACTIONBUFFER{$actionid}->{'Response'});
 			$ACTIONBUFFER{$actionid}->{'GOOD'} = 1 if ($ACTIONBUFFER{$actionid}->{'Response'} =~ $amipositive);
-
 			if (defined $CALLBACKS{$actionid}->{'cb'}) {
 				#Stuff needed to process callback
 				my $callback = $CALLBACKS{$actionid}->{'cb'};
@@ -833,16 +822,9 @@ sub _sort_and_buffer {
 
 #Generates an  ActionID
 sub _gen_actionid {
-	my $actionid;
-
 	#Reset the seq number if we hit our max
 	$idseq = 1 if ($idseq > $BUFFERSIZE);
-
-	$actionid = $idseq;
-
-	$idseq++;
-
-	return $actionid;
+	return $idseq++;
 }
 
 sub _wait_response {
@@ -850,7 +832,7 @@ sub _wait_response {
 
 	unless ($ACTIONBUFFER{$id}->{'COMPLETED'}) {
 
-		my $process = AnyEvent->condvar;
+		my $process = AE::cv;
 
 		$CALLBACKS{$id}->{'cb'} = sub { $process->send($_[1]) };
 		$timeout = $TIMEOUT unless (defined $timeout);
@@ -864,7 +846,7 @@ sub _wait_response {
 					$process->send($response);
 				};
 
-			$CALLBACKS{$id}->{'timer'} = AnyEvent->timer(after => $timeout, cb => $CALLBACKS{$id}->{'timeout'}); 
+			$CALLBACKS{$id}->{'timer'} = AE::timer $timeout, 0, $CALLBACKS{$id}->{'timeout'}; 
 		}
 
 		return $process->recv;
@@ -908,7 +890,7 @@ sub send_action {
 					$DISCARD{$id} = 1;
 					$callback->($self, $response);;
 				};
-			$CALLBACKS{$id}->{'timer'} = AnyEvent->timer(after => $actionhash->{'TIMEOUT'}, cb => $CALLBACKS{$id}->{'timeout'}); 
+			$CALLBACKS{$id}->{'timer'} = AE::timer $actionhash->{'TIMEOUT'}, 0, $CALLBACKS{$id}->{'timeout'}; 
 		}
 	}
 
@@ -1058,10 +1040,7 @@ sub _login {
 		$self->send_action(\%action);
 
 		#Set keep alive;
-		$keepalive = AnyEvent-> timer (	after => $KEEPALIVE,
-						interval => $KEEPALIVE,
-						cb => \&_send_keepalive
-						) if ($KEEPALIVE);
+		$keepalive = AE::timer($KEEPALIVE, $KEEPALIVE, \&_send_keepalive) if ($KEEPALIVE);
 
 		return 1;
 	}
@@ -1107,7 +1086,7 @@ sub get_event {
 
 	unless (defined $EVENTBUFFER[0]) {
 
-		my $process = AnyEvent->condvar;
+		my $process = AE::cv;
 
 		$CALLBACKS{'EVENT'}->{'cb'} = sub { $process->send($_[0]) };
 		$CALLBACKS{'EVENT'}->{'timeout'} = sub { warn "Timed out waiting for event"; $process->send(undef); };
@@ -1115,7 +1094,7 @@ sub get_event {
 		$timeout = $TIMEOUT unless (defined $timeout);
 
 		if ($timeout) {
-			$CALLBACKS{'EVENT'}->{'timer'} = AnyEvent->timer(after => $timeout, cb => $CALLBACKS{'EVENT'}->{'timeout'}); 
+			$CALLBACKS{'EVENT'}->{'timer'} = AE::timer $timeout, 0, $CALLBACKS{'EVENT'}->{'timeout'}; 
 		}
 
 		return $process->recv;

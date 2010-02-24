@@ -1,5 +1,12 @@
 Revision history for Perl extension AMI.
 
+0.1.7
+	- Fix to properly us \v when perl >=5.10, we were only doing it when perl >5.10. This only affects performance.
+
+	- Switch to AE interface for AnyEvent for timers and condvars. Lowers overhead when using alot of timers.
+
+	- Some general code cleanups
+
 0.1.6 
 	- Fixes calling wrong modules (leftover from name change)
 
