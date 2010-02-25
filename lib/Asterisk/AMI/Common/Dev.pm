@@ -132,7 +132,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI::Common);
 
-our $VERSION = qv(0.1.6);
+use version; our $VERSION = qv(0.1.6);
 
 sub new {
 	my ($class, %options) = @_;

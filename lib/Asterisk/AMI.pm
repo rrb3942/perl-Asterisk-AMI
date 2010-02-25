@@ -402,7 +402,6 @@ package Asterisk::AMI;
 
 use strict;
 use warnings;
-use version;
 
 use AnyEvent;
 use AnyEvent::Handle;
@@ -410,7 +409,7 @@ use AnyEvent::Socket;
 
 
 #Duh
-our $VERSION = qv(0.1.6);
+use version; our $VERSION = qv(0.1.6);
 
 #Keep track if we are logged in
 my $LOGGEDIN = 0;
@@ -447,7 +446,6 @@ my $vertical;
 }
 
 #Regex for parsing lines
-#my $parse  = qr/^([^:]+): ([^:]+)$/;
 my $parse  = qr/^([^:]+): ([^:]+)$/;
 
 my $endcommand = qr/--END COMMAND--$/;

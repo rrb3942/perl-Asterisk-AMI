@@ -381,10 +381,9 @@ package Asterisk::AMI::Common;
 
 use strict;
 use warnings;
-use version;
 use parent qw(Asterisk::AMI);
 
-our $VERSION = qv(0.1.6);
+use version; our $VERSION = qv(0.1.6);
 
 
 my $basicparse = qr/^(.+?)\s*:\s*([^.]+)$/;
