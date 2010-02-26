@@ -26,7 +26,8 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 =head1 DESCRIPTION
 
 This module provides an interface to the Asterisk Manager Interface. It's goal is to provide a flexible, powerful, and reliable way to
-interact with Asterisk upon which other applications may be built.
+interact with Asterisk upon which other applications may be built. It utilizes AnyEvent and therefore can integrate very 
+easily into event-based applications, but it still provides blocking functions for us with standard scripting.
 
 =head2 Constructor
 
@@ -205,9 +206,9 @@ action() combines send_action() and get_response(), and therefore returns a Resp
 
 In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object 
 and the Response Object for the action. If TIMEOUT is not specified it will use the default set. A value of 0 means 
-no timeout. When the timeout is reached somemethod() will be called and passed the un-completed Response Object, 
-therefore somemethod() should check the state of the object. Checking the key {'GOOD'} is usually a good indication if 
-the object is useable.
+no timeout. When the timeout is reached somemethod() will be called and passed a reference to the our $astman and
+the un-completed Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'}
+is usually a good indication if the object is useable.
 
 Callback Caveats
 
@@ -291,6 +292,51 @@ This module handles ActionIDs internally and if you supply one in an action it w
 	#Start some event loop
 	someloop;
 
+=head2 How to use in an event-based application
+
+	Getting this module to work with your event based application is really easy so long as you are running an
+	event-loop that is supported by AnyEvent. Below is a simple example of how to use this module with your
+	preferred event loop. We will use EV as our event loop in this example. I use subroutine references in this
+	example, but you could use anonymous subroutines if you want to.
+
+	#Use your prefered loop before our module so that AnyEvent will autodetect it
+	use EV;
+	use Asterisk::AMI:
+
+	#Create your connection
+	my $astman = Asterisk::AMI->new(PeerAddr	=>	'127.0.0.1',
+                        		PeerPort	=>	'5038',
+					Username	=>	'admin',
+					Secret		=>	'supersecret',
+					Events		=>	'on',
+					Handlers	=>	{ default => \&eventhandler }
+				);
+	#Alternativly you can set Blocking => 0, and set an on_error sub to catch conneciton errors
+	die "Unable to connect to asterisk" unless ($astman);
+
+	#Define the subroutines for events
+	sub eventhandler { my ($ami, $event) = @_; print 'Got Event: ',$event->{'Event'},"\r\n"; }
+
+	#Define a subroutine for your action callback
+	sub actioncb { my ($ami, $response) = @_; print 'Got Action Reponse: ',$response->{'Response'},"\r\n"; }
+
+	#Send an action
+	my $action = $astman->({ Action => 'Ping',
+				 CALLBACK => \&actioncb });
+
+	#Do all of you other eventy stuff here, or before all this stuff, whichever
+	#..............
+
+	#Start our loop
+	EV::loop
+
+
+
+	Thats it, the EV loop will allow us to process input from asterisk. Once the action completes it will 
+	call the callback, and any events will be dispatched to eventhandler(). As you can see it is fairly
+	straight-forward. Most of the work will be in creating subroutines to be called for various events and 
+	actions that you plan to use.
+
 =head2 Methods
 
 send_action ( ACTION )
@@ -325,7 +371,7 @@ simple_action ( ACTION [, TIMEOUT ] )
 
 completed ( ACTIONID )
 
-	This does a non-blocking check to see if an action an action has completed and been read into the buffer.
+	This does a non-blocking check to see if an action has completed and been read into the buffer.
 	If no ACTIONID is given the ACTIONID of the last action sent will be used.
 	It returns 1 if the action has completed and 0 if it has not.
 	This will not remove the response from the buffer.
@@ -387,16 +433,7 @@ modify it under the same terms as Perl itself.
 =cut
 
 #Todo:
-#Better ActionID: autoincrement Done
-#Enable and disable events Done
 #Digest Auth With MD5
-#Timeouts? Done
-#Hashes to build actions? Done
-#Perf Testing? More references? 30000 actions in 11-13 seconds with asterisk on local system
-#Pre-clear actions when sending (delete ACTIONBUFFER{id}) could replace periodic cleanse?
-#Linked to above -> Set max increment id
-#send_action should return undef on err
-#Default timeout? Done
 
 package Asterisk::AMI;
 
