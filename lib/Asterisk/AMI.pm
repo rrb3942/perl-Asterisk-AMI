@@ -600,6 +600,9 @@ sub _on_connect_err {
 	warn "Failed to connect to asterisk - $PEER:$PORT";
 	warn "Reason: $message";
 
+	#Dispatch all callbacks as if they timed out
+	_clear_cbs();
+
 	if (exists $ON{'err_connect'}) {
 		$ON{'err_connect'}->($self, $message);
 	} elsif (exists $ON{'err'}) {
@@ -620,6 +623,9 @@ sub _on_error {
 
 	warn "Received Error on socket - $PEER:$PORT";
 	warn "Error Message: $message";
+	
+	#Call all cbs as if they had timed out
+	_clear_cbs();
 
 	$ON{'err'}->($self, $message) if (exists $ON{'err'});
 	
@@ -634,6 +640,9 @@ sub _on_disconnect {
 
 	my $message = "Remote end disconnected - $PEER:$PORT";
 	warn "Remote Asterisk Server ended connection - $PEER:$PORT";
+
+	#Call all callbacks as if they had timed out
+	_clear_cbs();
 
 	if (exists $ON{'disconnect'}) {
 		$ON{'disconnect'}->($self, $message);
@@ -685,7 +694,7 @@ sub _connect {
 
 	$handle = new AnyEvent::Handle(
 		connect => [$PEER => $PORT],
-		on_connect_err => sub { $process->send(0) if ($BLOCK); $self->_on_connect_err(1,$_[1]); },
+		on_connect_err => sub { $self->_on_connect_err(1,$_[1]); },
 		on_error => sub { $self->_on_error($_[1],$_[2]) },
 		on_eof => sub { $self->_on_disconnect; },
 		on_connect => sub { $handle->push_read( line => \&_on_connect ); }
@@ -844,7 +853,7 @@ sub _wait_response {
 					$process->send($response);
 				};
 
-			$CALLBACKS{$id}->{'timer'} = AE::timer $timeout, 0, $CALLBACKS{$id}->{'timeout'}; 
+			$CALLBACKS{$id}->{'timer'} = AE::timer $timeout, 0, $CALLBACKS{$id}->{'timeout'};
 		}
 
 		return $process->recv;
@@ -888,7 +897,7 @@ sub send_action {
 					$DISCARD{$id} = 1;
 					$callback->($self, $response);;
 				};
-			$CALLBACKS{$id}->{'timer'} = AE::timer $actionhash->{'TIMEOUT'}, 0, $CALLBACKS{$id}->{'timeout'}; 
+			$CALLBACKS{$id}->{'timer'} = AE::timer $actionhash->{'TIMEOUT'}, 0, $CALLBACKS{$id}->{'timeout'};
 		}
 	}
 
@@ -1007,13 +1016,20 @@ sub _login {
 	);
 
 	if ($BLOCK) {
-		if ($self->simple_action(\%action)){
+		
+		my $resp = $self->action(\%action);		
+
+		if ($resp->{'GOOD'}){
 			$LOGGEDIN = 1;
 			$ON{'connect'}->($self) if (defined $ON{'connect'});
 			return 1;
 		} else {
 			$LOGGEDIN = 0;
-			warn "Authentication Failed";
+			if ($resp->{'COMPLETED'}) {
+				warn "Authentication Failed";
+			} else {
+				warn "Timed out waiting for login";
+			}
 		}
 	} else {
 		$action{'CALLBACK'} = sub {
@@ -1043,7 +1059,7 @@ sub _login {
 		return 1;
 	}
 
-	return 0;
+	return;
 }
 
 #Logs out of the AMI
@@ -1137,6 +1153,19 @@ sub _send_keepalive {
 		);
 	
 	$myself->send_action(\%action);
+}
+
+#Calls all callbacks as if they had timed out
+#Used when an error has occured on the socket
+sub _clear_cbs {
+	foreach my $id (keys %CALLBACKS) {
+		my $response = $ACTIONBUFFER{$id};
+		my $callback = $CALLBACKS{$id}->{'cb'};
+		delete $ACTIONBUFFER{$id};
+		delete $CALLBACKS{$id};
+		$DISCARD{$id} = 1;
+		$callback->($myself, $response);
+	}
 }
 
 #Cleans up 

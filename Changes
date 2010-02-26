@@ -1,6 +1,13 @@
 Revision history for Perl extension AMI.
 
 0.1.7
+	- We were being a bit overzealous when we encounted an error on the socket (during connect or otherwise).
+	We now callback any outstanding actions (as if they had timed out) before we issue the on_error callbacks
+	and do internal cleanup. This bug was causing the a hang during login if a socket connection could not
+	be made.
+
+	- Fixed a bug with older version of ExtUtils::MakeMaker
+
 	- Fix to properly us \v when perl >=5.10, we were only doing it when perl >5.10. This only affects performance.
 
 	- Switch to AE interface for AnyEvent for timers and condvars. Lowers overhead when using alot of timers.
