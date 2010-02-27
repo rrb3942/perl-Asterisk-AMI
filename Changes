@@ -1,6 +1,11 @@
 Revision history for Perl extension AMI.
 
 0.1.7
+
+	- Added TCP_Keepalive option, enables socket level TCP keepalive for detecting dead connections.
+
+	- Fixed possible undefined value for timeout when sending a keepalive.
+
 	- We were being a bit overzealous when we encounted an error on the socket (during connect or otherwise).
 	We now callback any outstanding actions (as if they had timed out) before we issue the on_error callbacks
 	and do internal cleanup. This bug was causing the a hang during login if a socket connection could not
@@ -9,6 +14,9 @@ Revision history for Perl extension AMI.
 	- Fixed a bug with older version of ExtUtils::MakeMaker
 
 	- Fix to properly us \v when perl >=5.10, we were only doing it when perl >5.10. This only affects performance.
+
+	- 'Keepalive' was not being set if Blocking was set to 1. Now 'Keepalive' is always set if configured,
+	it just may not be helpful if you are not running an event loop.
 
 	- Switch to AE interface for AnyEvent for timers and condvars. Lowers overhead when using alot of timers.
 

@@ -45,6 +45,7 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	Timeout		Default timeout of all actions in seconds
 	Handlers	Hash reference of Handlers for events	{ 'EVENT' => \&somesub };
 	Keepalive	Interval (in seconds) to periodically sends 'Ping' actions to asterisk
+	TCP_Keepalive	Enables/Disables SO_KEEPALIVE option on the socket	0|1
 	Blocking	Enable/Disable blocking connects	0|1
 	on_connect	A subroutine to run after we connect
 	on_connect_err	A subroutine to call if we have an error while connecting
@@ -54,8 +55,8 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 
 	'PeerAddr' defaults to 127.0.0.1.\n
 	'PeerPort' defaults to 5038.
-	'Events' may be anything that the AMI will accept as a part of the 'Events' parameter for the login action.
-	Default is 'off.
+	'Events' default is 'off'. May be anything that the AMI will accept as a part of the 'Events' parameter for the 
+	login action.
 	'Username' has no default and must be supplied.
 	'Secret' has no default and must be supplied.
 	'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
@@ -66,6 +67,9 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	a default event handler. If handlers are installed we do not buffer events and instead immediatly dispatch them.
 	If no handler is specified for an event type and a 'default' was not set the event is discarded.
 	'Keepalive' only works when running with an event loop.
+	'TCP_Keepalive' default is disabled. Actives the tcp keepalive at the socket layer. This does not require 
+	an eventloop and is lightweight. Useful for applications that use long-lived connections to Asterisk but 
+	do not run an event loop.
 	'Blocking' has a default of 1 (block on connecting). A value of 0 will cause us to queue our connection
 	and login for when an event loop is started. If set to non blocking we will always return a valid object.
 	'on_connect' is a subroutine to call when we have successfully connected and logged into the asterisk manager.
@@ -552,6 +556,7 @@ my $STOREEVENTS = 1;
 my $CALLBACK = 0;
 my $TIMEOUT = 0;
 my $KEEPALIVE;
+my $TCPALIVE = 0;
 my $BUFFERSIZE = 30000;
 my $BLOCK = 1;
 my %EVENTHANDLERS;
@@ -578,11 +583,13 @@ sub new {
 #Used by anyevent to load our read type
 sub anyevent_read_type {
 
-	my ($handle, $cb) = @_;
+	my ($hdl, $cb) = @_;
 
 	return sub {
-		$_[0]{rbuf} =~ s/^(.+)(?:\015\012\015\012)//so or return 0;
-		$cb->($_[0], $1);
+		if ($_[0]{rbuf} =~ s/^(.+)(?:\015\012\015\012)//so) {
+			$cb->($_[0], $1);
+		}
+
 		return 0;
 	}
 }
@@ -610,6 +617,7 @@ sub _configure {
 	$CALLBACK = $settings{'Callbacks'} if (defined $settings{'Callbacks'});
 	$TIMEOUT = $settings{'Timeout'} if (defined $settings{'Timeout'});
 	$KEEPALIVE = $settings{'Keepalive'} if (defined $settings{'Keepalive'});
+	$TCPALIVE = $settings{'TCP_Keepalive'} if (defined $settings{'TCP_Keepalive'});
 	$BUFFERSIZE = $settings{'BufferSize'} if (defined $settings{'BufferSize'});
 	%EVENTHANDLERS = %{$settings{'Handlers'}} if (defined $settings{'Handlers'});
 	$BLOCK = $settings{'Blocking'} if (defined $settings{'Blocking'});
@@ -625,6 +633,10 @@ sub _configure {
 
 	#We like us
 	$myself = $self;
+
+
+	#Set keepalive
+	$keepalive = AE::timer($KEEPALIVE, $KEEPALIVE, \&_send_keepalive) if ($KEEPALIVE);
 	
 	return 1;
 }
@@ -731,6 +743,7 @@ sub _connect {
 
 	$handle = new AnyEvent::Handle(
 		connect => [$PEER => $PORT],
+		keepalive => $TCPALIVE,
 		on_connect_err => sub { $self->_on_connect_err(1,$_[1]); },
 		on_error => sub { $self->_on_error($_[1],$_[2]) },
 		on_eof => sub { $self->_on_disconnect; },
@@ -795,7 +808,7 @@ sub _sort_and_buffer {
 			} 
 
 			#Copy the response into the buffer
-			map {	
+			foreach (keys %{$packet}) {	
 				if ($_ =~ $respcontents) {
 					$ACTIONBUFFER{$actionid}->{$_} =  $packet->{$_};
 				} elsif ($_ eq 'DATA') {
@@ -803,8 +816,7 @@ sub _sort_and_buffer {
 				} else {
 					$ACTIONBUFFER{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
 				}
-
-			 } keys %{$packet};
+			 }
 			
 		} elsif (exists $packet->{'Event'}) {
 			my $save = 1;
@@ -1090,9 +1102,6 @@ sub _login {
 
 		$self->send_action(\%action);
 
-		#Set keep alive;
-		$keepalive = AE::timer($KEEPALIVE, $KEEPALIVE, \&_send_keepalive) if ($KEEPALIVE);
-
 		return 1;
 	}
 
@@ -1180,14 +1189,11 @@ sub error {
 #Sends a keep alive
 sub _send_keepalive {
 
-	#my ($self) = @_;
-
-	my $timeout = 5 unless ($TIMEOUT);
-
 	my %action = (	Action => 'Ping',
-			CALLBACK => sub { $myself->_on_timeout("Asterisk failed to respond to keepalive - $PEER:$PORT") unless ($_[1]->{'GOOD'}); },
-			TIMEOUT => $timeout
+			CALLBACK => sub { $myself->_on_timeout("Asterisk failed to respond to keepalive - $PEER:$PORT") unless ($_[1]->{'GOOD'}); }
 		);
+
+	$action{'TIMEOUT'} = 5 unless ($TIMEOUT);
 	
 	$myself->send_action(\%action);
 }
