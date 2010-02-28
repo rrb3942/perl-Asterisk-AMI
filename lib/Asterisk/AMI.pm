@@ -374,13 +374,6 @@ simple_action ( ACTION [, TIMEOUT ] )
 	and timeout. If no ACTIONID is specified the ACTIONID of the last action sent will be used. If no TIMEOUT is
 	given it blocks, reading in packets until the action completes. This will remove the response from the buffer.
 
-completed ( ACTIONID )
-
-	This does a non-blocking check to see if an action has completed and been read into the buffer.
-	If no ACTIONID is given the ACTIONID of the last action sent will be used.
-	It returns 1 if the action has completed and 0 if it has not.
-	This will not remove the response from the buffer.
-
 disconnect ()
 
 	Logoff and disconnects from the AMI. Returns 1 on success and 0 if any errors were encountered.
