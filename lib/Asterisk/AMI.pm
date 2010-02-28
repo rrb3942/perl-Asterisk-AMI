@@ -6,7 +6,7 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 
 =head1 VERSION
 
-0.1.6
+0.1.7
 
 =head1 SYNOPSIS
 
@@ -25,9 +25,10 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 
 =head1 DESCRIPTION
 
-This module provides an interface to the Asterisk Manager Interface. It's goal is to provide a flexible, powerful, and reliable way to
-interact with Asterisk upon which other applications may be built. It utilizes AnyEvent and therefore can integrate very 
-easily into event-based applications, but it still provides blocking functions for us with standard scripting.
+This module provides an interface to the Asterisk Manager Interface. It's goal is to provide a flexible, powerful, and
+reliable way to interact with Asterisk upon which other applications may be built. It utilizes AnyEvent and therefore
+can integrate very easily into event-based applications, but it still provides blocking functions for us with standard
+scripting.
 
 =head2 Constructor
 
@@ -450,7 +451,7 @@ use AnyEvent::Socket;
 
 
 #Duh
-use version; our $VERSION = qv(0.1.6);
+use version; our $VERSION = qv(0.1.7);
 
 #Keep track if we are logged in
 my $LOGGEDIN = 0;

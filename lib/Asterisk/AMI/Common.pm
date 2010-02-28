@@ -6,7 +6,7 @@ Asterisk::AMI::Common - Extends the AMI module to provide simple access to commo
 
 =head1 VERSION
 
-0.1.6
+0.1.7
 
 =head1 SYNOPSIS
 
@@ -383,7 +383,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI);
 
-use version; our $VERSION = qv(0.1.6);
+use version; our $VERSION = qv(0.1.7);
 
 
 my $basicparse = qr/^(.+?)\s*:\s*([^.]+)$/;
