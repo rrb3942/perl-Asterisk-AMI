@@ -424,8 +424,8 @@ Ryan Bullock (rrb3942@gmail.com)
 
 =head1 BUG REPORTING AND FEEBACK
 
-All bugs should be reported to bugs@voipnerd.net.
-Please address any feedback about this module to feedback@voipnerd.net
+Please report any bugs or errors to our github issue tracker at http://github.com/rrb3942/perl-Asterisk-AMI/issues
+or the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=perl-Asterisk-AMI
 
 =head1 COPYRIGHT
 
