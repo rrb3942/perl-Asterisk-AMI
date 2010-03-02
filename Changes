@@ -20,6 +20,8 @@ Revision history for Perl extension AMI.
 	- 'Keepalive' was not being set if Blocking was set to 1. Now 'Keepalive' is always set if configured,
 	it just may not be helpful if you are not running an event loop.
 
+	- Updated Dependancy to AnyEvent version 5.0 or greater
+
 	- Switch to AE interface for AnyEvent for timers and condvars. Lowers overhead when using alot of timers.
 
 	- Some general code cleanups
