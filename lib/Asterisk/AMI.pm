@@ -250,9 +250,9 @@ This module handles ActionIDs internally and if you supply one in an action it w
 	$response->{'Response'}		Response to our packet (Success, Failed, Error, Pong, etc).
 		   {'ActionID'}		ActionID of this Response.
 		   {'Message'}		Message line of the response.
-		   {'EVENTS'}		Arrary reference containing Event Objects associated with this actionid.
-		   {'PARSED'}		Hash refernce of lines we could parse into key->value pairs.
-		   {'DATA'}		Array refernce of lines that we could not parse.
+		   {'EVENTS'}		Array reference containing Event Objects associated with this actionid.
+		   {'PARSED'}		Hash reference of lines we could parse into key->value pairs.
+		   {'DATA'}		Array reference of lines that we could not parse.
 		   {'CMD'}		Contains command output from 'Action: Command's. It is an array reference.
 		   {'COMPLETED'}	1 if completed, 0 if not (timeout)
 		   {'GOOD'}		1 if good, 0 if bad. Good means no errors and COMPLETED.
