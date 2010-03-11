@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+﻿#!/usr/bin/perl
 
 =head1 NAME
 
@@ -27,7 +27,7 @@ Asterisk::AMI::Common - Extends the AMI module to provide simple access to commo
 This module extends the AMI module to provide easier access to common actions and commands available
 through the AMI.
 
-=head2 Constuctor
+=head2 Constructor
 
 =head3 new([ARGS])
 
@@ -42,12 +42,12 @@ commands ( [ TIMEOUT ] )
 	Returns a hash reference of commands available through the AMI. TIMEOUT is optional
 
 	$hashref->{'CommandName'}->{'Desc'}	Contains the command description
-				   {'Priv'}	Contains list of required privliges.
+				   {'Priv'}	Contains list of required privileges.
 
 db_get ( FAMILY, KEY [, TIMEOUT ])
 
 	Returns the value of the Asterisk database entry specified by the FAMILY and KEY pair, or undef if
-	does not exist or an error occured. TIMEOUT is optional.
+	does not exist or an error occurred. TIMEOUT is optional.
 
 db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
 
@@ -73,7 +73,7 @@ set_var ( CHANNEL, VARIABLE, VALUE [, TIMEOUT ])
 
 hangup ( CHANNEL [, TIMEOUT ])
 
-	Hangsup CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
+	Hangs up CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
 
@@ -91,7 +91,7 @@ exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
 park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
 
 	Parks CHANNEL and announces park information to CHANNEL2. CHANNEL2 is also the channel the call will return to if
-	it timesout. 
+	it times out. 
 	PARKTIME is optional and can be used to control how long a person is parked for. TIMEOUT is optional.
 
 	Returns 1 if the call was parked, or 0 if it failed, or undef on error and timeout.
@@ -179,12 +179,12 @@ mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
 
 mailboxstatus ( EXTENSION, CONTEXT [, TIMEOUT ] )
 	
-	Returns the status of the mailbox or undef on error or timeout. TIMEOUT is optinal
+	Returns the status of the mailbox or undef on error or timeout. TIMEOUT is optional
 
 chan_timeout ( CHANNEL, CHANNELTIMEOUT [, TIMEOUT ] )
 
 	Sets CHANNEL to timeout in CHANNELTIMEOUT seconds. Returns 1 on success, 0 on failure, or undef on error or timeout.
-	TIMEOUT is optinal.
+	TIMEOUT is optional.
 
 queues ( [ TIMEOUT ] )
 
@@ -241,12 +241,12 @@ queue_status ( QUEUE [, TIMEOUT ] )
 					   {'Wait'}
 queue_member_pause ( QUEUE, MEMBER, PAUSEVALUE [, TIMEOUT ] )
 
-	Sets the MEMBER of QUEUE to PAUSEVALUE. A value of 0 will unpause a member, and 1 will pause them.
+	Sets the MEMBER of QUEUE to PAUSEVALUE. A value of 0 will un-pause a member, and 1 will pause them.
 	Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 queue_member_toggle ( QUEUE, MEMBER [, TIMEOUT ] )
 
-	Toggles MEMBER of QUEUE pause status. From paused to unpaused, and unpaused to paused.
+	Toggles MEMBER of QUEUE pause status. From paused to un-paused, and un-paused to paused.
 	Returns 1 if the the pause status was toggled, 0 if failed, or undef on error or timeout. TIMEOUT is optional
 
 queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
@@ -312,7 +312,7 @@ chan_status ( CHANNEL [, TIMEOUT ] )
 
 transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
 
-	Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transfered, 0 if it failed, 
+	Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transferred, 0 if it failed, 
 	or undef on error or timeout. TIMEOUT is optional.
 
 meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
@@ -322,7 +322,7 @@ meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
 meetme_unmute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
-	Unmutes USERNUM in CONFERENCE. Returns 1 if the user was unmuted, or 0 if it failed, or undef on error or timeout.
+	Un-mutes USERNUM in CONFERENCE. Returns 1 if the user was un-muted, or 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
 monitor ( CHANNEL, FILE [, TIMEOUT ] )
@@ -344,7 +344,7 @@ monitor_pause ( CHANNEL [, TIMEOUT ])
 
 monitor_unpause ( CHANNEL [, TIMEOUT ])
 
-	Unpauses recording on CHANNEL. Returns 1 if recording on the channel was unpaused, 0 if it failed, or undef on error
+	Un-pauses recording on CHANNEL. Returns 1 if recording on the channel was un-paused, 0 if it failed, or undef on error
 	or timeout.
 	TIMEOUT is optional.
 

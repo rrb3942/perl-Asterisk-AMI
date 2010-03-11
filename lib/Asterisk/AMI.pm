@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+﻿#!/usr/bin/perl
 
 =head1 NAME
 
@@ -62,14 +62,14 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	'Secret' has no default and must be supplied.
 	'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
 	'Timeout' has a default of 0, which means no timeout or blocking.
-	'Handlers' accepts a hash reference setting a callback handler for the specfied event. EVENT should match the what
+	'Handlers' accepts a hash reference setting a callback handler for the specified event. EVENT should match the what
 	the contents of the {'Event'} key of the event object will be. The handler should be a subroutine reference that
 	will be passed the a copy of the AMI object and the event object. The 'default' keyword can be used to set
-	a default event handler. If handlers are installed we do not buffer events and instead immediatly dispatch them.
+	a default event handler. If handlers are installed we do not buffer events and instead immediately dispatch them.
 	If no handler is specified for an event type and a 'default' was not set the event is discarded.
 	'Keepalive' only works when running with an event loop.
-	'TCP_Keepalive' default is disabled. Actives the tcp keepalive at the socket layer. This does not require 
-	an eventloop and is lightweight. Useful for applications that use long-lived connections to Asterisk but 
+	'TCP_Keepalive' default is disabled. Actives the tcp keep-alive at the socket layer. This does not require 
+	an event-loop and is lightweight. Useful for applications that use long-lived connections to Asterisk but 
 	do not run an event loop.
 	'Blocking' has a default of 1 (block on connecting). A value of 0 will cause us to queue our connection
 	and login for when an event loop is started. If set to non blocking we will always return a valid object.
@@ -79,22 +79,22 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	'on_connect_err', 'on_error', 'on_disconnect'
 	These three specify subroutines to call when errors occur. 'on_connect_err' is specifically for errors that
 	occur while connecting, as well as failed logins. If 'on_connect_err' or 'on_disconnect' it is not set, 
-	but 'on_error' is, 'on_error' wil be called. 'on_disconnect' is not reliable, as disconnects seem to get lumped
+	but 'on_error' is, 'on_error' will be called. 'on_disconnect' is not reliable, as disconnects seem to get lumped
 	under 'on_error' instead. When the subroutine specified for any of theses is called the first argument is a copy
 	of our AMI object, and the second is a string containing a message/reason. All three of these are 'fatal', when
 	they occur we destroy our buffers and our socket connections.
 
-	'on_timeout' is called when a keepalive has timed out, not when a normal action has. It is non-'fatal'.
+	'on_timeout' is called when a keep-alive has timed out, not when a normal action has. It is non-'fatal'.
 	The subroutine will be called with a copy of our AMI object and a message.
 	
-=head2 Warning - Mixing Eventloops and blocking actions
+=head2 Warning - Mixing Event-loops and blocking actions
 
 	If you are running an event loop and use blocking methods (anything that accepts it's timeout outside of 
 	the action hash e.g. get_response, check_response, action, connected) the outcome is unspecified. It may work,
 	it may lock everything up, the action may work but break something else. I have tested it and behavior seems
-	un-predictable at best and is very circumstantial.
+	unpredictable at best and is very circumstantial.
 
-	If you are running an eventloop use non-blocking callbacks! It is why they are there!
+	If you are running an event-loop use non-blocking callbacks! It is why they are there!
 
 	However if you do play with blocking methods inside of your loops let me know how it goes.
 
@@ -142,18 +142,18 @@ ActionID of the action, on success and will return undef in the event it is unab
 After sending an action you can then get its response in one of two methods.
 
 The method check_response() accepts an actionid and will return 1 if the action was considered successful, 0 if 
-it failed and undef if an error occured or on timeout.
+it failed and undef if an error occurred or on timeout.
 
 The method get_response() accepts an actionid and will return a Response object (really just a fancy hash) with the 
 contents of the Action Response as well as any associated Events it generated. It will return undef if an error 
-occured or on timeout.
+occurred or on timeout.
 
 All responses and events are buffered, therefor you can issue several send_action()s and then retrieve/check their 
-responses out of order without losing any information. Infact, if you are issuing many actions in series you can get 
+responses out of order without losing any information. In-fact, if you are issuing many actions in series you can get 
 much better performance sending them all first and then retrieving them later, rather than waiting for responses 
-immediatly after issuing an action.
+immediately after issuing an action.
 
-Alternativley you can also use simple_action() and action().
+Alternatively you can also use simple_action() and action().
 simple_action() combines send_action() and check_response(), and therefore returns 1 on success and 0 on failure,
 and undef on error or timeout.
 action() combines send_action() and get_response(), and therefore returns a Response object or undef.
@@ -212,14 +212,14 @@ action() combines send_action() and get_response(), and therefore returns a Resp
 In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object 
 and the Response Object for the action. If TIMEOUT is not specified it will use the default set. A value of 0 means 
 no timeout. When the timeout is reached somemethod() will be called and passed a reference to the our $astman and
-the un-completed Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'}
+the uncompleted Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'}
 is usually a good indication if the object is useable.
 
 Callback Caveats
 
 Callbacks only work if we are processing packets, therefore you must be running an event loop. Alternatively, we run 
 mini-event loops for our blocking calls (e.g. action(), get_action()), so in theory if you set callbacks and then
-issue a blocking call those callbacks should also get trigged. However this is an unsupported scenario.
+issue a blocking call those callbacks should also get triggered. However this is an unsupported scenario.
 
 Timeouts are done using timers, depending on how your event loop works it may be relative or absolute. Either way they are
 set as soon as you send the object. Therefore if you send an action with a timeout and then monkey around for a long time
@@ -260,7 +260,7 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 =head3 Events
 
-	Events are turned into event objects, these are similiar to response objects, but their keys vary much more
+	Events are turned into event objects, these are similar to response objects, but their keys vary much more
 	depending on the specific event.
 
 	Some common contents are:
@@ -304,7 +304,7 @@ This module handles ActionIDs internally and if you supply one in an action it w
 	preferred event loop. We will use EV as our event loop in this example. I use subroutine references in this
 	example, but you could use anonymous subroutines if you want to.
 
-	#Use your prefered loop before our module so that AnyEvent will autodetect it
+	#Use your preferred loop before our module so that AnyEvent will auto-detect it
 	use EV;
 	use Asterisk::AMI:
 
@@ -316,7 +316,7 @@ This module handles ActionIDs internally and if you supply one in an action it w
 					Events		=>	'on',
 					Handlers	=>	{ default => \&eventhandler }
 				);
-	#Alternativly you can set Blocking => 0, and set an on_error sub to catch conneciton errors
+	#Alternatively you can set Blocking => 0, and set an on_error sub to catch connection errors
 	die "Unable to connect to asterisk" unless ($astman);
 
 	#Define the subroutines for events
@@ -337,7 +337,7 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 
 
-	Thats it, the EV loop will allow us to process input from asterisk. Once the action completes it will 
+	That's it, the EV loop will allow us to process input from asterisk. Once the action completes it will 
 	call the callback, and any events will be dispatched to eventhandler(). As you can see it is fairly
 	straight-forward. Most of the work will be in creating subroutines to be called for various events and 
 	actions that you plan to use.
@@ -346,7 +346,7 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 send_action ( ACTION )
 
-	Sends the action to asterisk. If no errors occured while sending it returns the ActionID for the action,
+	Sends the action to asterisk. If no errors occurred while sending it returns the ActionID for the action,
 	which is a positive integer above 0. If it encounters an error it will return undef.
 	
 check_response( [ ACTIONID ], [ TIMEOUT ] )
@@ -386,7 +386,7 @@ get_event ( [ TIMEOUT ] )
 
 amiver ()
 
-	Returns the version of the Asterisk Manager Interface we are connected to. Undef until a the connection is made
+	Returns the version of the Asterisk Manager Interface we are connected to. Undef until the connection is made
 	(important if you have Blocking => 0).
 	
 
@@ -469,7 +469,7 @@ my %ACTIONBUFFER;
 my %CALLBACKS;
 
 my $vertical;
-#Backwards compatability with 5.8, does not support \v, but on 5.10 \v is much faster than the below char class
+#Backwards compatibility with 5.8, does not support \v, but on 5.10 \v is much faster than the below char class
 {
 	no warnings;
 

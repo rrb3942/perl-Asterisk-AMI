@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+﻿#!/usr/bin/perl
 
 =head1 NAME
 
@@ -27,7 +27,7 @@ Asterisk::AMI::Common::Dev - Extends AMI::Common to include functions for the cu
 This module extends Asterisk::AMI::Common to include additional functions for working with the development branch of Asterisk.
 It will also be the launching ground for new functions be they are merged into AMI::Common.
 
-=head2 Constuctor
+=head2 Constructor
 
 =head3 new([ARGS])
 
@@ -39,7 +39,7 @@ This module inherits all options from the AMI module.
 
 meetme_list ( [ TIMEOUT ] )
 
-	Returns a hash reference containing all meetme conferences and their members, or undef if an error occured.
+	Returns a hash reference containing all meetme conferences and their members, or undef if an error occurred.
 	TIMEOUT is optional.
 
 	Hash reference:
@@ -54,7 +54,7 @@ meetme_list ( [ TIMEOUT ] )
                                                {'Admin'}
 meetme_members ( ROOMNUM [, TIMEOUT ] )
 
-	Returns a hash reference containing all members of a meetme conference, or undef if an error occured.
+	Returns a hash reference containing all members of a meetme conference, or undef if an error occurred.
 	TIMEOUT is optional.
 
 	Hash reference:
@@ -70,7 +70,7 @@ meetme_members ( ROOMNUM [, TIMEOUT ] )
 
 voicemail_list ( [ TIMEOUT ] )
 
-	Returns a hash reference of all mailboxs on the system, or unde if an error occured.
+	Returns a hash reference of all mailboxes on the system, or unde if an error occurred.
 	TIMEOUT is optional.
 
 	Hash reference:
