@@ -441,7 +441,7 @@ use warnings;
 use AnyEvent;
 use AnyEvent::Handle;
 use AnyEvent::Socket;
-
+use Digest::MD5;
 
 #Duh
 use version; our $VERSION = qv(0.1.7);
@@ -537,14 +537,13 @@ my $myself;
 #Keep alive Anyevent::Timer
 my $keepalive;
 
-#Module wide condvar
-#my $process = AE::cv;
-
 #Defaults
 my $PEER = '127.0.0.1';
 my $PORT = '5038';
 my $USERNAME;
 my $SECRET;
+my $AUTHTYPE = 'plaintext';
+my $USESSL = 0;
 my $EVENTS = 'off';
 my $STOREEVENTS = 1;
 my $CALLBACK = 0;
@@ -554,8 +553,13 @@ my $TCPALIVE = 0;
 my $BUFFERSIZE = 30000;
 my $BLOCK = 1;
 my %EVENTHANDLERS;
+#Things to do on different errors.
 my %ON;
-my %DISCARD;
+#What to do with things for certain actions.
+my %EXPECTED;
+
+#Buffer for actions before login has occured.
+my %PRELOGIN;
 
 #Create a new object and return it;
 #If required options are missing, returns undef
@@ -615,6 +619,8 @@ sub _configure {
 	$BUFFERSIZE = $settings{'BufferSize'} if (defined $settings{'BufferSize'});
 	%EVENTHANDLERS = %{$settings{'Handlers'}} if (defined $settings{'Handlers'});
 	$BLOCK = $settings{'Blocking'} if (defined $settings{'Blocking'});
+	$AUTHTYPE = $settings{'AuthType'} if (defined $settings{'AuthType'});
+	$USESSL = $settings{'SSL_TLS'} if (defined $settings{'SSL_TLS'});
 
 	#On Connect
 	$ON{'connect'} = $settings{'on_connect'} if (defined $settings{'on_connect'});
@@ -735,14 +741,16 @@ sub _connect {
 
 	my $process = AE::cv;
 
-	$handle = new AnyEvent::Handle(
-		connect => [$PEER => $PORT],
-		keepalive => $TCPALIVE,
-		on_connect_err => sub { $self->_on_connect_err(1,$_[1]); },
-		on_error => sub { $self->_on_error($_[1],$_[2]) },
-		on_eof => sub { $self->_on_disconnect; },
-		on_connect => sub { $handle->push_read( line => \&_on_connect ); }
-	);
+	my %hdl = (	connect => [$PEER => $PORT],
+			keepalive => $TCPALIVE,
+			on_connect_err => sub { $self->_on_connect_err(1,$_[1]); },
+			on_error => sub { $self->_on_error($_[1],$_[2]) },
+			on_eof => sub { $self->_on_disconnect; },
+			on_connect => sub { $handle->push_read( line => \&_on_connect ); });
+
+	$hdl{'tls'} = 'connect' if ($USESSL);
+
+	$handle = new AnyEvent::Handle(%hdl);
 
 	return $self->_login if ($BLOCK); 
 
@@ -791,7 +799,7 @@ sub _sort_and_buffer {
 		#Snag our actionid
 		my $actionid = $packet->{'ActionID'};
 
-		return if ($DISCARD{$actionid});
+		return unless ($EXPECTED{$actionid});
 
 		if (exists $packet->{'Response'}) {
 			#No indication of future packets, mark as completed
@@ -836,7 +844,7 @@ sub _sort_and_buffer {
 				#cleanup
 				delete $ACTIONBUFFER{$actionid};
 				delete $CALLBACKS{$actionid};
-				delete $DISCARD{$actionid};
+				delete $EXPECTED{$actionid};
 				$callback->($myself, $action);
 			}
 		}
@@ -892,7 +900,7 @@ sub _wait_response {
 					my $response = $ACTIONBUFFER{$id};
 					delete $ACTIONBUFFER{$id};
 					delete $CALLBACKS{$id};
-					$DISCARD{$id} = 1;
+					delete $EXPECTED{$id};
 					$process->send($response);
 				};
 
@@ -925,24 +933,14 @@ sub send_action {
 	delete $ACTIONBUFFER{$id};
 	delete $CALLBACKS{$id};
 
-	unless (defined $actionhash->{'TIMEOUT'}) {
-		$actionhash->{'TIMEOUT'} = $TIMEOUT;
-	}
+	#Set default timeout
+	$actionhash->{'TIMEOUT'} = $TIMEOUT unless (defined $actionhash->{'TIMEOUT'});
 
-	if (defined $actionhash->{'CALLBACK'}) {
-		$CALLBACKS{$id}->{'cb'} = $actionhash->{'CALLBACK'};
-		if ($actionhash->{'TIMEOUT'}) {
-			$CALLBACKS{$id}->{'timeout'} = sub {
-					my $response = $ACTIONBUFFER{$id};
-					my $callback = $CALLBACKS{$id}->{'cb'};
-					delete $ACTIONBUFFER{$id};
-					delete $CALLBACKS{$id};
-					$DISCARD{$id} = 1;
-					$callback->($self, $response);;
-				};
-			$CALLBACKS{$id}->{'timer'} = AE::timer $actionhash->{'TIMEOUT'}, 0, $CALLBACKS{$id}->{'timeout'};
-		}
-	}
+	#Assign Callback
+	$CALLBACKS{$id}->{'cb'} = $actionhash->{'CALLBACK'} if (defined $actionhash->{'CALLBACK'});
+
+	#Get a copy of our timeout
+	my $timeout = $actionhash->{'TIMEOUT'};
 
 	delete $actionhash->{'TIMEOUT'};
 	delete $actionhash->{'CALLBACK'};
@@ -968,10 +966,29 @@ sub send_action {
 	$action .= 'ActionID: ' . $id . $EOL . $EOR;	
 
 	#Send it!
-	$handle->push_write($action);
+	if ($LOGGEDIN || lc($actionhash->{'Action'}) =~ /login|challenge/) {
+		$handle->push_write($action);
+	} else {
+		$PRELOGIN{$id} = $action;
+	}
+
 	$ACTIONBUFFER{$id}->{'COMPLETED'} = 0;
 	$ACTIONBUFFER{$id}->{'GOOD'} = 0;
-	$DISCARD{$id} = 0;
+	$EXPECTED{$id} = 1;
+
+	#Start timer for timeouts
+	if ($timeout && defined $CALLBACKS{$id}) {
+		$CALLBACKS{$id}->{'timeout'} = sub {
+				my $response = $ACTIONBUFFER{$id};
+				my $callback = $CALLBACKS{$id}->{'cb'};
+				delete $ACTIONBUFFER{$id};
+				delete $CALLBACKS{$id};
+				delete $EXPECTED{$id};
+				delete $PRELOGIN{$id};
+				$callback->($self, $response);;
+			};
+		$CALLBACKS{$id}->{'timer'} = AE::timer $timeout, 0, $CALLBACKS{$id}->{'timeout'};
+	}
 
 	return $id;
 }
@@ -1052,19 +1069,62 @@ sub simple_action {
 sub _login {
 	my $self = shift;
 
-	my %action = ( 	Action => 'login',
-			Username =>  $USERNAME,
-			Secret => $SECRET,
-			Events => $EVENTS
-	);
+	my %challenge;
+	my %action = (	Action => 'login',
+			Username => $USERNAME,
+			Events => $EVENTS );
 
+	if (lc($AUTHTYPE) eq 'md5') {
+		%challenge = (	Action => 'Challenge',
+				AuthType => $AUTHTYPE);
+	} else {
+		$action{'Secret'} = $SECRET;
+	}
+
+	#Blocking connect
 	if ($BLOCK) {
-		
-		my $resp = $self->action(\%action);		
+		my $resp;
+
+		my $timeout = 5 unless ($TIMEOUT);
+
+		if (%challenge) {
+			my $chresp = $self->action(\%challenge);
+
+			if ($chresp->{'GOOD'}) {
+				my $md5 = new Digest::MD5;
+
+				$md5->add($chresp->{'PARSED'}->{'Challenge'});
+				$md5->add($SECRET);
+
+				$md5 = $md5->hexdigest;
+
+				$action{'Key'} = $md5;
+				$action{'AuthType'} = $AUTHTYPE;
+
+				$resp = $self->action(\%action,$timeout);
+						
+			} else {
+				if ($chresp->{'COMPLETED'}) {
+					warn "$AUTHTYPE challenge failed";
+				} else {
+					warn "Timed out waiting for challenge";
+				}
+			}
+		} else { 
+			$resp = $self->action(\%action,$timeout);
+		}
 
 		if ($resp->{'GOOD'}){
 			$LOGGEDIN = 1;
 			$ON{'connect'}->($self) if (defined $ON{'connect'});
+
+			#Flush pre-login buffer			
+			foreach (values %PRELOGIN) {
+				$handle->push_write($_);
+			}
+
+			undef %PRELOGIN;
+
 			return 1;
 		} else {
 			$LOGGEDIN = 0;
@@ -1074,10 +1134,19 @@ sub _login {
 				warn "Timed out waiting for login";
 			}
 		}
+	#Non-blocking connect
 	} else {
+
+		#Callback for login action
 		$action{'CALLBACK'} = sub {
 					if ($_[1]->{'GOOD'}) {	
 						$LOGGEDIN = 1;
+						#Flush pre-login buffer			
+						foreach (values %PRELOGIN) {
+							$handle->push_write($_);
+						}
+						undef %PRELOGIN;
+
 						$ON{'connect'}->($self) if (defined $ON{'connect'});
 					} else {
 						my $message;
@@ -1094,7 +1163,37 @@ sub _login {
 
 		$action{'TIMEOUT'} = 5 unless ($TIMEOUT);
 
-		$self->send_action(\%action);
+		#Do a md5 challenge
+		if (%challenge) {
+			$challenge{'TIMEOUT'} = 5 unless ($TIMEOUT);
+			$challenge{'CALLBACK'} = sub {
+				if ($_[1]->{'GOOD'}) {
+					my $md5 = new Digest::MD5;
+
+					$md5->add($_[1]->{'PARSED'}->{'Challenge'});
+					$md5->add($SECRET);
+
+					$md5 = $md5->hexdigest;
+
+					$action{'Key'} = $md5;
+					$action{'AuthType'} = $AUTHTYPE;
+
+					$self->send_action(\%action);
+						
+				} else {
+					if ($_[1]->{'COMPLETED'}) {
+						warn "$AUTHTYPE challenge failed";
+					} else {
+						warn "Timed out waiting for challenge";
+					}
+				}
+			};
+
+			$self->send_action(\%challenge);
+
+		} else { 
+			$self->send_action(\%action);
+		}
 
 		return 1;
 	}
@@ -1200,7 +1299,7 @@ sub _clear_cbs {
 		my $callback = $CALLBACKS{$id}->{'cb'};
 		delete $ACTIONBUFFER{$id};
 		delete $CALLBACKS{$id};
-		$DISCARD{$id} = 1;
+		$EXPECTED{$id} = 1;
 		$callback->($myself, $response);
 	}
 }
