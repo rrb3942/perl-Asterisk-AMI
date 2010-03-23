@@ -1,5 +1,15 @@
 Revision history for Perl extension AMI.
 
+0.1.8
+	- Added support for 'MD5' challenge authenticaiton
+
+	- Added SSL support
+
+	- Internal changes to how we keep track of active actions
+
+	- Fixed some bad grammar/spelling/typos in documentation,
+	most likely added a few more as well
+
 0.1.7
 
 	- Removed Asterisk::AMI::completed(). Seemed pointless with callbacks.

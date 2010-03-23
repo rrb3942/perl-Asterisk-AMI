@@ -6,7 +6,7 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 
 =head1 VERSION
 
-0.1.7
+0.1.8
 
 =head1 SYNOPSIS
 
@@ -30,6 +30,11 @@ reliable way to interact with Asterisk upon which other applications may be buil
 can integrate very easily into event-based applications, but it still provides blocking functions for us with standard
 scripting.
 
+=head2 SSL SUPPORT INFORMAION
+
+For SSL support you will also need the module that AnyEvent::Handle uses for SSL support, which is not a required dependency.
+Currently that module is 'Net::SSLeay' (AnyEvent:Handle version 5.251) but it may change in the future.
+
 =head2 Constructor
 
 =head3 new([ARGS])
@@ -42,6 +47,8 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	Events		Enable/Disable Events		'on'|'off'
 	Username	Username to access the AMI
 	Secret		Secret used to connect to AMI
+	AuthType	Authentication type to use for login	'plaintext'|'MD5'
+	UseSSL		Enables/Disables SSL for the connection	0|1
 	BufferSize	Maximum size of buffer, in number of actions
 	Timeout		Default timeout of all actions in seconds
 	Handlers	Hash reference of Handlers for events	{ 'EVENT' => \&somesub };
@@ -60,6 +67,9 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	login action.
 	'Username' has no default and must be supplied.
 	'Secret' has no default and must be supplied.
+	'AuthType' sets the authentication type to use for login. Default is 'plaintext'.  Use 'MD5' for MD5 challenge
+	authentication.
+	'UseSSL' defaults to 0 (no ssl). When SSL is enabled the default port changes to 5039.
 	'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
 	'Timeout' has a default of 0, which means no timeout or blocking.
 	'Handlers' accepts a hash reference setting a callback handler for the specified event. EVENT should match the what
@@ -444,7 +454,7 @@ use AnyEvent::Socket;
 use Digest::MD5;
 
 #Duh
-use version; our $VERSION = qv(0.1.7);
+use version; our $VERSION = qv(0.1.8);
 
 #Keep track if we are logged in
 my $LOGGEDIN = 0;
@@ -605,7 +615,10 @@ sub _configure {
 		}
 	}
 
+	#Ugly any better way?
 	#Set values
+	$USESSL = $settings{'UseSSL'} if (defined $settings{'UseSSL'});
+	$PORT = 5039 if ($USESSL); #Change default port if using ssl
 	$PEER = $settings{'PeerAddr'} if (defined $settings{'PeerAddr'});
 	$PORT = $settings{'PeerPort'} if (defined $settings{'PeerPort'});
 	$USERNAME = $settings{'Username'} if (defined $settings{'Username'});
@@ -620,7 +633,6 @@ sub _configure {
 	%EVENTHANDLERS = %{$settings{'Handlers'}} if (defined $settings{'Handlers'});
 	$BLOCK = $settings{'Blocking'} if (defined $settings{'Blocking'});
 	$AUTHTYPE = $settings{'AuthType'} if (defined $settings{'AuthType'});
-	$USESSL = $settings{'SSL_TLS'} if (defined $settings{'SSL_TLS'});
 
 	#On Connect
 	$ON{'connect'} = $settings{'on_connect'} if (defined $settings{'on_connect'});
@@ -741,6 +753,7 @@ sub _connect {
 
 	my $process = AE::cv;
 
+	#Build a hash of our anyevent::handle options
 	my %hdl = (	connect => [$PEER => $PORT],
 			keepalive => $TCPALIVE,
 			on_connect_err => sub { $self->_on_connect_err(1,$_[1]); },
@@ -748,15 +761,19 @@ sub _connect {
 			on_eof => sub { $self->_on_disconnect; },
 			on_connect => sub { $handle->push_read( line => \&_on_connect ); });
 
+	#TLS stuff
 	$hdl{'tls'} = 'connect' if ($USESSL);
 
+	#Make connection/create handle
 	$handle = new AnyEvent::Handle(%hdl);
 
+	#Return login status if blocking
 	return $self->_login if ($BLOCK); 
 
 	#Queue our login
 	$self->_login;
 
+	#If we don't have a handle still fail
 	return 0 unless ($handle);
 
         return 1;
@@ -885,11 +902,16 @@ sub _gen_actionid {
 	return $idseq++;
 }
 
+#This is used to provide blocking behavior for calls
+#It installs callbacks for an action if it is not in the buffer and waits for the response before
+#returning it.
 sub _wait_response {
 	my ($id, $timeout) =  @_;
 
+	#Already got it?
 	unless ($ACTIONBUFFER{$id}->{'COMPLETED'}) {
 
+		#Install some handlers and use a CV to simulate blocking
 		my $process = AE::cv;
 
 		$CALLBACKS{$id}->{'cb'} = sub { $process->send($_[1]) };
@@ -1069,12 +1091,17 @@ sub simple_action {
 sub _login {
 	my $self = shift;
 
+	#Auth challenge
 	my %challenge;
+	
+	#Build login action
 	my %action = (	Action => 'login',
 			Username => $USERNAME,
 			Events => $EVENTS );
 
+	#Actions to take for different authtypes
 	if (lc($AUTHTYPE) eq 'md5') {
+		#Do a challenge
 		%challenge = (	Action => 'Challenge',
 				AuthType => $AUTHTYPE);
 	} else {
@@ -1087,10 +1114,13 @@ sub _login {
 
 		my $timeout = 5 unless ($TIMEOUT);
 
+		#If a challenge exists do handle it first before the login
 		if (%challenge) {
+			#Get challenge response
 			my $chresp = $self->action(\%challenge);
 
 			if ($chresp->{'GOOD'}) {
+				#Build up our login from the challenge
 				my $md5 = new Digest::MD5;
 
 				$md5->add($chresp->{'PARSED'}->{'Challenge'});
@@ -1101,21 +1131,27 @@ sub _login {
 				$action{'Key'} = $md5;
 				$action{'AuthType'} = $AUTHTYPE;
 
+				#Login
 				$resp = $self->action(\%action,$timeout);
 						
 			} else {
+				#Challenge Failed
 				if ($chresp->{'COMPLETED'}) {
 					warn "$AUTHTYPE challenge failed";
 				} else {
 					warn "Timed out waiting for challenge";
 				}
 			}
-		} else { 
+		} else {
+			#Plaintext login
 			$resp = $self->action(\%action,$timeout);
 		}
 
+		
 		if ($resp->{'GOOD'}){
+			#Login successful
 			$LOGGEDIN = 1;
+			#Run on_connect stuff
 			$ON{'connect'}->($self) if (defined $ON{'connect'});
 
 			#Flush pre-login buffer			
@@ -1127,6 +1163,7 @@ sub _login {
 
 			return 1;
 		} else {
+			#Login Failed
 			$LOGGEDIN = 0;
 			if ($resp->{'COMPLETED'}) {
 				warn "Authentication Failed";
@@ -1139,7 +1176,8 @@ sub _login {
 
 		#Callback for login action
 		$action{'CALLBACK'} = sub {
-					if ($_[1]->{'GOOD'}) {	
+					if ($_[1]->{'GOOD'}) {
+						#Login was good
 						$LOGGEDIN = 1;
 						#Flush pre-login buffer			
 						foreach (values %PRELOGIN) {
@@ -1149,6 +1187,7 @@ sub _login {
 
 						$ON{'connect'}->($self) if (defined $ON{'connect'});
 					} else {
+						#Login failed
 						my $message;
 
 						if ($_[1]->{'COMPLETED'}) {
@@ -1165,6 +1204,7 @@ sub _login {
 
 		#Do a md5 challenge
 		if (%challenge) {
+			#Create callbacks for the challenge
 			$challenge{'TIMEOUT'} = 5 unless ($TIMEOUT);
 			$challenge{'CALLBACK'} = sub {
 				if ($_[1]->{'GOOD'}) {
@@ -1188,10 +1228,11 @@ sub _login {
 					}
 				}
 			};
-
+			#Send challenge
 			$self->send_action(\%challenge);
 
 		} else { 
+			#Plaintext login
 			$self->send_action(\%action);
 		}
 

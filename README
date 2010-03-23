@@ -1,4 +1,4 @@
-Asterisk::AMI version 0.1.7
+Asterisk::AMI version 0.1.8
 ================
 
 DESCRIPTION
@@ -23,8 +23,14 @@ This module requires these other modules and libraries:
 	AnyEvent version 5.0 or higher
 	AnyEvent::Handle
 	AnyEvent::Socket
+	Digest::MD5
 	version
 	parent
+
+Note on SSL Support:
+
+For SSL support you will also need the module that AnyEvent::Handle uses for SSL support, which is not a required dependency.
+Currently that module is 'Net::SSLeay' (AnyEvent:Handle version 5.251) but it may change in the future.
 
 COPYRIGHT AND LICENCE
 
