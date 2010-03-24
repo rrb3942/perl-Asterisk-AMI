@@ -35,6 +35,10 @@ scripting.
 For SSL support you will also need the module that AnyEvent::Handle uses for SSL support, which is not a required dependency.
 Currently that module is 'Net::SSLeay' (AnyEvent:Handle version 5.251) but it may change in the future.
 
+=head3 CentOS/Redhat
+
+If the version of Net:SSLeay included in CentOS/Redhat does not work try installing an updated version from CPAN.
+
 =head2 Constructor
 
 =head3 new([ARGS])
