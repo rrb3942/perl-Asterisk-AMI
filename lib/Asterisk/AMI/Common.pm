@@ -239,6 +239,7 @@ queue_status ( QUEUE [, TIMEOUT ] )
 					   {'CallerID'}
 					   {'CallerIDName'}
 					   {'Wait'}
+
 queue_member_pause ( QUEUE, MEMBER, PAUSEVALUE [, TIMEOUT ] )
 
 	Sets the MEMBER of QUEUE to PAUSEVALUE. A value of 0 will un-pause a member, and 1 will pause them.
@@ -265,7 +266,7 @@ play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
 	undef on error or timeout.
 	TIMEOUT is optional.
 
-play_digits ( CHANNLS, DIGITS [, TIMEOUT ] )
+play_digits ( CHANNEL, DIGITS [, TIMEOUT ] )
 
 	Plays the dtmf DIGITS on CHANNEL. DIGITS should be passed as an array reference. Returns 1 if all DIGITS
 	were queued on the channel, or 0 if an any queuing failed. TIMEOUT is optional.
