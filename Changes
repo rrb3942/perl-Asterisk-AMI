@@ -1,4 +1,9 @@
-Revision history for Perl extension AMI.
+Revision history for Perl extension Asterisk::AMI.
+0.1.9
+	- Fixing some of our OO implementation to make it more correct and to properly isolate seperate 
+	instances of our object from each other
+
+	- Fixed some more typos in the documentation
 
 0.1.8
 	- Added support for 'MD5' challenge authenticaiton

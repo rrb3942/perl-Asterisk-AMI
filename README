@@ -1,4 +1,4 @@
-Asterisk::AMI version 0.1.8
+Asterisk::AMI version 0.1.9
 ================
 
 DESCRIPTION
@@ -24,6 +24,7 @@ This module requires these other modules and libraries:
 	AnyEvent::Handle
 	AnyEvent::Socket
 	Digest::MD5
+	Scalar::Util
 	version
 	parent
 

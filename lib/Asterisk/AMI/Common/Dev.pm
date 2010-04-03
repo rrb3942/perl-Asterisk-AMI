@@ -6,7 +6,7 @@ Asterisk::AMI::Common::Dev - Extends AMI::Common to include functions for the cu
 
 =head1 VERSION
 
-0.1.8
+0.1.9
 
 =head1 SYNOPSIS
 
@@ -132,7 +132,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI::Common);
 
-use version; our $VERSION = qv(0.1.8);
+use version; our $VERSION = qv(0.1.9);
 
 sub new {
 	my ($class, %options) = @_;

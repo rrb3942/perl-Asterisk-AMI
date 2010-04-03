@@ -12,7 +12,8 @@ WriteMakefile(
 			   "AnyEvent" => "5.0",
 			   "AnyEvent::Socket" => 0,
 			   "AnyEvent::Handle" => 0,
-			   "Digest::MD5" => 0
+			   "Digest::MD5" => 0,
+			   "Scalar::Util" => 0
 			},
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Asterisk/AMI.pm', # retrieve abstract from module
