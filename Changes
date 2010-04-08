@@ -1,7 +1,12 @@
 Revision history for Perl extension Asterisk::AMI.
 0.1.9
+	- Fixed a bug when the cli command 'database show' was used with a small asterisk database (single entry) that would cause the response
+	to no be parsed correctly, causing it to never complete.
+
 	- Fixing some of our OO implementation to make it more correct and to properly isolate seperate 
 	instances of our object from each other
+
+	- Cleaned up some logic in a few subroutines
 
 	- Fixed some more typos in the documentation
 
