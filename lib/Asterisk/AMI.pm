@@ -444,9 +444,6 @@ modify it under the same terms as Perl itself.
 
 =cut
 
-#Todo:
-#Digest Auth With MD5
-
 package Asterisk::AMI;
 
 use strict;
@@ -461,36 +458,21 @@ use Scalar::Util qw/weaken/;
 #Duh
 use version; our $VERSION = qv(0.1.9);
 
-my $vertical;
-#Backwards compatibility with 5.8, does not support \v, but on 5.10 \v is much faster than the below char class
-{
-	no warnings;
-
-	if ($] >= 5.010000) {
-		$vertical = qr/\v+/;
-	} else {
-		$vertical = qr/[\x0A-\x0D\x85\x{2028}\x{2029}]+/;
-	}
-}
-
 #Used for storing events while reading command responses
 #Events are stored as hashes in the array
 #Example
-#@EVETNBUFFER[0]->{'Event'} = Something
-#my @$self{EVENTBUFFER};
+#$_[0]{EVETNBUFFER}->{'Event'} = Something
 
 #Buffer for holding action responses and data
 # Structure:
-# %_[0]{RESPONSEBUFFER}{'ActionID'}->{'Response'}	= (Success|Failure|Follows|Goodbye|Pong|Etc..)	//Reponse Status
+# $_[0]{RESPONSEBUFFER}{'ActionID'}->{'Response'}	= (Success|Failure|Follows|Goodbye|Pong|Etc..)	//Reponse Status
 #			     {'Message'}	= Message 				//Message in the response
 #			     {'EVENTS'}		= [%hash1, %hash2, ..]		//Arry of Hashes of parsed events and data for this actionID
 #			     {'PARSED'}		= { Hashkey => value, ...}
 #			     {'DATA'}		= [$line1, $line2, ...]			//Array of unparsable data
 #			     {'COMPLETED'}	= 0 or 1				//If the command is completed
 #			     {'GOOD'}		= 0 or 1 //if this responses is good, no error, can only be 1 if also COMPLETED
-#my %_[0]{RESPONSEBUFFER};
 
-#my %CALLBACKS;
 #Create a new object and return it;
 #If required options are missing, returns undef
 sub new {
@@ -536,18 +518,13 @@ sub _configure {
 		}
 	}
 
-
 	#Defaults
 	$_[0]{PEER} = '127.0.0.1';
 	$_[0]{PORT} = '5038';
 	$_[0]{AUTHTYPE} = 'plaintext';
-	#$_[0]{USESSL} = 0;
 	$_[0]{EVENTS} = 'off';
-	#$_[0]{TIMEOUT} = 0;
-	#$_[0]{TCPALIVE} = 0;
 	$_[0]{BUFFERSIZE} = 30000;
 	$_[0]{BLOCK} = 1;
-
 
 	#Ugly any better way?
 	#Set values
@@ -593,7 +570,7 @@ sub _on_connect_err {
 	my ($self, $fatal, $message) = @_;
 
 	warn "Failed to connect to asterisk - $_[0]{PEER}:$_[0]{PORT}";
-	warn "Reason: $message";
+	warn "Error Message: $message";
 
 	#Dispatch all callbacks as if they timed out
 	$self->_clear_cbs();
@@ -729,7 +706,8 @@ sub _handle_packet {
 			#Is this our command output?
 			if ($line =~ s/--END COMMAND--$//o) {
 				$parsed{'COMPLETED'} = 1;
-				push(@{$parsed{'CMD'}}, grep(s/\s*$//o, split(/$vertical/o, $line)));
+
+				push(@{$parsed{'CMD'}},split(/\x20*\x0A/o, $line));
 			#Can we parse and store this line nicely in a hash?
 			} elsif ($line =~ /^([^:]+): ([^:]+)$/o) {
 				$parsed{$1} = $2;
