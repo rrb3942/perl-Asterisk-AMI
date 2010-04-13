@@ -1,10 +1,13 @@
 Revision history for Perl extension Asterisk::AMI.
 0.1.9
-	- Fixed a bug when the cli command 'database show' was used with a small asterisk database (single entry) that would cause the response
-	to no be parsed correctly, causing it to never complete.
+	- Fixed a bug when the cli command 'database show' was used with a small asterisk database (single entry)
+	that would cause the response to not be parsed correctly, causing it to never complete. Also affected
+	AMI::Common::db_show();
 
 	- Fixing some of our OO implementation to make it more correct and to properly isolate seperate 
 	instances of our object from each other
+
+	- Now after calling destroy() any further calls to methods on that object will simple fail
 
 	- Optimized the regex and method used for splitting 'Action: Command' output
 

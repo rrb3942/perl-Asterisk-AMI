@@ -567,7 +567,7 @@ sub _configure {
 #Handles connection failures (includes login failure);
 sub _on_connect_err {
 
-	my ($self, $fatal, $message) = @_;
+	my ($self, $message) = @_;
 
 	warn "Failed to connect to asterisk - $_[0]{PEER}:$_[0]{PORT}";
 	warn "Error Message: $message";
@@ -581,7 +581,7 @@ sub _on_connect_err {
 		$_[0]{ON}->{'err'}->($self, $message);
 	}
 
-	$self->destroy($fatal);
+	$self->destroy();
 
 	$_[0]{SOCKERR} = 1;
 }
@@ -601,7 +601,7 @@ sub _on_error {
 
 	$_[0]{ON}->{'err'}->($self, $message) if (exists $_[0]{ON}->{'err'});
 	
-	$self->destroy($fatal);
+	$self->destroy();
 
 	$_[0]{SOCKERR} = 1;
 }
@@ -673,7 +673,7 @@ sub _connect {
 
 	#Build a hash of our anyevent::handle options
 	my %hdl = (	connect => [$_[0]{PEER} => $_[0]{PORT}],
-			on_connect_err => sub { $self->_on_connect_err(1,$_[1]); },
+			on_connect_err => sub { $self->_on_connect_err($_[1]); },
 			on_error => sub { $self->_on_error($_[1],$_[2]) },
 			on_eof => sub { $self->_on_disconnect; },
 			on_connect => sub { $self->{handle}->push_read( line => sub { $self->_on_connect(@_); } ); });
@@ -1180,11 +1180,7 @@ sub _login {
 sub disconnect {
 	my ($self) = @_;
 
-	$self->send_action({ Action => 'logoff' }) if ($_[0]{LOGGEDIN});
-		
-	$_[0]{LOGGEDIN} = 0;
-
-	$self->destroy(1);
+	$self->destroy();
 
 	#No socket? No Problem.
 	return 1;
@@ -1226,13 +1222,11 @@ sub amiver {
 sub connected {
 	my ($self, $timeout) = @_;
 	
-	my $return = 0;
-
-	if ($self) {	
-		$return = 1 if ($self->simple_action({ Action => 'Ping'}, $timeout));
+	if ($self && $self->simple_action({ Action => 'Ping'}, $timeout)) {	
+		return 1;
 	} 
 
-	return $return;
+	return 0;
 }
 
 #Check whether there was an error on the socket
@@ -1269,25 +1263,36 @@ sub _clear_cbs {
 
 #Cleans up 
 sub destroy {
-	my ($self, $fatal) = @_;
+	my ($self) = @_;
 
-	#Destroy our handle first to cause it to flush
-	$_[0]{handle}->destroy;
-	delete $_[0]{handle};
-	#Do our our flushing
-	$_[0]->_clear_cbs();
-	#Cleanup
-	delete $_[0]{CALLBACKS};
-	delete $_[0]{RESPONSEBUFFER};
-	delete $_[0]{EVENTBUFFER};
-	#unless ($fatal) {
-	#};
+	$self->DESTROY;
+
+	bless $self, "Asterisk::AMI::destroyed";
 }
 
+#Bye bye
 sub DESTROY {
-	#print "Destroying\r\n";
-	$_[0]->send_action({ Action => 'Logoff' }) if ($_[0]{LOGGEDIN});
-	$_[0]->destroy(1);
+	#Logoff
+	if ($_[0]{LOGGEDIN}) {
+		$_[0]->send_action({ Action => 'Logoff' });
+		undef $_[0]{LOGGEDIN};
+	}
+
+	#Destroy our handle first to cause it to flush
+	if ($_[0]{handle}) {
+		$_[0]{handle}->destroy();
+	}
+
+	#Do our own flushing
+	$_[0]->_clear_cbs();
+
+	#Cleanup, remove everything
+	%{$_[0]} = ();
+}
+
+sub Asterisk::AMI::destroyed::AUTOLOAD {
+	#Everything Fails!
+	return;
 }
 
 return 1;
