@@ -137,9 +137,7 @@ use version; our $VERSION = qv(0.1.9);
 sub new {
 	my ($class, %options) = @_;
 
-	my $self = $class->SUPER::new(%options);
-
-	return $self;
+	return $class->SUPER::new(%options);
 }
 
 sub meetme_list {
@@ -147,9 +145,9 @@ sub meetme_list {
 
 	my $action = $self->action({Action => 'MeetmeList'}, $timeout);
 
-	my $meetmes;
+	return unless ($action->{'GOOD'});
 
-	return $meetmes unless ($action->{'GOOD'});
+	my $meetmes;
 
 	foreach my $member (@{$action->{'EVENTS'}}) {
 		my $conf = $member->{'Conference'};
@@ -171,9 +169,9 @@ sub meetme_members {
 	my $action = $self->action({	Action => 'MeetmeList',
 					Conference => $conf}, $timeout) if (defined $conf);
 
-	my $meetme;
+	return unless ($action->{'GOOD'});
 
-	return $meetme unless ($action->{'GOOD'});
+	my $meetme;
 
 	foreach my $member (@{$action->{'EVENTS'}}) {
 		my $chan = $member->{'Channel'};
@@ -193,9 +191,9 @@ sub voicemail_list {
 
 	my $action = $self->action({ Action => 'VoicemailUsersList' }, $timeout);
 
-	my $vmusers;
+	return unless ($action->{'GOOD'});
 
-	return $vmusers unless ($action->{'GOOD'});
+	my $vmusers;
 
 	foreach my $box (@{$action->{'EVENTS'}}) {
 		my $context = $box->{'VMContext'};
