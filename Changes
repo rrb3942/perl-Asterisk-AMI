@@ -1,4 +1,10 @@
 Revision history for Perl extension Asterisk::AMI.
+0.1.10
+	- Added option 'OriginateHack', which makes changes to allow using the 'Originate' action with the 'Async'
+	option.
+	
+	- Added new subroutine 'loop', calls an event loop via AnyEvent.
+
 0.1.9
 	- Fixed a bug when the cli command 'database show' was used with a small asterisk database (single entry)
 	that would cause the response to not be parsed correctly, causing it to never complete. Also affected

@@ -6,7 +6,7 @@ Asterisk::AMI::Common - Extends the AMI module to provide simple access to commo
 
 =head1 VERSION
 
-0.1.9
+0.1.10
 
 =head1 SYNOPSIS
 
@@ -384,7 +384,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI);
 
-use version; our $VERSION = qv(0.1.9);
+use version; our $VERSION = qv(0.1.10);
 
 sub new {
 	my ($class, %options) = @_;
@@ -922,4 +922,4 @@ sub monitor_change {
 					File => $file }, $timeout);
 }
 
-return 1;
+1;

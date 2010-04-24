@@ -6,7 +6,7 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 
 =head1 VERSION
 
-0.1.9
+0.1.10
 
 =head1 SYNOPSIS
 
@@ -64,6 +64,7 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	on_error	A subroutine to call when an error occurs on the socket
 	on_disconnect	A subroutine to call when the remote end disconnects
 	on_timeout	A subroutine to call if our Keepalive times out
+	OriginateHack	Changes settings to allow Async Originates to work 0|1
 
 	'PeerAddr' defaults to 127.0.0.1.\n
 	'PeerPort' defaults to 5038.
@@ -100,6 +101,12 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 
 	'on_timeout' is called when a keep-alive has timed out, not when a normal action has. It is non-'fatal'.
 	The subroutine will be called with a copy of our AMI object and a message.
+
+	'OriginateHack' defaults to 0 (off). This essentially enables 'call' events and says 'discard all events
+	unless the user has explicitly enabled events' (prevents a memory leak). It does its best not to mess up
+	anything you have already set. Without this, if you use 'Async' with an 'Originate' the action will timeout
+	or never callback. You don't need this if you are already doing work with events, simply add 'call' events
+	to your eventmask. 
 	
 =head2 Warning - Mixing Event-loops and blocking actions
 
@@ -422,6 +429,10 @@ destroy ( [ FATAL ] )
 	it will also destroy our IO handle and its associated watcher. Mostly used internally. Useful if you want to
 	ensure that our IO handle watcher gets removed. 
 
+loop ()
+
+	Starts an eventloop via AnyEvent.
+
 =head1 See Also
 
 Asterisk::AMI::Common, Asterisk::AMI::Common::Dev
@@ -456,7 +467,7 @@ use Digest::MD5;
 use Scalar::Util qw/weaken/;
 
 #Duh
-use version; our $VERSION = qv(0.1.9);
+use version; our $VERSION = qv(0.1.10);
 
 #Used for storing events while reading command responses
 #Events are stored as hashes in the array
@@ -526,6 +537,9 @@ sub _configure {
 	$_[0]{BUFFERSIZE} = 30000;
 	$_[0]{BLOCK} = 1;
 
+	#Trigger stuff to make Originate with Async work, Fucking Lame.
+	$_[0]{OriginateHack} = $settings{'OriginateHack'} if (defined $settings{'OriginateHack'});
+
 	#Ugly any better way?
 	#Set values
 	$_[0]{USESSL} = $settings{'UseSSL'} if (defined $settings{'UseSSL'});
@@ -542,6 +556,22 @@ sub _configure {
 	$_[0]{EVENTHANDLERS} = $settings{'Handlers'} if (defined $settings{'Handlers'});
 	$_[0]{BLOCK} = $settings{'Blocking'} if (defined $settings{'Blocking'});
 	$_[0]{AUTHTYPE} = $settings{'AuthType'} if (defined $settings{'AuthType'});
+
+
+	#Make adjustments for Originate Async bullscrap
+	if ($_[0]{OriginateHack}) {
+		#Turn on call events, otherwise we wont get the Async response
+		if (lc($_[0]{EVENTS}) eq 'off') {
+			$_[0]{EVENTS} = 'call';
+			#Fake event type so that we will discard events, else by turning on events our event buffer
+			#Will just continue to fill up.
+			$_[0]{EVENTHANDLERS} = { 'JUSTMAKETHEHASHNOTEMPTY' => sub {} } unless ($_[0]{EVENTHANDLERS});
+		#They already turned events on, just add call types to it, assume they are doing something with events
+		#and don't mess with the handlers
+		} elsif (lc($_[0]{EVENTS}) !~ /on|call/) {
+			$_[0]{EVENTS} .= ',call';
+		}
+	}
 
 	#On Connect
 	$_[0]{ON}->{'connect'} = $settings{'on_connect'} if (defined $settings{'on_connect'});
@@ -729,16 +759,32 @@ sub _sort_and_buffer {
 	my $packet = $_[1];
 
 	if (exists $packet->{'ActionID'}) {
+		#use Data::Dumper;
+		#print Dumper $packet;
 
 		#Snag our actionid
 		my $actionid = $packet->{'ActionID'};
 
 		return unless ($_[0]{EXPECTED}->{$actionid});
 
-		if (exists $packet->{'Response'}) {
+		if (exists $packet->{'Event'}) {
+			#EventCompleted Event?
+			if ($packet->{'Event'} =~ /[cC]omplete/o) {
+				$_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
+			} else {
+				#DBGetResponse and Originate Async Exceptions
+				if ($packet->{'Event'} eq 'DBGetResponse' || $packet->{'Event'} eq 'OriginateResponse') {
+					$_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
+				}
+				
+				push(@{$_[0]{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
+			}
+
+		} elsif (exists $packet->{'Response'}) {
 			#If No indication of future packets, mark as completed
 			if ($packet->{'Response'} ne 'Follows') {
-				if (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/o) {
+				#Originate Async Exception is the first test
+				if (!$_[0]{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/o)) {
 					$packet->{'COMPLETED'} = 1;
 				}
 			} 
@@ -753,21 +799,8 @@ sub _sort_and_buffer {
 					$_[0]{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
 				}
 			 }
-			
-		} elsif (exists $packet->{'Event'}) {
-			#EventCompleted Event?
-			if ($packet->{'Event'} =~ /[cC]omplete/o) {
-				$_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
-			} else {
-				#DBGetResponse Exception
-				if ($packet->{'Event'} eq 'DBGetResponse') {
-					$_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
-				}
-				
-				push(@{$_[0]{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
-			}
 		}
-
+	
 		#This block handles callbacks
 		if ($_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'}) {
 			#This aciton is finished do not accept any more packets for it
@@ -787,6 +820,10 @@ sub _sort_and_buffer {
 				#cleanup
 				delete $_[0]{RESPONSEBUFFER}->{$actionid};
 				delete $_[0]{CALLBACKS}->{$actionid};
+
+				#Delete Originate Async bullshit
+				delete $response->{'ASYNC'};
+
 				$callback->($_[0], $response);
 			}
 		}
@@ -899,8 +936,14 @@ sub send_action {
 	#Create an action out of a hash
 	while (my ($key, $value) = each(%{$actionhash})) {
 
+		my $lkey = lc($key);
 		#Clean out user ActionIDs
-		next if (lc $key eq 'actionid');
+		if ($lkey eq 'actionid') {
+			next;
+		#Exception of Orignate Async
+		} elsif ($lkey eq 'async' && $value == 1) {
+			$_[0]{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
+		}
 
 		if (ref($value) eq 'ARRAY') {
 			foreach my $var (@{$value}) {
@@ -1270,6 +1313,11 @@ sub destroy {
 	bless $self, "Asterisk::AMI::destroyed";
 }
 
+#Runs the AnyEvent loop
+sub loop {
+	AnyEvent->loop;
+}
+
 #Bye bye
 sub DESTROY {
 	#Logoff
@@ -1295,5 +1343,4 @@ sub Asterisk::AMI::destroyed::AUTOLOAD {
 	return;
 }
 
-return 1;
-
+1;
