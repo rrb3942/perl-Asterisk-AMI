@@ -1,5 +1,7 @@
 Revision history for Perl extension Asterisk::AMI.
 0.1.10
+	- Added exception for the 'Originate' command while using the 'Async' option.
+
 	- Added option 'OriginateHack', which makes changes to allow using the 'Originate' action with the 'Async'
 	option.
 	
