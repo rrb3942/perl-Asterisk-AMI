@@ -759,9 +759,6 @@ sub _sort_and_buffer {
 	my $packet = $_[1];
 
 	if (exists $packet->{'ActionID'}) {
-		#use Data::Dumper;
-		#print Dumper $packet;
-
 		#Snag our actionid
 		my $actionid = $packet->{'ActionID'};
 
