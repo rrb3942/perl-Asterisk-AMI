@@ -402,16 +402,18 @@ sub commands {
 	#Early bail out on bad response
 	return unless ($action->{'GOOD'});
 
-	my $commands;
+	my %commands;
 
-	foreach my $cmd (@{$action->{'DATA'}}) {
-		$cmd =~ /^([^:]+): (.+) \(Priv: (.+)\)$/o;
-		$commands->{$1}->{'Desc'} = $2;
-		my @privs = split /,/o,$3;
-		$commands->{$1}->{'Priv'} = \@privs;
+	while (my ($cmd, $desc) = each %{$action->{'PARSED'}}) {
+		$desc =~ s/\s*\(Priv: (.+)\)$//;
+
+		my @privs = split /,/,$1;
+
+		$commands{$cmd}->{'Desc'} = $desc;
+		$commands{$cmd}->{'Priv'} = \@privs;
 	}
 
-	return $commands;
+	return \%commands;
 
 }
 

@@ -56,7 +56,7 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	BufferSize	Maximum size of buffer, in number of actions
 	Timeout		Default timeout of all actions in seconds
 	Handlers	Hash reference of Handlers for events	{ 'EVENT' => \&somesub };
-	Keepalive	Interval (in seconds) to periodically sends 'Ping' actions to asterisk
+	Keepalive	Interval (in seconds) to periodically send 'Ping' actions to asterisk
 	TCP_Keepalive	Enables/Disables SO_KEEPALIVE option on the socket	0|1
 	Blocking	Enable/Disable blocking connects	0|1
 	on_connect	A subroutine to run after we connect
@@ -74,20 +74,22 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	'Secret' has no default and must be supplied.
 	'AuthType' sets the authentication type to use for login. Default is 'plaintext'.  Use 'MD5' for MD5 challenge
 	authentication.
-	'UseSSL' defaults to 0 (no ssl). When SSL is enabled the default port changes to 5039.
+	'UseSSL' defaults to 0 (no ssl). When SSL is enabled the default PeerPort changes to 5039.
 	'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
-	'Timeout' has a default of 0, which means no timeout or blocking.
-	'Handlers' accepts a hash reference setting a callback handler for the specified event. EVENT should match the what
+	'Timeout' has a default of 0, which means no timeout on blocking.
+	'Handlers' accepts a hash reference setting a callback handler for the specified event. EVENT should match
 	the contents of the {'Event'} key of the event object will be. The handler should be a subroutine reference that
 	will be passed the a copy of the AMI object and the event object. The 'default' keyword can be used to set
 	a default event handler. If handlers are installed we do not buffer events and instead immediately dispatch them.
 	If no handler is specified for an event type and a 'default' was not set the event is discarded.
-	'Keepalive' only works when running with an event loop.
-	'TCP_Keepalive' default is disabled. Actives the tcp keep-alive at the socket layer. This does not require 
+	'Keepalive' only works when running with an event loop. Used with on_timeout, this can be used to detect if
+	asterisk has become un-responsive.
+	'TCP_Keepalive' default is disabled. Activates the tcp keep-alive at the socket layer. This does not require 
 	an event-loop and is lightweight. Useful for applications that use long-lived connections to Asterisk but 
 	do not run an event loop.
 	'Blocking' has a default of 1 (block on connecting). A value of 0 will cause us to queue our connection
 	and login for when an event loop is started. If set to non blocking we will always return a valid object.
+
 	'on_connect' is a subroutine to call when we have successfully connected and logged into the asterisk manager.
 	it will be passed our AMI object.
 
@@ -738,11 +740,11 @@ sub _handle_packet {
 				$parsed{'COMPLETED'} = 1;
 
 				push(@{$parsed{'CMD'}},split(/\x20*\x0A/o, $line));
-			#Can we parse and store this line nicely in a hash?
-			} elsif ($line =~ /^([^:]+): ([^:]+)$/o) {
-				$parsed{$1} = $2;
-			} elsif ($line) {
-				push(@{$parsed{'DATA'}}, $line);
+			} else {
+				my ($key, $value) = split /: /, $line, 2;
+
+				$parsed{$key} = $value;
+
 			}
 		}
 
@@ -897,7 +899,7 @@ sub _wait_response {
 #Accepts an Array
 #Returns the actionid of the action
 sub send_action {
-	my ($self, $actionhash) = @_;
+	my ($self, $actionhash, $callback, $timeout) = @_;
 
 	#No connection
 	return unless ($_[0]{handle});
@@ -917,13 +919,23 @@ sub send_action {
 	delete $_[0]{CALLBACKS}->{$id};
 
 	#Set default timeout
-	$actionhash->{'TIMEOUT'} = $_[0]{TIMEOUT} unless (defined $actionhash->{'TIMEOUT'});
-
-	#Assign Callback
-	$_[0]{CALLBACKS}->{$id}->{'cb'} = $actionhash->{'CALLBACK'} if (defined $actionhash->{'CALLBACK'});
+	#$actionhash->{'TIMEOUT'} = $_[0]{TIMEOUT} unless (defined $actionhash->{'TIMEOUT'});
 
 	#Get a copy of our timeout
-	my $timeout = $actionhash->{'TIMEOUT'};
+	#Deprecated
+	if (!defined $timeout && defined $actionhash->{'TIMEOUT'}) {
+		$timeout = $actionhash->{'TIMEOUT'};
+	}
+
+	$timeout = $_[0]{TIMEOUT} unless (defined $timeout);
+
+	#Deprecated
+	if (!defined $callback && defined $actionhash->{'CALLBACK'}) {
+		$callback = $actionhash->{'CALLBACK'};
+	}
+
+	#Assign Callback
+	$_[0]{CALLBACKS}->{$id}->{'cb'} = $callback if (defined $callback);
 
 	delete $actionhash->{'TIMEOUT'};
 	delete $actionhash->{'CALLBACK'};
