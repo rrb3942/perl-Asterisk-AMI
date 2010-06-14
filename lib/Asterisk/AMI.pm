@@ -112,10 +112,10 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	
 =head2 Warning - Mixing Event-loops and blocking actions
 
-	If you are running an event loop and use blocking methods (anything that accepts it's timeout outside of 
-	the action hash e.g. get_response, check_response, action, connected) the outcome is unspecified. It may work,
-	it may lock everything up, the action may work but break something else. I have tested it and behavior seems
-	unpredictable at best and is very circumstantial.
+	If you are running an event loop and use blocking methods (e.g. get_response, check_response, action,
+	simple_action, connected) the outcome is unspecified. It may work, it may lock everything up, the action may
+	work but break something else. I have tested it and behavior seems unpredictable at best and is very
+	circumstantial.
 
 	If you are running an event-loop use non-blocking callbacks! It is why they are there!
 
@@ -223,20 +223,104 @@ action() combines send_action() and get_response(), and therefore returns a Resp
 						Command => 'sip show peers'
 				});
 
+=head4 Orignate Examples
+	I see enough searches hit my site for this that I figure it should be included in the documentation.
+	These don't include non-blocking examples, please read the section on 'Callbacks' below for information
+	on using non-blocking callbacks and events.
+
+	NOTE: Please read about the 'OriginateHack' option for the constructor above if you plan on using the 'Async'
+	option in your Originate command, as it may be required to properly retrieve the response.
+
+	In these examples we are dialing extension '12345' at a sip peer named 'peer' and when the call connects
+	we drop the channel into 'some_context' at priority 1 for extension 100.
+
+	Example 1 - A simple non-ASYNC Originate
+
+	my $response = $astman->action({Action => 'Originate',
+					Channel => 'SIP/peer/12345',
+					Context => 'some_context',
+					Exten => 100,
+					Priority => 1});
+
+	And the contents of respone will look similiar to the following:
+
+	{
+		'Message' => 'Originate successfully queued',
+		'ActionID' => '3',
+		'GOOD' => 1,
+		'COMPLETED' => 1,
+		'Response' => 'Success'
+        };
+
+	Example 2 - Originate with multiple variables
+	This will set the channel variables 'var1' and 'var2' to 1 and 2, respectfully.
+	The value for the 'Variable' key should be an array reference or an anonymous array in order
+	to set multiple variables.
+
+	my $response = $astman->action({Action => 'Originate',
+					Channel => 'SIP/peer/12345',
+					Context => 'some_context',
+					Exten => 100,
+					Priority => 1,
+					Variable = [ 'var1=1', 'var2=2' ]});
+
+	Example 3 - An Async Originate
+	If youre Async Originate never returns please read about the 'OriginateHack' option for the constructor.
+
+	my $response = $astman->action({Action => 'Originate',
+					Channel => 'SIP/peer/12345',
+					Context => 'some_context',
+					Exten => 100,
+					Priority => 1,
+					Async => 1});
+
+	And the contents of response will look similiar to the following:
+
+	{
+		'Message' => 'Originate successfully queued',
+		'EVENTS' => [
+			{
+				'Exten' => '100',
+				'CallerID' => '<unknown>',
+				'Event' => 'OriginateResponse',
+				'Privilege' => 'call,all',
+				'Channel' => 'SIP/peer-009c5510',
+				'Context' => 'some_context',
+				'Response' => 'Success',
+				'Reason' => '4',
+				'CallerIDName' => '<unknown>',
+				'Uniqueid' => '1276543236.82',
+				'ActionID' => '3',
+				'CallerIDNum' => '<unknown>'
+			}
+			],
+		'ActionID' => '3',
+		'GOOD' => 1,
+		'COMPLETED' => 1,
+		'Response' => 'Success'
+	};
+
+	More Info:
+	Check out the voip-info.org page for more information on the Originate action.
+	http://www.voip-info.org/wiki/view/Asterisk+Manager+API+Action+Originate
+					
 =head3 Callbacks
 
 	You may also specify a method to callback when using send_action as well as a timeout.
 
 	An example of this would be:
-	send_action({	Action => 'Ping',
-			CALLBACK => \&somemethod,
-			TIMEOUT => 7 });
+	$astman->send_action({	Action => 'Ping',
+				CALLBACK => \&somemethod,
+				TIMEOUT => 7 });
+
+	Equivalent in the new alternative sytanx:
+	$astman->send_action({ Action => 'Ping' }, \&somemethod, 7);
 
 In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object 
 and the Response Object for the action. If TIMEOUT is not specified it will use the default set. A value of 0 means 
 no timeout. When the timeout is reached somemethod() will be called and passed a reference to the our $astman and
 the uncompleted Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'}
-is usually a good indication if the object is useable.
+is usually a good indication if the response is useable.
 
 Callback Caveats
 
@@ -244,20 +328,19 @@ Callbacks only work if we are processing packets, therefore you must be running 
 mini-event loops for our blocking calls (e.g. action(), get_action()), so in theory if you set callbacks and then
 issue a blocking call those callbacks should also get triggered. However this is an unsupported scenario.
 
-Timeouts are done using timers, depending on how your event loop works it may be relative or absolute. Either way they are
-set as soon as you send the object. Therefore if you send an action with a timeout and then monkey around for a long time
-before getting back to your event loop (to process input) you can time out before ever even attempting to receive
-the response. 
+Timeouts are done using timers and they are set as soon as you send the object. Therefore if you send an action with a
+timeout and then monkey around for a long time before getting back to your event loop (to process input) you can time
+out before ever even attempting to receive the response. 
 
 	A very contrived example:
-	send_action({	Action => 'Ping',
-			CALLBACK => \&somemethod,
-			TIMEOUT => 3 });
+	$astman->send_action({	Action => 'Ping',
+				CALLBACK => \&somemethod,
+				TIMEOUT => 3 });
 
 	sleep(4);
 
-	#Start some loop
-	someloop;
+	#Start loop
+	$astman->loop;
 	#Oh no we never even tried to get the response yet it will still time out
 
 =head3 ActionIDs
@@ -275,7 +358,6 @@ This module handles ActionIDs internally and if you supply one in an action it w
 		   {'Message'}		Message line of the response.
 		   {'EVENTS'}		Array reference containing Event Objects associated with this actionid.
 		   {'PARSED'}		Hash reference of lines we could parse into key->value pairs.
-		   {'DATA'}		Array reference of lines that we could not parse.
 		   {'CMD'}		Contains command output from 'Action: Command's. It is an array reference.
 		   {'COMPLETED'}	1 if completed, 0 if not (timeout)
 		   {'GOOD'}		1 if good, 0 if bad. Good means no errors and COMPLETED.
@@ -293,7 +375,9 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 =head3 Event Handlers
 
-	Here is a very simple example of how to use event handlers.
+	Here is a very simple example of how to use event handlers. Please note that the key for the event handler
+	is matched against the event type that asterisk sends. For example if asterisk sends 'Event: Hangup' you use a
+	key of 'Hangup' to match it. This works for any event type that asterisk sends.
 
 	my $astman = Asterisk::AMI->new(PeerAddr	=>	'127.0.0.1',
 					PeerPort	=>	'5038',
@@ -367,10 +451,14 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 =head2 Methods
 
-send_action ( ACTION )
+send_action ( ACTION, [ [ CALLBACK ], [ TIMEOUT ] ] )
 
-	Sends the action to asterisk. If no errors occurred while sending it returns the ActionID for the action,
-	which is a positive integer above 0. If it encounters an error it will return undef.
+	Sends the action to asterisk, where ACTION is a hash reference. If no errors occurred while sending it returns
+	the ActionID for the action, which is a positive integer above 0. If it encounters an error it will return undef.
+	You may specify a callback function and timeout either in the ACTION hash or in the method call. CALLBACK is
+	optional and should be a subroutine reference or any anonymous subroutine. TIMEOUT is optional and only has an
+	affect if a CALLBACK is specified. CALLBACKs and TIMEOUTs specified during a method call override any found in
+	the ACTION hash.
 	
 check_response( [ ACTIONID ], [ TIMEOUT ] )
 
@@ -482,7 +570,6 @@ use version; our $VERSION = qv(0.1.10);
 #			     {'Message'}	= Message 				//Message in the response
 #			     {'EVENTS'}		= [%hash1, %hash2, ..]		//Arry of Hashes of parsed events and data for this actionID
 #			     {'PARSED'}		= { Hashkey => value, ...}
-#			     {'DATA'}		= [$line1, $line2, ...]			//Array of unparsable data
 #			     {'COMPLETED'}	= 0 or 1				//If the command is completed
 #			     {'GOOD'}		= 0 or 1 //if this responses is good, no error, can only be 1 if also COMPLETED
 
@@ -741,6 +828,7 @@ sub _handle_packet {
 
 				push(@{$parsed{'CMD'}},split(/\x20*\x0A/o, $line));
 			} else {
+			#Regular output, split on :\ 
 				my ($key, $value) = split /: /, $line, 2;
 
 				$parsed{$key} = $value;
@@ -792,8 +880,6 @@ sub _sort_and_buffer {
 			foreach (keys %{$packet}) {	
 				if ($_ =~ /^(?:Response|Message|ActionID|Privilege|CMD|COMPLETED)$/o) {
 					$_[0]{RESPONSEBUFFER}->{$actionid}->{$_} =  $packet->{$_};
-				} elsif ($_ eq 'DATA') {
-					push(@{$_[0]{RESPONSEBUFFER}->{$actionid}->{$_}}, @{$packet->{$_}});
 				} else {
 					$_[0]{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
 				}
