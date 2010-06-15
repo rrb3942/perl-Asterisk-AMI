@@ -1,4 +1,20 @@
 Revision history for Perl extension Asterisk::AMI.
+0.2.0
+	- Added new syntax for using callbacks with the send_action method. Old syntax still works.
+	Check documentation for this method for more details.
+
+	- Changed method of parsing from a regex to a simple split. This was possible due to previous
+	changes in the order that we parsed input. Results are more accurate parsing and better performance.
+	
+	- Removed the need for the 'DATA' key due to above parsing improvements. All input now creates a key
+	in the appropriate hash.
+
+	- Manager lines with empty values ( e.g. 'Account: ' in an event) are no longer placed
+	in 'DATA' and are instead parsed properly and contain the null string as a value ( test for '' ).
+
+	- Added documentation examples for the Originate Action
+
+	- Update documenation
 0.1.10
 	- Added exception for the 'Originate' command while using the 'Async' option.
 

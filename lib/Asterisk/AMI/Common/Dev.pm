@@ -6,7 +6,7 @@ Asterisk::AMI::Common::Dev - Extends AMI::Common to include functions for the cu
 
 =head1 VERSION
 
-0.1.10
+0.2.0
 
 =head1 SYNOPSIS
 
@@ -70,24 +70,33 @@ meetme_members ( ROOMNUM [, TIMEOUT ] )
 
 voicemail_list ( [ TIMEOUT ] )
 
-	Returns a hash reference of all mailboxes on the system, or unde if an error occurred.
+	Returns a hash reference of all mailboxes on the system, or undef if an error occurred.
 	TIMEOUT is optional.
 
 	Hash reference:
-	$hashref->{context}->{mailbox}->{'Pager'}
-                                        {'SayEnvelope'}
-                                        {'AttachMessage'}
-                                        {'SayCID'}
-                                        {'CanReview'}
-                                        {'DeleteMessage'}
-                                        {'Email'}
-                                        {'MaxMessageLength'}
-                                        {'SayDurationMinimum'}
-                                        {'CallOperator'}
-                                        {'NewMessageCount'}
-                                        {'MaxMessageCount'}
-                                        {'Fullname'}
-                                        {'VolumeGain'}
+	$hashref->{context}->{mailbox}->{'AttachmentFormat'}
+					{'TimeZone'}
+					{'Pager'}
+					{'SayEnvelope'}
+					{'ExitContext'}
+					{'AttachMessage'}
+					{'SayCID'}
+					{'ServerEmail'}
+					{'CanReview'}
+					{'DeleteMessage'}
+					{'UniqueID'}
+					{'Email'}
+					{'MaxMessageLength'}
+					{'CallOperator'}
+					{'SayDurationMinimum'}
+					{'NewMessageCount'}
+					{'Language'}
+					{'MaxMessageCount'}
+					{'Fullname'}
+					{'Callback'}
+					{'MailCommand'}
+					{'VolumeGain'}
+					{'Dialout'}
 
 text ( CHANNEL, MESSAGE [, TIMEOUT ] )
 
@@ -132,7 +141,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI::Common);
 
-use version; our $VERSION = qv(0.1.10);
+use version; our $VERSION = qv(0.2.0);
 
 sub new {
 	my ($class, %options) = @_;
@@ -154,7 +163,6 @@ sub meetme_list {
 		my $chan = $member->{'Channel'};
 		delete $member->{'Conference'};
 		delete $member->{'ActionID'};
-		delete $member->{'TIMESTAMP'};
 		delete $member->{'Channel'};
 		delete $member->{'Event'};
 		$meetmes->{$conf}->{$chan} = $member;
@@ -177,7 +185,6 @@ sub meetme_members {
 		my $chan = $member->{'Channel'};
 		delete $member->{'Conference'};
 		delete $member->{'ActionID'};
-		delete $member->{'TIMESTAMP'};
 		delete $member->{'Channel'};
 		delete $member->{'Event'};
 		$meetme->{$chan} = $member;
@@ -202,8 +209,6 @@ sub voicemail_list {
 		delete $box->{'VMContext'};
 		delete $box->{'VoiceMailbox'};
 		delete $box->{'ActionID'};
-		delete $box->{'TIMESTAMP'};
-		delete $box->{'DATA'};
 		delete $box->{'Event'};
 		$vmusers->{$context}->{$user} = $box;
 	}

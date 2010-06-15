@@ -6,7 +6,7 @@ Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interfac
 
 =head1 VERSION
 
-0.1.10
+0.2.0
 
 =head1 SYNOPSIS
 
@@ -560,7 +560,7 @@ use Digest::MD5;
 use Scalar::Util qw/weaken/;
 
 #Duh
-use version; our $VERSION = qv(0.1.10);
+use version; our $VERSION = qv(0.2.0);
 
 #Used for storing events while reading command responses
 #Events are stored as hashes in the array
