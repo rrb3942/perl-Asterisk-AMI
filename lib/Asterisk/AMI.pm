@@ -349,6 +349,10 @@ This module handles ActionIDs internally and if you supply one in an action it w
 
 =head2 Responses and Events
 
+	NOTE: Empty fields sent by Asterisk (e.g. 'Account: ' with no value in an event) are represented by the hash
+	value of null string, not undef. This means you need to test for ''
+	(e.g. if ($response->{'Account'} ne '')) ) for any values that might be possibly be empty.
+
 =head3 Responses
 
 	Responses are returned as response objects, which are hash references, structured as follows:
@@ -361,7 +365,6 @@ This module handles ActionIDs internally and if you supply one in an action it w
 		   {'CMD'}		Contains command output from 'Action: Command's. It is an array reference.
 		   {'COMPLETED'}	1 if completed, 0 if not (timeout)
 		   {'GOOD'}		1 if good, 0 if bad. Good means no errors and COMPLETED.
-
 
 =head3 Events
 
