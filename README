@@ -1,4 +1,6 @@
-Asterisk::AMI version 0.1.10
+Asterisk::AMI is Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+
+Asterisk::AMI version 0.2.0
 ================
 
 DESCRIPTION
@@ -37,10 +39,12 @@ Note on SSL Support for CentOS/Redhat:
 
 If the version of Net:SSLeay included in CentOS/Redhat does not work try installing an updated version from CPAN.
 
-COPYRIGHT AND LICENCE
+LICENSE
 
-Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+This module is free software.  You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself, either Perl version 5.10.1 or,
-at your option, any later version of Perl 5 you may have available.
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+

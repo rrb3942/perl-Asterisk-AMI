@@ -368,13 +368,16 @@ Ryan Bullock (rrb3942@gmail.com)
 Please report any bugs or errors to our github issue tracker at http://github.com/rrb3942/perl-Asterisk-AMI/issues
 or the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=perl-Asterisk-AMI
 
-=head1 COPYRIGHT
+=head1 LICENSE
 
 Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
 
-This library is free software; you can redistribute it and/or
-modify it under the same terms as Perl itself.
+This module is free software.  You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
 
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
 =cut
 
 package Asterisk::AMI::Common;
