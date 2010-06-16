@@ -66,7 +66,7 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	on_timeout	A subroutine to call if our Keepalive times out
 	OriginateHack	Changes settings to allow Async Originates to work 0|1
 
-	'PeerAddr' defaults to 127.0.0.1.\n
+	'PeerAddr' defaults to 127.0.0.1.
 	'PeerPort' defaults to 5038.
 	'Events' default is 'off'. May be anything that the AMI will accept as a part of the 'Events' parameter for the 
 	login action.
@@ -223,7 +223,8 @@ action() combines send_action() and get_response(), and therefore returns a Resp
 						Command => 'sip show peers'
 				});
 
-=head4 Orignate Examples
+=head3 Orignate Examples
+
 	I see enough searches hit my site for this that I figure it should be included in the documentation.
 	These don't include non-blocking examples, please read the section on 'Callbacks' below for information
 	on using non-blocking callbacks and events.
