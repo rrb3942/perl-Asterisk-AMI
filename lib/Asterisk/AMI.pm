@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-Asterisk::AMI - Perl moduling for interacting with the Asterisk Manager Interface
+Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
@@ -223,7 +223,7 @@ action() combines send_action() and get_response(), and therefore returns a Resp
 						Command => 'sip show peers'
 				});
 
-=head3 Orignate Examples
+=head3 Originate Examples
 
 	I see enough searches hit my site for this that I figure it should be included in the documentation.
 	These don't include non-blocking examples, please read the section on 'Callbacks' below for information

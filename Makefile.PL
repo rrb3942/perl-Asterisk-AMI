@@ -15,6 +15,11 @@ WriteMakefile(
 			   "Digest::MD5" => 0,
 			   "Scalar::Util" => 0
 			},
+    META_MERGE        => { 'recommends' => { 'EV' => 0,
+                                             'Net::SSLeay' => 0
+                                           }
+                        },
+    LICENSE	      => 'artistic_2',
     ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
       (ABSTRACT_FROM  => 'lib/Asterisk/AMI.pm', # retrieve abstract from module
        AUTHOR         => 'Ryan Bullock <rrb3942@gmail.com>') : ()),

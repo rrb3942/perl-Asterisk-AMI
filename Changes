@@ -15,6 +15,8 @@ Revision history for Perl extension Asterisk::AMI.
 	- Added documentation examples for the Originate Action
 
 	- Update documenation
+
+	- Switch to the Artistic License 2
 0.1.10
 	- Added exception for the 'Originate' command while using the 'Async' option.
 
