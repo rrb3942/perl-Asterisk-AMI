@@ -17,6 +17,8 @@ Revision history for Perl extension Asterisk::AMI.
 	- Update documenation
 
 	- Switch to the Artistic License 2
+
+	- Improved Package for CPAN, META.yml now included
 0.1.10
 	- Added exception for the 'Originate' command while using the 'Async' option.
 
