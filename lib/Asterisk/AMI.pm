@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.0
+0.2.1
 
 =head1 SYNOPSIS
 
@@ -208,9 +208,9 @@ action() combines send_action() and get_response(), and therefore returns a Resp
 						Command => 'sip show peers'
 				});
 
-	my $response3 = $actan->get_response($actionid3);
-	my $response1 = $actan->get_response($actionid1);
-	my $response2 = $actan->get_response($actionid2);
+	my $response3 = $astman->get_response($actionid3);
+	my $response1 = $astman->get_response($actionid1);
+	my $response2 = $astman->get_response($actionid2);
 
 	Can be much faster than:
 	my $response1 =	$astman->action({	Action => 'Command',
@@ -565,7 +565,7 @@ use Digest::MD5;
 use Scalar::Util qw/weaken/;
 
 #Duh
-use version; our $VERSION = qv(0.2.0);
+use version; our $VERSION = qv(0.2.1);
 
 #Used for storing events while reading command responses
 #Events are stored as hashes in the array
@@ -960,6 +960,8 @@ sub _wait_response {
 	if ($_[0]{RESPONSEBUFFER}->{$id}->{'COMPLETED'}) {
 		my $resp = $_[0]{RESPONSEBUFFER}->{$id};
 		delete $_[0]{RESPONSEBUFFER}->{$id};
+		delete $_[0]{CALLBACKS}->{$id};
+		delete $_[0]{EXPECTED}->{$id};
 		return $resp;
 	}
 
