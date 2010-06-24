@@ -4,6 +4,9 @@ Revision history for Perl extension Asterisk::AMI.
 	- Fixed a bug where we would leave an empty value in callbacks on a get_response if the response was already in the
 	buffer. Only error message for this happend once the Asterisk::AMI object went away and attempted to flush all
 	pending callbacks.
+	
+	- Require AnyEvent 5.2 or newer, as a feature we rely on was introduced in that release. Note, I have only tested as far back
+	as version 5.26.
 
 0.2.0
 	- Added new syntax for using callbacks with the send_action method. Old syntax still works.
