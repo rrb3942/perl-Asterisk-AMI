@@ -6,7 +6,7 @@ Asterisk::AMI::Common::Dev - Extends AMI::Common to include functions for the cu
 
 =head1 VERSION
 
-0.2.1
+0.2.2
 
 =head1 SYNOPSIS
 
@@ -52,6 +52,7 @@ meetme_list ( [ TIMEOUT ] )
                                                {'MarkedUser'}
                                                {'CallerIDNum'}
                                                {'Admin'}
+
 meetme_members ( ROOMNUM [, TIMEOUT ] )
 
 	Returns a hash reference containing all members of a meetme conference, or undef if an error occurred.
@@ -145,7 +146,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI::Common);
 
-use version; our $VERSION = qv(0.2.1);
+use version; our $VERSION = qv(0.2.2);
 
 sub new {
 	my ($class, %options) = @_;

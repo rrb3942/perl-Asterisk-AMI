@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.1
+0.2.2
 
 =head1 SYNOPSIS
 
@@ -565,7 +565,7 @@ use Digest::MD5;
 use Scalar::Util qw/weaken/;
 
 #Duh
-use version; our $VERSION = qv(0.2.1);
+use version; our $VERSION = qv(0.2.2);
 
 #Used for storing events while reading command responses
 #Events are stored as hashes in the array
@@ -685,6 +685,7 @@ sub _configure {
 
 	#Weaken reference for use in anonsub
 	weaken($self);
+
 	#Set keepalive
 	$_[0]{keepalive} = AE::timer($_[0]{KEEPALIVE}, $_[0]{KEEPALIVE}, sub { $self->_send_keepalive }) if ($_[0]{KEEPALIVE});
 	
@@ -984,6 +985,9 @@ sub _wait_response {
 				delete $self->{EXPECTED}->{$id};
 				$process->send($response);
 			};
+
+		#Make sure event loop is up to date in case of sleeps
+		AE::now_update;
 
 		$_[0]{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{$id}->{'timeout'};
 	}
@@ -1352,6 +1356,10 @@ sub get_event {
 		$timeout = $_[0]{TIMEOUT} unless (defined $timeout);
 
 		if ($timeout) {
+
+			#Make sure event loop is up to date in case of sleeps
+			AE::now_update;	
+
 			$_[0]{CALLBACKS}->{'EVENT'}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{'EVENT'}->{'timeout'}; 
 		}
 
