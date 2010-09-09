@@ -1,6 +1,6 @@
 Revision history for Perl extension Asterisk::AMI.
 
-0.2.2   - Added a call to AE::now_update to blocking methods to force the time for the event loop to update. Fixes an
+0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
 	  blocking call would return a timeout (rt #61148).
 
