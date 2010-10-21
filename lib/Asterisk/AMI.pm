@@ -123,6 +123,10 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 
 =head2 Actions
 
+=head3 ActionIDs
+
+This module handles ActionIDs internally and if you supply one in an action it will simply be ignored and overwritten. 
+
 =head3 Construction
 
 No matter which method you use to send an action (send_action(), simple_action(), or action()), they all accept
@@ -323,7 +327,7 @@ no timeout. When the timeout is reached somemethod() will be called and passed a
 the uncompleted Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'}
 is usually a good indication if the response is useable.
 
-Callback Caveats
+=head3 Callback Caveats
 
 Callbacks only work if we are processing packets, therefore you must be running an event loop. Alternatively, we run 
 mini-event loops for our blocking calls (e.g. action(), get_action()), so in theory if you set callbacks and then
@@ -344,9 +348,53 @@ out before ever even attempting to receive the response.
 	$astman->loop;
 	#Oh no we never even tried to get the response yet it will still time out
 
-=head3 ActionIDs
+=head2 Storing/Passing Variables in and Action Response
 
-This module handles ActionIDs internally and if you supply one in an action it will simply be ignored and overwritten. 
+Sometimes, when working in an event framework, you want a way to associate/map the response to an action with another 
+identifier used in your application. Normally you would have to maintain some sort of seperate mapping involving the
+ActionID to accomplish this. This modules provides a generic way to pass any perl scalar (this includes references)
+with your action which is then returned in the response.
+
+=head3 Storing
+
+To store a value to be retrieved from the response later you can use the special hash key of 'Store' in the action hash.
+
+For example to store a simple scalar value:
+
+	my $vartostore = "Stored";
+
+	$astman->send_action({	Action => 'Ping',
+				Store => $vartostore });
+
+And to store a reference:
+
+	my @vartostore = ("One", "Two");
+
+	$astman->send_action({	Action => 'Ping',
+				Store => \@vartostore });
+
+=head3 Retrieving
+
+Retrieving the stored variable is as simple as accessing the 'Store' key in the response.
+
+To retrieve a store using get_action:
+
+	my $resp = $astman->get_action($actionid);
+
+	print $resp->{'Store'} . " was stored\n";
+
+To retrive in a callback:
+
+	my ($astman, $resp) = @_;
+
+	print $resp->{'Store'} . " was stored\n";
+
+=head3 Case Sensitivity
+	
+The case of the 'Store' key is maintained. If you use 'store' to store the value you must use 'store' to retrieve it. 
+Likewise if you use 'STORE' to store it you must use 'STORE' to retrieve it.
+
+Storing it using the 'store' key and then trying to retrieve it by accessing the 'STORE' key will not work.
 
 =head2 Responses and Events
 
@@ -366,6 +414,7 @@ This module handles ActionIDs internally and if you supply one in an action it w
 		   {'CMD'}		Contains command output from 'Action: Command's. It is an array reference.
 		   {'COMPLETED'}	1 if completed, 0 if not (timeout)
 		   {'GOOD'}		1 if good, 0 if bad. Good means no errors and COMPLETED.
+		   {'Store'}		Stored variable
 
 =head3 Events
 
@@ -1018,40 +1067,31 @@ sub send_action {
 	delete $_[0]{RESPONSEBUFFER}->{$id};
 	delete $_[0]{CALLBACKS}->{$id};
 
-	#Set default timeout
-	#$actionhash->{'TIMEOUT'} = $_[0]{TIMEOUT} unless (defined $actionhash->{'TIMEOUT'});
-
-	#Get a copy of our timeout
-	#Deprecated
-	if (!defined $timeout && defined $actionhash->{'TIMEOUT'}) {
-		$timeout = $actionhash->{'TIMEOUT'};
-	}
-
-	$timeout = $_[0]{TIMEOUT} unless (defined $timeout);
-
-	#Deprecated
-	if (!defined $callback && defined $actionhash->{'CALLBACK'}) {
-		$callback = $actionhash->{'CALLBACK'};
-	}
-
-	#Assign Callback
-	$_[0]{CALLBACKS}->{$id}->{'cb'} = $callback if (defined $callback);
-
-	delete $actionhash->{'TIMEOUT'};
-	delete $actionhash->{'CALLBACK'};
-
 	my $action;
 
 	#Create an action out of a hash
 	while (my ($key, $value) = each(%{$actionhash})) {
 
 		my $lkey = lc($key);
-		#Clean out user ActionIDs
-		if ($lkey eq 'actionid') {
+
+		#Callbacks
+		if ($lkey eq 'callback') {
+			$callback = $actionhash->{$key} unless (defined $callback);
+			next;		
+		#Timeout
+		} elsif ($lkey eq 'timeout') {
+			$timeout = $actionhash->{$key} unless (defined $timeout);
+			next;
+		#Variable to pass
+		} elsif ($lkey eq 'store') {
+			$_[0]{RESPONSEBUFFER}->{$id}->{$key} = $value;
 			next;
 		#Exception of Orignate Async
 		} elsif ($lkey eq 'async' && $value == 1) {
 			$_[0]{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
+		#Clean out user ActionIDs
+		} elsif ($lkey eq 'actionid') {
+			next;
 		}
 
 		if (ref($value) eq 'ARRAY') {
@@ -1078,6 +1118,12 @@ sub send_action {
 
 	#Weaken ref of use in anonsub
 	weaken($self);
+
+	#Set default timeout if needed
+	$timeout = $_[0]{TIMEOUT} unless (defined $timeout);
+
+	#Set callback if defined
+	$_[0]{CALLBACKS}->{$id}->{'cb'} = $callback if (defined $callback);
 
 	#Start timer for timeouts
 	if ($timeout && defined $_[0]{CALLBACKS}->{$id}) {
