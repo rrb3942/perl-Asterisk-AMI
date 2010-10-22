@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-Asterisk::AMI::Common::Dev - Extends AMI::Common to include functions for the current development branch of asterisk
+Asterisk::AMI::Common::Dev - Extends Asterisk::AMI::Common to include functions for the current development branch of asterisk
 
 =head1 VERSION
 

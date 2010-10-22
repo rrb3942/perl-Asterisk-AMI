@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-Asterisk::AMI::Common - Extends the AMI module to provide simple access to common AMI commands and functions
+Asterisk::AMI::Common - Extends Asterisk::AMI to provide simple access to common AMI commands and functions
 
 =head1 VERSION
 
