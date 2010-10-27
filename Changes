@@ -7,8 +7,11 @@ Revision history for Perl extension Asterisk::AMI.
 	- Now more fexible in what we accept for special hash keys in Actions. For example, instead of 'CALLBACK'
 	  you can now use 'Callback' (easier on the eyes).
 
-	- Internal changes to how the constructor works, mostly pertaining to checking options and making it more
-	flexible and less ugly (internally).
+	- Internal changes to how the constructor works, mostly pertaining to better option validation and making it
+	more flexible. Obvious errors should now be caught earlier (e.g. not using a subroutine refernce for an error
+	or event handler).
+
+	- Constructor options are now case-insensitive.
 
 	NOT DONE
 
