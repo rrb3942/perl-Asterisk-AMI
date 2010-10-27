@@ -13,11 +13,11 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Constructor options are now case-insensitive.
 
-	NOT DONE
-
 	- Merged Asterisk::AMI::Common::Dev into Asterisk::AMI::Common. This was done because Asterisk 1.8 is now released.
 
 	- Notes have been added to Asterisk::AMI::Common methods that require Asterisk 1.8+
+
+	NOT DONE
 
 	- Added compatibility to some Asterisk::AMI::Common actions so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather

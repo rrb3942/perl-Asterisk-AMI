@@ -37,6 +37,20 @@ This module inherits all options from the AMI module.
 
 =head2 Methods
 
+attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
+
+	Requires Asterisk 1.8+.
+
+	Performs an attended transfer on CHANNEL to EXTEN@CONTEXT. Returns 1 on success, 0 on failure, or undef on
+	error or timeout. TIMEOUT is optional
+
+bridge ( CHANNEL1, CHANNEL2 [, TIMEOUT ] )
+
+	Requires Asterisk 1.8+.
+
+	Bridges CHANNEL1 and CHANNEL2. Returns 1 on success, 0 on failure, or undef on error or timeout.
+	TIMEOUT is optional.
+
 commands ( [ TIMEOUT ] )
 
 	Returns a hash reference of commands available through the AMI. TIMEOUT is optional
@@ -316,6 +330,42 @@ transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
 	Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transferred, 0 if it failed, 
 	or undef on error or timeout. TIMEOUT is optional.
 
+meetme_list ( [ TIMEOUT ] )
+
+	Requires Asterisk 1.8+.
+
+	Returns a hash reference containing all meetme conferences and their members, or undef if an error occurred.
+	TIMEOUT is optional.
+
+	Hash reference:
+	$hashref->{RoomNum}->{MemberChannels}->{'Muted'}
+                                               {'Role'}
+                                               {'Event'}
+                                               {'Talking'}
+                                               {'UserNumber'}
+                                               {'CallerIDName'}
+                                               {'MarkedUser'}
+                                               {'CallerIDNum'}
+                                               {'Admin'}
+
+meetme_members ( ROOMNUM [, TIMEOUT ] )
+	
+	Requires Asterisk 1.8+.
+
+	Returns a hash reference containing all members of a meetme conference, or undef if an error occurred.
+	TIMEOUT is optional.
+
+	Hash reference:
+	$hashref->{MemberChannels}->{'Muted'}
+                                    {'Role'}
+                                    {'Event'}
+                                    {'Talking'}
+                                    {'UserNumber'}
+                                    {'CallerIDName'}
+                                    {'MarkedUser'}
+                                    {'CallerIDNum'}
+                                    {'Admin'}
+
 meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
 	Mutes USERNUM in CONFERENCE. Returns 1 if the user was muted, 0 if it failed, or undef on error or timeout.
@@ -354,6 +404,45 @@ monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
 	Changes the monitor file for CHANNEL to FILE. Returns 1 if the file was change, 0 if it failed, or undef on error
 	or timeout.
 	TIMEOUT is optional.
+
+text ( CHANNEL, MESSAGE [, TIMEOUT ] )
+
+	Requires Asterisk 1.8+.
+
+	Sends MESSAGE as a text on CHANNEL. Returns 1 on success, 0 on failure, or undef on error or timeout.
+	TIMEOUT is optional.
+
+voicemail_list ( [ TIMEOUT ] )
+
+	Requires Asterisk 1.8+.
+
+	Returns a hash reference of all mailboxes on the system, or undef if an error occurred.
+	TIMEOUT is optional.
+
+	Hash reference:
+	$hashref->{context}->{mailbox}->{'AttachmentFormat'}
+					{'TimeZone'}
+					{'Pager'}
+					{'SayEnvelope'}
+					{'ExitContext'}
+					{'AttachMessage'}
+					{'SayCID'}
+					{'ServerEmail'}
+					{'CanReview'}
+					{'DeleteMessage'}
+					{'UniqueID'}
+					{'Email'}
+					{'MaxMessageLength'}
+					{'CallOperator'}
+					{'SayDurationMinimum'}
+					{'NewMessageCount'}
+					{'Language'}
+					{'MaxMessageCount'}
+					{'Fullname'}
+					{'Callback'}
+					{'MailCommand'}
+					{'VolumeGain'}
+					{'Dialout'}
 
 =head1 See Also
 
@@ -394,6 +483,26 @@ sub new {
 	my ($class, %options) = @_;
 
         return $class->SUPER::new(%options);
+}
+
+sub attended_transfer {
+
+	my ($self, $channel, $exten, $context, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'Atxfer',
+					Channel => $channel,
+					Exten => $exten,
+					Context => $context,
+					Priority => 1 }, $timeout);
+}
+
+sub bridge {
+	my ($self, $chan1, $chan2, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'Bridge',
+					Channel1 => $chan1,
+					Channel2 => $chan2,
+					Tone => 'Yes'}, $timeout);
 }
 
 #Returns a hash
@@ -873,6 +982,50 @@ sub transfer {
 
 }
 
+sub meetme_list {
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({Action => 'MeetmeList'}, $timeout);
+
+	return unless ($action->{'GOOD'});
+
+	my $meetmes;
+
+	foreach my $member (@{$action->{'EVENTS'}}) {
+		my $conf = $member->{'Conference'};
+		my $chan = $member->{'Channel'};
+		delete $member->{'Conference'};
+		delete $member->{'ActionID'};
+		delete $member->{'Channel'};
+		delete $member->{'Event'};
+		$meetmes->{$conf}->{$chan} = $member;
+	}
+	
+	return $meetmes;
+}
+
+sub meetme_members {
+	my ($self, $conf, $timeout) = @_;
+
+	my $action = $self->action({	Action => 'MeetmeList',
+					Conference => $conf}, $timeout) if (defined $conf);
+
+	return unless ($action->{'GOOD'});
+
+	my $meetme;
+
+	foreach my $member (@{$action->{'EVENTS'}}) {
+		my $chan = $member->{'Channel'};
+		delete $member->{'Conference'};
+		delete $member->{'ActionID'};
+		delete $member->{'Channel'};
+		delete $member->{'Event'};
+		$meetme->{$chan} = $member;
+	}
+	
+	return $meetme;
+}
+
 sub meetme_mute {
 	my ($self, $conf, $user, $timeout) = @_;
 
@@ -928,4 +1081,35 @@ sub monitor_change {
 					File => $file }, $timeout);
 }
 
+sub text {
+	my ($self, $chan, $message, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'SendText',
+					Channel => $chan,
+					Message => $message }, $timeout);
+}
+
+sub voicemail_list {
+	my ($self, $timeout) = @_;
+
+	my $action = $self->action({ Action => 'VoicemailUsersList' }, $timeout);
+
+	return unless ($action->{'GOOD'});
+
+	my $vmusers;
+
+	foreach my $box (@{$action->{'EVENTS'}}) {
+		my $context = $box->{'VMContext'};
+		my $user = $box->{'VoiceMailbox'};
+
+		delete $box->{'VMContext'};
+		delete $box->{'VoiceMailbox'};
+		delete $box->{'ActionID'};
+		delete $box->{'Event'};
+		$vmusers->{$context}->{$user} = $box;
+	}
+
+
+	return $vmusers;
+}
 1;
