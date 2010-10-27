@@ -1,9 +1,24 @@
 Revision history for Perl extension Asterisk::AMI.
-0.2.3 	- Allow passing/storing of a perl variable in the action response via a new special Action key of 'STORE'.
+0.2.3
+	DONE
+	- Allow passing/storing of a perl variable in the action response via a new special Action key of 'STORE'.
 	  This can be used to pass along additional information in a callback. See the documentation for more details.
 
-	- Now more fexible in how what we accept for special hash keys in Actions. For example, instead of 'CALLBACK'
+	- Now more fexible in what we accept for special hash keys in Actions. For example, instead of 'CALLBACK'
 	  you can now use 'Callback' (easier on the eyes).
+
+	- Internal changes to how the constructor works, mostly pertaining to checking options and making it more
+	flexible and less ugly (internally).
+
+	NOT DONE
+
+	- Merged Asterisk::AMI::Common::Dev into Asterisk::AMI::Common. This was done because Asterisk 1.8 is now released.
+
+	- Notes have been added to Asterisk::AMI::Common methods that require Asterisk 1.8+
+
+	- Added compatibility to some Asterisk::AMI::Common actions so that they can be used with Asterisk 1.4.
+	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
+	the required information. Check method documentation for more information.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
