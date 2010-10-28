@@ -313,16 +313,27 @@ combines send_action() and get_response(), and therefore returns a Response obje
 					
 =head3 Callbacks
 
-	You may also specify a method to callback when using send_action as well as a timeout.
+	You may also specify a subroutine to callback when using send_action as well as a timeout.
 
 	An example of this would be:
-	$astman->send_action({ Action => 'Ping' }, \&somemethod, 7);
+	$astman->send_action({ Action => 'Ping' }, \&somemethod, 7, $somevar);
 
-In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object and 
-the Response Object for the action. If a timeout is not specified it will use the default set. A value of 0 means no 
-timeout. When the timeout is reached somemethod() will be called and passed a reference to our $astman and the 
-uncompleted Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'} is 
-usually a good indication if the response is useable.
+In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object, 
+the Response Object for the action, and an optional variable to pass to the callback. If a timeout is not specified
+it will use the default set. A value of 0 means no timeout. When the timeout is reached somemethod() will be called
+and passed a reference to our $astman and the uncompleted Response Object, therefore somemethod() should check the
+state of the object. Checking the key {'GOOD'} is usually a good indication if the response is useable.
+
+	Anonymous subroutines are also acceptable as demostrated in the examples below:
+	my $callback = sub { return };
+
+	$astman->send_action({ Action => 'Ping' }, $callback, 7);
+
+	Or
+
+	$astman->send_action({ Action => 'Ping' }, sub { return }, 7);
+
+	
 
 =head3 Callback Caveats
 
@@ -343,47 +354,38 @@ out before ever even attempting to receive the response.
 	$astman->loop;
 	#Oh no we never even tried to get the response yet it will still time out
 
-=head2 Storing/Passing Variables in and Action Response
+=head2 Passing Variables in an Action Response
 
 Sometimes, when working in an event framework, you want a way to associate/map the response to an action with another 
 identifier used in your application. Normally you would have to maintain some sort of seperate mapping involving the 
 ActionID to accomplish this. This modules provides a generic way to pass any perl scalar (this includes references) 
-with your action which is then returned in the response.
+with your action which is then passed to the callback with the response.
 
-=head3 Storing
+=head3 Passing
 
-To store a value to be retrieved from the response later you can use the special hash key of 'Store' in the action 
-hash.
+The variable to be passed to the callback should be passed as the fourth argument to the send_action() method.
 
-For example to store a simple scalar value:
+For example to pass a simple scalar value:
 
 	my $vartostore = "Stored";
 
-	$astman->send_action({	Action => 'Ping',
-				Store => $vartostore });
+	$astman->send_action({ Action => 'Ping' }, \&somemethod, undef, $vartostore });
 
-And to store a reference:
+And to pass a reference:
 
 	my @vartostore = ("One", "Two");
 
-	$astman->send_action({	Action => 'Ping',
-				Store => \@vartostore });
+	$astman->send_action({ Action => 'Ping' }, \&somemethod, undef,  \@vartostore });
 
 =head3 Retrieving
 
-Retrieving the stored variable is as simple as accessing the 'Store' key in the response.
-
-To retrieve a store using get_action:
-
-	my $resp = $astman->get_action($actionid);
-
-	print $resp->{'Store'} . " was stored\n";
+The passed variable will be available as the third argument to the callback.
 
 To retrive in a callback:
 
-	my ($astman, $resp) = @_;
+	my ($astman, $resp, $store) = @_;
 
-	print $resp->{'Store'} . " was stored\n";
+	print $store . " was stored\n";
 
 =head3 Case Sensitivity
 	
@@ -498,19 +500,19 @@ Storing it using the 'store' key and then trying to retrieve it by accessing the
 
 =head2 Methods
 
-send_action ( ACTION, [ [ CALLBACK ], [ TIMEOUT ] ] )
+send_action ( ACTION, [ [ CALLBACK ], [ TIMEOUT ], [ USERDATA ] ] )
 
 	Sends the action to asterisk, where ACTION is a hash reference. If no errors occurred while sending it returns
 	the ActionID for the action, which is a positive integer above 0. If it encounters an error it will return undef.
-	You may specify a callback function and timeout either in the ACTION hash or in the method call. CALLBACK is
-	optional and should be a subroutine reference or any anonymous subroutine. TIMEOUT is optional and only has an
-	affect if a CALLBACK is specified. CALLBACKs and TIMEOUTs specified during a method call override any found in
-	the ACTION hash.
+	CALLBACK is optional and should be a subroutine reference or any anonymous subroutine. TIMEOUT is optional and
+	only has an affect if a CALLBACK is specified. USERDATA is optional and is a perl variable that will be passed to
+	the CALLBACK in addition to the response.
+
+	The use of the CALLBACK and TIMEOUT keys in the ACTION has been deprecated. 
 	
 check_response( [ ACTIONID ], [ TIMEOUT ] )
 
-	Returns 1 if the action was considered successful, 0 if it failed, or undef on timeout or error. If no 
-ACTIONID
+	Returns 1 if the action was considered successful, 0 if it failed, or undef on timeout or error. If no ACTIONID
 	is specified the ACTIONID of the last action sent will be used. If no TIMEOUT is given it blocks, reading in
 	packets until the action completes. This will remove a response from the buffer.
 
@@ -1014,6 +1016,7 @@ sub _sort_and_buffer {
 				#Stuff needed to process callback
 				my $callback = $_[0]{CALLBACKS}->{$actionid}->{'cb'};
 				my $response = $_[0]{RESPONSEBUFFER}->{$actionid};
+				my $store = $_[0]{CALLBACKS}->{$actionid}->{'store'};
 
 				#cleanup
 				delete $_[0]{RESPONSEBUFFER}->{$actionid};
@@ -1022,7 +1025,7 @@ sub _sort_and_buffer {
 				#Delete Originate Async bullshit
 				delete $response->{'ASYNC'};
 
-				$callback->($_[0], $response);
+				$callback->($_[0], $response, $store);
 			}
 		}
 
@@ -1098,7 +1101,7 @@ sub _wait_response {
 
 #Sends an action to the AMI Accepts an Array Returns the actionid of the action
 sub send_action {
-	my ($self, $actionhash, $callback, $timeout) = @_;
+	my ($self, $actionhash, $callback, $timeout, $store) = @_;
 
 	#No connection
 	return unless ($_[0]{handle});
@@ -1140,10 +1143,6 @@ sub send_action {
 			}
 			$timeout = $actionhash->{$key} unless (defined $timeout);
 			next;
-		#Variable to pass
-		} elsif ($lkey eq 'store') {
-			$_[0]{RESPONSEBUFFER}->{$id}->{$key} = $value;
-			next;
 		#Exception of Orignate Async
 		} elsif ($lkey eq 'async' && $value == 1) {
 			$_[0]{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
@@ -1180,19 +1179,25 @@ sub send_action {
 	#Set default timeout if needed
 	$timeout = $_[0]->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
-	#Set callback if defined
-	$_[0]{CALLBACKS}->{$id}->{'cb'} = $callback if (defined $callback);
+
+	if (defined $callback) {
+		#Set callback if defined
+		$_[0]{CALLBACKS}->{$id}->{'cb'} = $callback;
+		#Variable to return with Callback
+		$_[0]{CALLBACKS}->{$id}->{'store'} = $store;
+	}
 
 	#Start timer for timeouts
 	if ($timeout && defined $_[0]{CALLBACKS}->{$id}) {
 		$_[0]{CALLBACKS}->{$id}->{'timeout'} = sub {
 				my $response = $self->{RESPONSEBUFFER}->{$id};
 				my $callback = $self->{CALLBACKS}->{$id}->{'cb'};
+				my $store = $self->{CALLBACKS}->{$id}->{'store'};
 				delete $self->{RESPONSEBUFFER}->{$id};
 				delete $self->{CALLBACKS}->{$id};
 				delete $self->{EXPECTED}->{$id};
 				delete $self->{PRELOGIN}->{$id};
-				$callback->($self, $response);;
+				$callback->($self, $response, $store);;
 			};
 		$_[0]{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{$id}->{'timeout'};
 	}
@@ -1370,7 +1375,7 @@ sub _login {
 
 						delete $self->{PRELOGIN};
 
-						$self->{ON}->{'connect'}->($self) if (defined $self->{ON}->{'connect'});
+						$self->{CONFIG}->{ON_CONNECT}->($self) if ($self->{CONFIG}->{ON_CONNECT});
 					} else {
 						#Login failed
 						my $message;
@@ -1506,10 +1511,11 @@ sub _clear_cbs {
 	foreach my $id (keys %{$_[0]{CALLBACKS}}) {
 		my $response = $_[0]{RESPONSEBUFFER}->{$id};
 		my $callback = $_[0]{CALLBACKS}->{$id}->{'cb'};
+		my $store = $_[0]{CALLBACKS}->{$id}->{'store'};
 		delete $_[0]{RESPONSEBUFFER}->{$id};
 		delete $_[0]{CALLBACKS}->{$id};
 		delete $_[0]{EXPECTED}->{$id};
-		$callback->($_[0], $response);
+		$callback->($_[0], $response, $store);
 	}
 }
 

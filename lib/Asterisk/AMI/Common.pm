@@ -37,6 +37,12 @@ This module inherits all options from the AMI module.
 
 =head2 Methods
 
+absolute_timeout ( CHANNEL, CHANTIMEOUT [, TIMEOUT ] )
+
+	Sets a CHANNEL to hangup in CHANTIMEOUT seconds.
+
+	Returns 1 on success, 0 on failure, or undef on error or timeout. TIMEOUT is optional
+
 attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
 
 	Requires Asterisk 1.8+.
