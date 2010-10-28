@@ -485,6 +485,15 @@ sub new {
         return $class->SUPER::new(%options);
 }
 
+sub absolute_timeout {
+
+	my ($self, $channel, $chantimeout, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'AbsoluteTimeout',
+					Channel => $channel,
+					Timeout => $chantimeout }, $timeout);
+}
+
 sub attended_transfer {
 
 	my ($self, $channel, $exten, $context, $timeout) = @_;
@@ -590,7 +599,7 @@ sub get_var {
 
 	my ($self, $channel, $variable, $timeout) = @_;
 
-	my $action = $self-action({	Action => 'GetVar',
+	my $action = $self->action({	Action => 'GetVar',
 					Channel => $channel,
 					Variable => $variable }, $timeout);
 

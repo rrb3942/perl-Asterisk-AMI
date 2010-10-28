@@ -1,11 +1,13 @@
 Revision history for Perl extension Asterisk::AMI.
 0.2.3
 	DONE
+	- Deprecated the use of the CALLBACK and TIMEOUT keys for setting timeouts and callbacks for actions sent with
+	send_action. A warning is emitted if they are used. To supress this warning set Deprecated => 1 in the
+	constructor. Please use the new syntax introduced in version version 0.2.0. This was done to minimize potential
+	hash key over laps with actual manager command options.
+
 	- Allow passing/storing of a perl variable in the action response via a new special Action key of 'STORE'.
 	  This can be used to pass along additional information in a callback. See the documentation for more details.
-
-	- Now more fexible in what we accept for special hash keys in Actions. For example, instead of 'CALLBACK'
-	  you can now use 'Callback' (easier on the eyes).
 
 	- Internal changes to how the constructor works, mostly pertaining to better option validation and making it
 	more flexible. Obvious errors should now be caught earlier (e.g. not using a subroutine refernce for an error
@@ -17,11 +19,16 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Notes have been added to Asterisk::AMI::Common methods that require Asterisk 1.8+
 
+	- Fixed a typo in the get_var() method in Asterisk::AMI::Common. $self-action should have been $self->action.
+
 	NOT DONE
 
 	- Added compatibility to some Asterisk::AMI::Common actions so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
+
+	- Added method absolute_timeoute() to Asteris::AMI::Common. It allows setting a max duration on a channel
+	before hanging it up.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 

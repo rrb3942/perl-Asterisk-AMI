@@ -65,11 +65,11 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 	on_disconnect	A subroutine to call when the remote end disconnects
 	on_timeout	A subroutine to call if our Keepalive times out
 	OriginateHack	Changes settings to allow Async Originates to work 0|1
+	Deprecated	Supresses warnings associated with deprecated features 0|1
 
 	'PeerAddr' defaults to 127.0.0.1.
 	'PeerPort' defaults to 5038.
-	'Events' default is 'off'. May be anything that the AMI will accept as a part of the 'Events' parameter for 
-the
+	'Events' default is 'off'. May be anything that the AMI will accept as a part of the 'Events' parameter for the
 	login action.
 	'Username' has no default and must be supplied.
 	'Secret' has no default and must be supplied.
@@ -79,11 +79,9 @@ the
 	'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
 	'Timeout' has a default of 0, which means no timeout on blocking.
 	'Handlers' accepts a hash reference setting a callback handler for the specified event. EVENT should match
-	the contents of the {'Event'} key of the event object will be. The handler should be a subroutine reference 
-that
+	the contents of the {'Event'} key of the event object will be. The handler should be a subroutine reference that
 	will be passed the a copy of the AMI object and the event object. The 'default' keyword can be used to set
-	a default event handler. If handlers are installed we do not buffer events and instead immediately dispatch 
-them.
+	a default event handler. If handlers are installed we do not buffer events and instead immediately dispatch them.
 	If no handler is specified for an event type and a 'default' was not set the event is discarded.
 	'Keepalive' only works when running with an event loop. Used with on_timeout, this can be used to detect if
 	asterisk has become un-responsive.
@@ -99,12 +97,9 @@ them.
 	'on_connect_err', 'on_error', 'on_disconnect'
 	These three specify subroutines to call when errors occur. 'on_connect_err' is specifically for errors that
 	occur while connecting, as well as failed logins. If 'on_connect_err' or 'on_disconnect' it is not set,
-	but 'on_error' is, 'on_error' will be called. 'on_disconnect' is not reliable, as disconnects seem to get 
-lumped
-	under 'on_error' instead. When the subroutine specified for any of theses is called the first argument is a 
-copy
-	of our AMI object, and the second is a string containing a message/reason. All three of these are 'fatal', 
-when
+	but 'on_error' is, 'on_error' will be called. 'on_disconnect' is not reliable, as disconnects seem to get lumped
+	under 'on_error' instead. When the subroutine specified for any of theses is called the first argument is a copy
+	of our AMI object, and the second is a string containing a message/reason. All three of these are 'fatal', when
 	they occur we destroy our buffers and our socket connections.
 
 	'on_timeout' is called when a keep-alive has timed out, not when a normal action has. It is non-'fatal'.
@@ -115,6 +110,8 @@ when
 	anything you have already set. Without this, if you use 'Async' with an 'Originate' the action will timeout
 	or never callback. You don't need this if you are already doing work with events, simply add 'call' events
 	to your eventmask.
+
+	'Deprecated' defaults to 0 (warnings are not suppressed).
 	
 =head2 Warning - Mixing Event-loops and blocking actions
 
@@ -319,16 +316,11 @@ combines send_action() and get_response(), and therefore returns a Response obje
 	You may also specify a method to callback when using send_action as well as a timeout.
 
 	An example of this would be:
-	$astman->send_action({	Action => 'Ping',
-				CALLBACK => \&somemethod,
-				TIMEOUT => 7 });
-
-	Equivalent in the new alternative sytanx:
 	$astman->send_action({ Action => 'Ping' }, \&somemethod, 7);
 
 In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object and 
-the Response Object for the action. If TIMEOUT is not specified it will use the default set. A value of 0 means no 
-timeout. When the timeout is reached somemethod() will be called and passed a reference to the our $astman and the 
+the Response Object for the action. If a timeout is not specified it will use the default set. A value of 0 means no 
+timeout. When the timeout is reached somemethod() will be called and passed a reference to our $astman and the 
 uncompleted Response Object, therefore somemethod() should check the state of the object. Checking the key {'GOOD'} is 
 usually a good indication if the response is useable.
 
@@ -343,9 +335,7 @@ timeout and then monkey around for a long time before getting back to your event
 out before ever even attempting to receive the response.
 
 	A very contrived example:
-	$astman->send_action({	Action => 'Ping',
-				CALLBACK => \&somemethod,
-				TIMEOUT => 3 });
+	$astman->send_action({ Action => 'Ping' }, \&somemethod, 3);
 
 	sleep(4);
 
@@ -418,7 +408,7 @@ Storing it using the 'store' key and then trying to retrieve it by accessing the
 		   {'EVENTS'} Array reference containing Event Objects associated with this actionid.
 		   {'PARSED'} Hash reference of lines we could parse into key->value pairs.
 		   {'CMD'} Contains command output from 'Action: Command's. It is an array reference.
-		   {'COMPLETED'}	1 if completed, 0 if not (timeout)
+		   {'COMPLETED'} 1 if completed, 0 if not (timeout)
 		   {'GOOD'} 1 if good, 0 if bad. Good means no errors and COMPLETED.
 		   {'Store'} Stored variable
 
@@ -492,8 +482,7 @@ Storing it using the 'store' key and then trying to retrieve it by accessing the
 	sub actioncb { my ($ami, $response) = @_; print 'Got Action Reponse: ',$response->{'Response'},"\r\n"; }
 
 	#Send an action
-	my $action = $astman->({ Action => 'Ping',
-				 CALLBACK => \&actioncb });
+	my $action = $astman->({ Action => 'Ping' }, \&actioncb);
 
 	#Do all of you other eventy stuff here, or before all this stuff, whichever ..............
 
@@ -512,8 +501,7 @@ Storing it using the 'store' key and then trying to retrieve it by accessing the
 send_action ( ACTION, [ [ CALLBACK ], [ TIMEOUT ] ] )
 
 	Sends the action to asterisk, where ACTION is a hash reference. If no errors occurred while sending it returns
-	the ActionID for the action, which is a positive integer above 0. If it encounters an error it will return 
-undef.
+	the ActionID for the action, which is a positive integer above 0. If it encounters an error it will return undef.
 	You may specify a callback function and timeout either in the ACTION hash or in the method call. CALLBACK is
 	optional and should be a subroutine reference or any anonymous subroutine. TIMEOUT is optional and only has an
 	affect if a CALLBACK is specified. CALLBACKs and TIMEOUTs specified during a method call override any found in
@@ -664,12 +652,13 @@ sub _configure {
 	my @required = ( 'USERNAME', 'SECRET' );
 
 	#Defaults
-	my %defaults = ( PEERADDR => '127.0.0.1',
-			PEERPORT => 5038,
-			AUTHTYPE => 'plaintext',
-			EVENTS => 'off',
-			BUFFERSIZE => 30000,
-			BLOCKING => 1,
+	my %defaults = (	PEERADDR => '127.0.0.1',
+				PEERPORT => 5038,
+				AUTHTYPE => 'plaintext',
+				EVENTS => 'off',
+				BUFFERSIZE => 30000,
+				BLOCKING => 1,
+				DEPRECATED => 0
 			);
 
 	#Create list of all options and acceptable values
@@ -691,7 +680,8 @@ sub _configure {
 				ON_CONNECT_ERR => 'CODE',
 				ON_ERROR => 'CODE',
 				ON_DISCONNECT => 'CODE',
-				ON_TIMEOUT => 'CODE'
+				ON_TIMEOUT => 'CODE',
+				DEPRECATED => 'bool'
 				);
 
 	#Config Validation
@@ -1135,11 +1125,19 @@ sub send_action {
 		my $lkey = lc($key);
 
 		#Callbacks
-		if ($lkey eq 'callback') {
+		if ($key eq 'CALLBACK') {
+			unless ($_[0]->{CONFIG}->{DEPRECATED}) {
+				warn "Use of the CALLBACK key in an action is deprecated and will be removed in a future release.\n",
+				"Please use the syntax that is available.";
+			}
 			$callback = $actionhash->{$key} unless (defined $callback);
 			next;
 		#Timeout
-		} elsif ($lkey eq 'timeout') {
+		} elsif ($key eq 'TIMEOUT') {
+			unless ($_[0]->{CONFIG}->{DEPRECATED}) {
+				warn "Use of the TIMEOUT key in an action is deprecated and will be removed in a future release\n",
+				"Please use the syntax that is available.";
+			}
 			$timeout = $actionhash->{$key} unless (defined $timeout);
 			next;
 		#Variable to pass
@@ -1245,7 +1243,7 @@ sub action {
 	my $actionid = $self->send_action($action);
 	if (defined $actionid) {
 		#Get response
-		return $self->get_response($actionid,$timeout);
+		return $self->get_response($actionid, $timeout);
 	}
 
 	return;
@@ -1274,6 +1272,10 @@ sub _login {
 
 	#Auth challenge
 	my %challenge;
+
+	#Timeout to use
+	my $timeout;
+	$timeout = 5 unless ($_[0]->{CONFIG}->{TIMEOUT});
 	
 	#Build login action
 	my %action = (	Action => 'login',
@@ -1292,9 +1294,6 @@ sub _login {
 	#Blocking connect
 	if ($_[0]->{CONFIG}->{BLOCKING}) {
 		my $resp;
-
-		my $timeout;
-		$timeout = 5 unless ($_[0]->{CONFIG}->{TIMEOUT});
 
 		#If a challenge exists do handle it first before the login
 		if (%challenge) {
@@ -1360,7 +1359,7 @@ sub _login {
 		weaken($self);
 
 		#Callback for login action
-		$action{'CALLBACK'} = sub {
+		my $login_cb = sub {
 					if ($_[1]->{'GOOD'}) {
 						#Login was good
 						$self->{LOGGEDIN} = 1;
@@ -1371,31 +1370,25 @@ sub _login {
 
 						delete $self->{PRELOGIN};
 
-						$self->{ON}->{'connect'}->($self) if (defined 
-$self->{ON}->{'connect'});
+						$self->{ON}->{'connect'}->($self) if (defined $self->{ON}->{'connect'});
 					} else {
 						#Login failed
 						my $message;
 
 						if ($_[1]->{'COMPLETED'}) {
-							$message = "Login Failed to Asterisk at 
-$_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
+							$message = "Login Failed to Asterisk at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
 						} else {
-							$message = "Login Failed to Asterisk due to timeout at 
-$_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}"
+							$message = "Login Failed to Asterisk due to timeout at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}"
 						}
 						
 						$self->_on_connect_err(0 ,$message);
 					} 
 		};
 
-		$action{'TIMEOUT'} = 5 unless ($_[0]->{CONFIG}->{TIMEOUT});
-
 		#Do a md5 challenge
 		if (%challenge) {
 			#Create callbacks for the challenge
-			$challenge{'TIMEOUT'} = 5 unless ($_[0]->{CONFIG}->{TIMEOUT});
-			$challenge{'CALLBACK'} = sub {
+			my $challenge_cb = sub {
 				if ($_[1]->{'GOOD'}) {
 					my $md5 = new Digest::MD5;
 
@@ -1407,7 +1400,7 @@ $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}"
 					$action{'Key'} = $md5;
 					$action{'AuthType'} = $_[0]->{CONFIG}->{AUTHTYPE};
 
-					$self->send_action(\%action);
+					$self->send_action(\%action, $login_cb, $timeout);
 						
 				} else {
 					if ($_[1]->{'COMPLETED'}) {
@@ -1418,11 +1411,11 @@ $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}"
 				}
 			};
 			#Send challenge
-			$self->send_action(\%challenge);
+			$self->send_action(\%challenge, $challenge_cb, $timeout);
 
 		} else {
 			#Plaintext login
-			$self->send_action(\%action);
+			$self->send_action(\%action, $login_cb, $timeout);
 		}
 
 		return 1;
@@ -1453,8 +1446,7 @@ sub get_event {
 		my $process = AE::cv;
 
 		$_[0]{CALLBACKS}->{'EVENT'}->{'cb'} = sub { $process->send($_[0]) };
-		$_[0]{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warn "Timed out waiting for event"; 
-$process->send(undef); };
+		$_[0]{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warn "Timed out waiting for event"; $process->send(undef); };
 
 		$timeout = $_[0]->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
@@ -1463,8 +1455,7 @@ $process->send(undef); };
 			#Make sure event loop is up to date in case of sleeps
 			AE::now_update;
 
-			$_[0]{CALLBACKS}->{'EVENT'}->{'timer'} = AE::timer $timeout, 0, 
-$_[0]{CALLBACKS}->{'EVENT'}->{'timeout'};
+			$_[0]{CALLBACKS}->{'EVENT'}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{'EVENT'}->{'timeout'};
 		}
 
 		return $process->recv;
@@ -1499,14 +1490,15 @@ sub _send_keepalive {
 	my ($self) = @_;
 	#Weaken ref for use in anonysub
 	weaken($self);
-	my %action = (	Action => 'Ping',
-			CALLBACK => sub { $self->_on_timeout("Asterisk failed to respond to keepalive - 
-$_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}") unless ($_[1]->{'GOOD'}); }
-		);
+	my $cb = sub { 
+			unless ($_[1]->{'GOOD'}) {
+				$self->_on_timeout("Asterisk failed to respond to keepalive - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}");
+			};
+		 };
 
-	$action{'TIMEOUT'} = 5 unless ($_[0]->{CONFIG}->{TIMEOUT});
+	my $timeout = $_[0]->{CONFIG}->{TIMEOUT} || 5;
 	
-	$self->send_action(\%action);
+	$self->send_action({ Action => 'Ping' }, $cb, $timeout);
 }
 
 #Calls all callbacks as if they had timed out Used when an error has occured on the socket
