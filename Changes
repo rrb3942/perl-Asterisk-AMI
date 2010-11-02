@@ -4,10 +4,13 @@ Revision history for Perl extension Asterisk::AMI.
 	- Deprecated the use of the CALLBACK and TIMEOUT keys for setting timeouts and callbacks for actions sent with
 	send_action. A warning is emitted if they are used. To supress this warning set Deprecated => 1 in the
 	constructor. Please use the new syntax introduced in version version 0.2.0. This was done to minimize potential
-	hash key over laps with actual manager command options.
+	hash key collisions with actual manager command options.
 
-	- Allow passing/storing of a perl variable in the action response via a new special Action key of 'STORE'.
-	  This can be used to pass along additional information in a callback. See the documentation for more details.
+	- Added method absolute_timeout() to Asteris::AMI::Common. It allows setting a max duration on a channel
+	before hanging it up.
+
+	- Allow passing of a perl variable to an action callback via a new argument for the send_action() method.
+	This can be used to pass along additional information to the callback. See the documentation for more details.
 
 	- Internal changes to how the constructor works, mostly pertaining to better option validation and making it
 	more flexible. Obvious errors should now be caught earlier (e.g. not using a subroutine refernce for an error
@@ -17,7 +20,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Merged Asterisk::AMI::Common::Dev into Asterisk::AMI::Common. This was done because Asterisk 1.8 is now released.
 
-	- Notes have been added to Asterisk::AMI::Common methods that require Asterisk 1.8+
+	- Notes have been added to Asterisk::AMI::Common methods that require Asterisk 1.8+.
 
 	- Fixed a typo in the get_var() method in Asterisk::AMI::Common. $self-action should have been $self->action.
 
@@ -26,9 +29,6 @@ Revision history for Perl extension Asterisk::AMI.
 	- Added compatibility to some Asterisk::AMI::Common actions so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
-
-	- Added method absolute_timeoute() to Asteris::AMI::Common. It allows setting a max duration on a channel
-	before hanging it up.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 

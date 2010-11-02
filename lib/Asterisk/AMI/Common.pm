@@ -1000,20 +1000,72 @@ sub transfer {
 sub meetme_list {
 	my ($self, $timeout) = @_;
 
-	my $action = $self->action({Action => 'MeetmeList'}, $timeout);
-
-	return unless ($action->{'GOOD'});
-
 	my $meetmes;
 
-	foreach my $member (@{$action->{'EVENTS'}}) {
-		my $conf = $member->{'Conference'};
-		my $chan = $member->{'Channel'};
-		delete $member->{'Conference'};
-		delete $member->{'ActionID'};
-		delete $member->{'Channel'};
-		delete $member->{'Event'};
-		$meetmes->{$conf}->{$chan} = $member;
+	#1.8+
+	if (defined ($self->amiver()) && $self->amiver() >= 1.1) {
+		my $action = $self->action({Action => 'MeetmeList'}, $timeout);
+
+		return unless ($action->{'GOOD'});
+
+		foreach my $member (@{$action->{'EVENTS'}}) {
+			my $conf = $member->{'Conference'};
+			my $chan = $member->{'Channel'};
+			delete $member->{'Conference'};
+			delete $member->{'ActionID'};
+			delete $member->{'Channel'};
+			delete $member->{'Event'};
+			$meetmes->{$conf}->{$chan} = $member;
+		}
+	#Compat mode for 1.4
+	} else {
+		#List of all conferences
+		my $list = $self->send_action({  Action => 'Command', Command => 'meetme' }, $timeout);
+
+		return unless ($list->{'GOOD'});	
+
+		my @cmd = @{$list->{'CMD'}};
+
+		#Get rid of header and footer of cli
+		shift @cmd;
+		pop @cmd;		
+
+		#Get members for each list
+		foreach my $conf (@cmd) {
+			my @confline = split/\s{2,}/, $conf;
+
+			my $members = $self->action({	Action => 'Command',
+							Command => 'meetme list ' . $confline[0] . ' concise' });
+
+			return unless ($members->{'GOOD'});
+
+			foreach my $line (@{$members->{'CMD'}}) {
+				my @split = split /\!/, $line;
+				
+				my %member;
+				#0 - User num
+				#1 - CID Name
+				#2 - CID Num
+				#3 - Chan
+				#4 - Admin
+				#5 - Monitor?
+				#6 - Muted
+				#7 - Talking
+				#8 - Time
+				$meetmes->{$confline[0]}->{$split[3]}->{'Usernum'} = $split[0];
+
+				$meetmes->{$confline[0]}->{$split[3]}->{'CallerIDName'} = $split[1];
+
+				$meetmes->{$confline[0]}->{$split[3]}->{'CallerIDNum'} = $split[2];
+
+				$meetmes->{$confline[0]}->{$split[3]}->{'Channel'} = $split[3];
+
+				$meetmes->{$confline[0]}->{$split[3]}->{'Muted'} = $split[6];
+
+				$meetmes->{$confline[0]}->{$split[3]}->{'Talking'} = $split[7];
+
+			}
+		}
 	}
 	
 	return $meetmes;
