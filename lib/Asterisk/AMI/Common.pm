@@ -338,7 +338,10 @@ transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
 
 meetme_list ( [ TIMEOUT ] )
 
-	Requires Asterisk 1.8+.
+	Full support requires Asterisk 1.8+.
+
+	Partial support is provided on Asterisk 1.4 via cli commands. When using with asteirsk 1.4 the following
+	keys are missing: Role, MarkedUser
 
 	Returns a hash reference containing all meetme conferences and their members, or undef if an error occurred.
 	TIMEOUT is optional.
@@ -346,7 +349,6 @@ meetme_list ( [ TIMEOUT ] )
 	Hash reference:
 	$hashref->{RoomNum}->{MemberChannels}->{'Muted'}
                                                {'Role'}
-                                               {'Event'}
                                                {'Talking'}
                                                {'UserNumber'}
                                                {'CallerIDName'}
@@ -356,7 +358,10 @@ meetme_list ( [ TIMEOUT ] )
 
 meetme_members ( ROOMNUM [, TIMEOUT ] )
 	
-	Requires Asterisk 1.8+.
+	Full support requires Asterisk 1.8+.
+
+	Partial support is provided on Asterisk 1.4 via cli commands. When using with asteirsk 1.4 the following
+	keys are missing: Role, MarkedUser
 
 	Returns a hash reference containing all members of a meetme conference, or undef if an error occurred.
 	TIMEOUT is optional.
@@ -364,7 +369,6 @@ meetme_members ( ROOMNUM [, TIMEOUT ] )
 	Hash reference:
 	$hashref->{MemberChannels}->{'Muted'}
                                     {'Role'}
-                                    {'Event'}
                                     {'Talking'}
                                     {'UserNumber'}
                                     {'CallerIDName'}
@@ -1002,8 +1006,10 @@ sub meetme_list {
 
 	my $meetmes;
 
+	my $amiver = $self->amiver();
+
 	#1.8+
-	if (defined ($self->amiver()) && $self->amiver() >= 1.1) {
+	if (defined($amiver) && $amiver >= 1.1) {
 		my $action = $self->action({Action => 'MeetmeList'}, $timeout);
 
 		return unless ($action->{'GOOD'});
@@ -1020,7 +1026,7 @@ sub meetme_list {
 	#Compat mode for 1.4
 	} else {
 		#List of all conferences
-		my $list = $self->send_action({  Action => 'Command', Command => 'meetme' }, $timeout);
+		my $list = $self->action({  Action => 'Command', Command => 'meetme' }, $timeout);
 
 		return unless ($list->{'GOOD'});	
 
@@ -1033,38 +1039,11 @@ sub meetme_list {
 		#Get members for each list
 		foreach my $conf (@cmd) {
 			my @confline = split/\s{2,}/, $conf;
+			my $meetme = $self->meetme_members($confline[0], $timeout);
 
-			my $members = $self->action({	Action => 'Command',
-							Command => 'meetme list ' . $confline[0] . ' concise' });
+			return unless (defined $meetme);
 
-			return unless ($members->{'GOOD'});
-
-			foreach my $line (@{$members->{'CMD'}}) {
-				my @split = split /\!/, $line;
-				
-				my %member;
-				#0 - User num
-				#1 - CID Name
-				#2 - CID Num
-				#3 - Chan
-				#4 - Admin
-				#5 - Monitor?
-				#6 - Muted
-				#7 - Talking
-				#8 - Time
-				$meetmes->{$confline[0]}->{$split[3]}->{'Usernum'} = $split[0];
-
-				$meetmes->{$confline[0]}->{$split[3]}->{'CallerIDName'} = $split[1];
-
-				$meetmes->{$confline[0]}->{$split[3]}->{'CallerIDNum'} = $split[2];
-
-				$meetmes->{$confline[0]}->{$split[3]}->{'Channel'} = $split[3];
-
-				$meetmes->{$confline[0]}->{$split[3]}->{'Muted'} = $split[6];
-
-				$meetmes->{$confline[0]}->{$split[3]}->{'Talking'} = $split[7];
-
-			}
+			$meetmes->{$confline[0]} = $meetme;
 		}
 	}
 	
@@ -1074,20 +1053,60 @@ sub meetme_list {
 sub meetme_members {
 	my ($self, $conf, $timeout) = @_;
 
-	my $action = $self->action({	Action => 'MeetmeList',
-					Conference => $conf}, $timeout) if (defined $conf);
-
-	return unless ($action->{'GOOD'});
-
 	my $meetme;
 
-	foreach my $member (@{$action->{'EVENTS'}}) {
-		my $chan = $member->{'Channel'};
-		delete $member->{'Conference'};
-		delete $member->{'ActionID'};
-		delete $member->{'Channel'};
-		delete $member->{'Event'};
-		$meetme->{$chan} = $member;
+	my $amiver = $self->amiver();
+
+	#1.8+
+	if (defined($amiver) && $amiver >= 1.1) {
+		my $action = $self->action({	Action => 'MeetmeList',
+						Conference => $conf}, $timeout) if (defined $conf);
+
+		return unless ($action->{'GOOD'});
+
+		foreach my $member (@{$action->{'EVENTS'}}) {
+			my $chan = $member->{'Channel'};
+			delete $member->{'Conference'};
+			delete $member->{'ActionID'};
+			delete $member->{'Channel'};
+			delete $member->{'Event'};
+			$meetme->{$chan} = $member;
+		}
+	#1.4 Compat
+	} else {
+
+		my $members = $self->action({	Action => 'Command',
+						Command => 'meetme list ' . $conf . ' concise' });
+
+		return unless ($members->{'GOOD'});
+
+		foreach my $line (@{$members->{'CMD'}}) {
+			my @split = split /\!/, $line;
+				
+			my $member;
+			#0 - User num
+			#1 - CID Name
+			#2 - CID Num
+			#3 - Chan
+			#4 - Admin
+			#5 - Monitor?
+			#6 - Muted
+			#7 - Talking
+			#8 - Time
+			$member->{'UserNumber'} = $split[0];
+
+			$member->{'CallerIDName'} = $split[1];
+
+			$member->{'CallerIDNum'} = $split[2];
+
+			$member->{'Admin'} = $split[4] ? "Yes" : "No";
+
+			$member->{'Muted'} = $split[6] ? "Yes" : "No";
+
+			$member->{'Talking'} = $split[7] ? "Yes" : "No";
+
+			$meetme->{$split[3]} = $member;
+		}
 	}
 	
 	return $meetme;
