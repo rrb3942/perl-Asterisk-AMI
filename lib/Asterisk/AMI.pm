@@ -713,7 +713,7 @@ sub _configure {
 
 			#Boolean values
 			if ($config_options{$opt} eq 'bool') {
-				if ($val != 0 && $val != 1) {
+				if ($val =~ /[^\d]/ || ($val != 0 && $val != 1)) {
 					warn "Constructor option \'$key\' requires a boolean value (0 or 1)";
 					return;
 				}
@@ -821,8 +821,7 @@ sub _on_connect_err {
 	$_[0]{SOCKERR} = 1;
 }
 
-#Handles other errors on the socket Fatal is an indication as to if the handle was already destroyed If it was we 
-#don't try to do it ourselves
+#Handles other errors on the socket
 sub _on_error {
 
 	my ($self, $message) = @_;
