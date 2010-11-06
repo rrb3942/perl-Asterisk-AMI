@@ -185,7 +185,6 @@ sip_peer ( PEERNAME [, TIMEOUT ] )
 		  {'CodecOrder'}
 		  {'SecretExist'}
 
-
 mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
 
 	Returns an hash reference containing the message counts for the mailbox EXTENSION@CONTEXT, or undef on error or
@@ -1060,7 +1059,7 @@ sub meetme_members {
 	#1.8+
 	if (defined($amiver) && $amiver >= 1.1) {
 		my $action = $self->action({	Action => 'MeetmeList',
-						Conference => $conf}, $timeout) if (defined $conf);
+						Conference => $conf }, $timeout);
 
 		return unless ($action->{'GOOD'});
 
@@ -1198,4 +1197,5 @@ sub voicemail_list {
 
 	return $vmusers;
 }
+
 1;
