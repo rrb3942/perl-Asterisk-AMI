@@ -26,9 +26,15 @@ Revision history for Perl extension Asterisk::AMI.
 
 	NOT DONE
 
-	- Added compatibility to some Asterisk::AMI::Common actions so that they can be used with Asterisk 1.4.
+	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
+
+	- Added mute_audio() method to Asterisk::AMI::Common for muting inbound/outbound audio on a channel
+
+	- Added park() method to Asterisk::AMI::Common for parking a channel
+
+	- Added mixmonitor_mute muting inbound and/or outbound audio in a MixMonitor recording.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
