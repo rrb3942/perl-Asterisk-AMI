@@ -24,6 +24,8 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Fixed a typo in the get_var() method in Asterisk::AMI::Common. $self-action should have been $self->action.
 
+	- We were not always calling the on_connect_err callback when we should have.
+
 	NOT DONE
 
 	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.

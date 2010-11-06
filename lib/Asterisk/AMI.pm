@@ -702,20 +702,18 @@ sub _configure {
 		#Check for correct reference types
 		if (ref($val) ne $config_options{$opt}) {
 
-			#If the option was upper case it was a ref type
-			if ($config_options{$opt} =~ /^[A-Z]+$/) {
-				if ($config_options{$opt} eq 'CODE') {
+			#If they are ref types then fail
+			if ($config_options{$opt} eq 'CODE') {
 					warn "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference";
-				} elsif ($config_options{$opt} eq 'HASH') {
+					return;
+			} elsif ($config_options{$opt} eq 'HASH') {
 					warn "Constructor option \'$key\' requires a hash reference";
-				}
-
-				return;	
+					return;
 			}
 
 			#Boolean values
 			if ($config_options{$opt} eq 'bool') {
-				if ($val !~ /^(0|1)$/) {
+				if ($val != 0 && $val != 1) {
 					warn "Constructor option \'$key\' requires a boolean value (0 or 1)";
 					return;
 				}
@@ -827,7 +825,7 @@ sub _on_connect_err {
 #don't try to do it ourselves
 sub _on_error {
 
-	my ($self, $fatal, $message) = @_;
+	my ($self, $message) = @_;
 
 	warn "Received Error on socket - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
 	warn "Error Message: $message";
@@ -904,12 +902,10 @@ sub _connect {
 	#Weaken ref for use in anonysub
 	weaken($self);
 
-	my $process = AE::cv;
-
 	#Build a hash of our anyevent::handle options
 	my %hdl = (	connect => [$_[0]->{CONFIG}->{PEERADDR} => $_[0]->{CONFIG}->{PEERPORT}],
 			on_connect_err => sub { $self->_on_connect_err($_[1]); },
-			on_error => sub { $self->_on_error($_[1],$_[2]) },
+			on_error => sub { $self->_on_error($_[2]) },
 			on_eof => sub { $self->_on_disconnect; },
 			on_connect => sub { $self->{handle}->push_read( line => sub { $self->_on_connect(@_); } ); });
 
@@ -919,7 +915,7 @@ sub _connect {
 	$hdl{'keeplive'} = 1 if ($_[0]->{CONFIG}->{TCP_KEEPALIVE});
 
 	#Make connection/create handle
-	$_[0]{handle} = new AnyEvent::Handle(%hdl);
+	$_[0]{handle} = AnyEvent::Handle->new(%hdl);
 
 	#Return login status if blocking
 	return $_[0]->_login if ($_[0]->{CONFIG}->{BLOCKING});
@@ -1307,7 +1303,7 @@ sub _login {
 
 			if ($chresp->{'GOOD'}) {
 				#Build up our login from the challenge
-				my $md5 = new Digest::MD5;
+				my $md5 = Digest::MD5->new();
 
 				$md5->add($chresp->{'PARSED'}->{'Challenge'});
 				$md5->add($_[0]->{CONFIG}->{SECRET});
@@ -1323,10 +1319,12 @@ sub _login {
 			} else {
 				#Challenge Failed
 				if ($chresp->{'COMPLETED'}) {
-					warn "$_[0]->{CONFIG}->{AUTHTYPE} challenge failed";
+					$self->_on_connect_err("$_[0]->{CONFIG}->{AUTHTYPE} challenge failed");
 				} else {
-					warn "Timed out waiting for challenge";
+					$self->_on_connect_err("Timed out waiting for challenge");
 				}
+
+				return;
 			}
 		} else {
 			#Plaintext login
@@ -1352,10 +1350,12 @@ sub _login {
 			#Login Failed
 			$_[0]{LOGGEDIN} = 0;
 			if ($resp->{'COMPLETED'}) {
-				warn "Authentication Failed";
+				$self->_on_connect_err("Authentication Failed");
 			} else {
-				warn "Timed out waiting for login";
+				$self->_on_connect_err("Timed out waiting for login");
 			}
+
+			return;
 		}
 	#Non-blocking connect
 	} else {
@@ -1378,15 +1378,13 @@ sub _login {
 						$self->{CONFIG}->{ON_CONNECT}->($self) if ($self->{CONFIG}->{ON_CONNECT});
 					} else {
 						#Login failed
-						my $message;
-
 						if ($_[1]->{'COMPLETED'}) {
-							$message = "Login Failed to Asterisk at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
+							$self->_on_connect_err("Login Failed to Asterisk at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}");
 						} else {
-							$message = "Login Failed to Asterisk due to timeout at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}"
+							$self->_on_connect_err("Login Failed to Asterisk due to timeout at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}");
 						}
-						
-						$self->_on_connect_err(0 ,$message);
+
+						return;
 					} 
 		};
 
@@ -1395,7 +1393,7 @@ sub _login {
 			#Create callbacks for the challenge
 			my $challenge_cb = sub {
 				if ($_[1]->{'GOOD'}) {
-					my $md5 = new Digest::MD5;
+					my $md5 = Digest::MD5->new();
 
 					$md5->add($_[1]->{'PARSED'}->{'Challenge'});
 					$md5->add($_[0]->{CONFIG}->{SECRET});
@@ -1409,10 +1407,12 @@ sub _login {
 						
 				} else {
 					if ($_[1]->{'COMPLETED'}) {
-						warn "$_[0]->{CONFIG}->{AUTHTYPE} challenge failed";
+						$self->_on_connect_err("$_[0]->{CONFIG}->{AUTHTYPE} challenge failed");
 					} else {
-						warn "Timed out waiting for challenge";
+						$self->_on_connect_err("Timed out waiting for challenge");
 					}
+
+					return;
 				}
 			};
 			#Send challenge
