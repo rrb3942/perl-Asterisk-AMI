@@ -26,30 +26,34 @@ Revision history for Perl extension Asterisk::AMI.
 	- Added method absolute_timeout() to Asteris::AMI::Common. It allows setting a max duration on a channel
 	before hanging it up.
 
+	- Added db_deltree() method to Asterisk::AMI::Common for deleting an entire tree in the astdb.
+
+	- Added de_del() method to Asterisk::AMI::Common for deleting an entry in astdb.
+
 	NOT DONE
+
+	- Added mute_audio() method to Asterisk::AMI::Common for muting inbound/outbound audio on a channel
+	*Requires 1.8 no 1.4 equiv
+
+	- Added mixmonitor_mute method to Asterisk::AMI::Common for muting inbound and/or outbound audio in
+	a MixMonitor recording.
+	*Requires 1.8 no 1.4 equiv
+
+	- Added sip_notify() method to Asterisk::AMI::Common for sending a SIP Notify on a channel.
+	*Requires 1.8 no 1.4 equiv
+	
+	- Added module_check() method to Asterisk::AMI::Common for checking if an asterisk module is currently loaded.
+	*Requires 1.8 add 1.4 compat via cli
+
+	- Added module_load() method to Asterisk::AMI::Common for loading an asterisk module.
+	*Maybe also have a module_reload and module_unload
+	*Requires 1.8 add 1.4 compat via cli
+
+	- Added originate() method to Asterisk::AMI::Common for creating a call from asterisk.
 
 	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
-
-	- Added mute_audio() method to Asterisk::AMI::Common for muting inbound/outbound audio on a channel
-	*Requires 1.8
-	- Added mixmonitor_mute method to Asterisk::AMI::Common for muting inbound and/or outbound audio in
-	a MixMonitor recording.
-	*Requires 1.8
-
-	- Added db_deltree() method to Asterisk::AMI::Common for deleting an entire tree in the astdb.
-	*Requires 1.8 add 1.4 compat via cli
-	- Added de_del() method to Asterisk::AMI::Common for deleting an entry in astdb.
-	*Requires 1.8 add 1.4 compat via cli
-	- Added sip_notify() method to Asterisk::AMI::Common for sending a SIP Notify on a channel.
-	
-	- Added module_check() method to Asterisk::AMI::Common for checking if an asterisk module is currently loaded.
-	*Requires 1.8 add 1.4 compat via cli
-	- Added module_load() method to Asterisk::AMI::Common for loading an asterisk module.
-	*Maybe also have a module_reload and module_unload
-	*Requires 1.8 add 1.4 compat via cli
-	- Added originate() method to Asterisk::AMI::Common for creating a call from asterisk.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
@@ -61,8 +65,8 @@ Revision history for Perl extension Asterisk::AMI.
 	buffer. Only error message for this happend once the Asterisk::AMI object went away and attempted to flush all
 	pending callbacks.
 	
-	- Require AnyEvent 5.2 or newer, as a feature we rely on was introduced in that release. Note, I have only tested as far back
-	as version 5.26.
+	- Require AnyEvent 5.2 or newer, as a feature we rely on was introduced in that release. Note, I have only tested
+	as far back as version 5.26.
 
 0.2.0
 	- Added new syntax for using callbacks with the send_action method. Old syntax still works.
@@ -128,7 +132,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- We were being a bit overzealous when we encounted an error on the socket (during connect or otherwise).
 	We now callback any outstanding actions (as if they had timed out) before we issue the on_error callbacks
-	and do internal cleanup. This bug was causing the a hang during login if a socket connection could not
+	and do internal cleanup. This bug was causing the hang during login if a socket connection could not
 	be made.
 
 	- Fixed a bug with older version of ExtUtils::MakeMaker

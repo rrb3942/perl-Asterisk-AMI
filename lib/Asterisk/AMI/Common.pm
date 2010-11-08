@@ -64,16 +64,6 @@ commands ( [ TIMEOUT ] )
 	$hashref->{'CommandName'}->{'Desc'}	Contains the command description
 				   {'Priv'}	Contains list of required privileges.
 
-db_get ( FAMILY, KEY [, TIMEOUT ])
-
-	Returns the value of the Asterisk database entry specified by the FAMILY and KEY pair, or undef if
-	does not exist or an error occurred. TIMEOUT is optional.
-
-db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
-
-	Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success, if it
-	failed or undef on error or timeout. TIMEOUT is optional.
-
 db_show ( [ TIMEOUT ] )
 
 	Returns a hash reference containing the contents of the Asterisk database, or undef on error or timeout.
@@ -81,6 +71,34 @@ db_show ( [ TIMEOUT ] )
 
 	Values in the hash reference are stored as below:
 	$hashref->{FAMILY}->{KEY}
+
+db_get ( FAMILY, KEY [, TIMEOUT ])
+
+	Returns the value of the Asterisk database entry specified by the FAMILY and KEY pair, or undef if
+	does not exist or an error occurred. TIMEOUT is optional.
+
+db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
+
+	Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success, 0 if it
+	failed or undef on error or timeout. TIMEOUT is optional.
+
+db_del ( FAMILY, KEY [, TIMEOUT ])
+
+	Requires Asterisk 1.8+.
+
+	Support for Asterisk 1.4 is provided through CLI commands.	
+
+	Deletes the Asterisk database for FAMILY/KEY. Returns 1 on success, 0 if it failed
+	or undef on error or timeout. TIMEOUT is optional.
+
+db_deltree ( FAMILY [, KEY, TIMEOUT ])
+
+	Requires Asterisk 1.8+.
+
+	Support for Asterisk 1.4 is provided through CLI commands.	
+
+	Deletes the entire Asterisk database tree found under FAMILY/KEY. KEY is optional. Returns 1 on success, 0 if it failed
+	or undef on error or timeout. TIMEOUT is optional.
 
 get_var ( CHANNEL, VARIABLE [, TIMEOUT ])
 
@@ -602,6 +620,53 @@ sub db_show {
 	}
 
 	return $database;	
+}
+
+sub db_del {
+
+	my ($self, $family, $key, $timeout) = @_;
+
+	my $ver = $self->amiver();
+
+	if (defined($ver) && $ver >= 1.1) {
+		return $self->simple_action({	Action => 'DBDel',
+						Family => $family,
+						Key => $key }, $timeout);
+	} else {
+		return $self->simple_action({	Action => 'Command',
+						Command => 'database del ' . $family . ' ' . $key }, $timeout);
+	}
+
+	return;
+}
+
+sub db_deltree {
+
+	my ($self, $family, $key, $timeout) = @_;
+
+	my $ver = $self->amiver();
+
+	if (defined($ver) && $ver >= 1.1) {
+
+		my %action = (	Action => 'DBDelTree',
+			     	Family => $family );
+
+		$action{'Key'} = $key if (defined $key);
+
+		return $self->simple_action(\%action, $timeout);
+	} else {
+		
+		my $cmd = 'database deltree ' . $family;
+
+		if (defined $key) {
+			$cmd .= ' ' . $key;
+		}
+
+		return $self->simple_action({	Action => 'Command',
+						Command => $cmd }, $timeout);
+	}
+
+	return;
 }
 
 sub get_var {
