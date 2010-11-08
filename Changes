@@ -6,9 +6,6 @@ Revision history for Perl extension Asterisk::AMI.
 	constructor. Please use the new syntax introduced in version version 0.2.0. This was done to minimize potential
 	hash key collisions with actual manager command options.
 
-	- Added method absolute_timeout() to Asteris::AMI::Common. It allows setting a max duration on a channel
-	before hanging it up.
-
 	- Allow passing of a perl variable to an action callback via a new argument for the send_action() method.
 	This can be used to pass along additional information to the callback. See the documentation for more details.
 
@@ -26,6 +23,9 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- We were not always calling the on_connect_err callback when we should have.
 
+	- Added method absolute_timeout() to Asteris::AMI::Common. It allows setting a max duration on a channel
+	before hanging it up.
+
 	NOT DONE
 
 	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.
@@ -33,10 +33,23 @@ Revision history for Perl extension Asterisk::AMI.
 	the required information. Check method documentation for more information.
 
 	- Added mute_audio() method to Asterisk::AMI::Common for muting inbound/outbound audio on a channel
+	*Requires 1.8
+	- Added mixmonitor_mute method to Asterisk::AMI::Common for muting inbound and/or outbound audio in
+	a MixMonitor recording.
+	*Requires 1.8
 
-	- Added park() method to Asterisk::AMI::Common for parking a channel
-
-	- Added mixmonitor_mute muting inbound and/or outbound audio in a MixMonitor recording.
+	- Added db_deltree() method to Asterisk::AMI::Common for deleting an entire tree in the astdb.
+	*Requires 1.8 add 1.4 compat via cli
+	- Added de_del() method to Asterisk::AMI::Common for deleting an entry in astdb.
+	*Requires 1.8 add 1.4 compat via cli
+	- Added sip_notify() method to Asterisk::AMI::Common for sending a SIP Notify on a channel.
+	
+	- Added module_check() method to Asterisk::AMI::Common for checking if an asterisk module is currently loaded.
+	*Requires 1.8 add 1.4 compat via cli
+	- Added module_load() method to Asterisk::AMI::Common for loading an asterisk module.
+	*Maybe also have a module_reload and module_unload
+	*Requires 1.8 add 1.4 compat via cli
+	- Added originate() method to Asterisk::AMI::Common for creating a call from asterisk.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
