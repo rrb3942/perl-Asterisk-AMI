@@ -37,12 +37,6 @@ This module inherits all options from the AMI module.
 
 =head2 Methods
 
-absolute_timeout ( CHANNEL, CHANTIMEOUT [, TIMEOUT ] )
-
-	Sets a CHANNEL to hangup in CHANTIMEOUT seconds.
-
-	Returns 1 on success, 0 on failure, or undef on error or timeout. TIMEOUT is optional
-
 attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
 
 	Requires Asterisk 1.8+.
@@ -403,6 +397,18 @@ meetme_unmute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 	Un-mutes USERNUM in CONFERENCE. Returns 1 if the user was un-muted, or 0 if it failed, or undef on error or timeout.
 	TIMEOUT is optional.
 
+mute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
+
+	Mutes audio on CHANNEL. DIRECTION is optiona and can be 'in' for inbound audio only, 'out' for outbound audio
+	only or 'all' to for both directions. If not supplied it defaults to 'all'. Returns 1 on success, 0 if it failed,
+	or undef on error or timeout. TIMEOUT is optional.
+
+unmute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
+
+	UnMutes audio on CHANNEL. DIRECTION is optiona and can be 'in' for inbound audio only, 'out' for outbound audio
+	only or 'all' to for both directions. If not supplied it defaults to 'all'. Returns 1 on success, 0 if it failed,
+	or undef on error or timeout. TIMEOUT is optional.
+
 monitor ( CHANNEL, FILE [, TIMEOUT ] )
 
 	Begins recording CHANNEL to FILE. Uses the 'wav' format and also mixes both directions into a single file. 
@@ -510,15 +516,6 @@ sub new {
 	my ($class, %options) = @_;
 
         return $class->SUPER::new(%options);
-}
-
-sub absolute_timeout {
-
-	my ($self, $channel, $chantimeout, $timeout) = @_;
-
-	return $self->simple_action({	Action => 'AbsoluteTimeout',
-					Channel => $channel,
-					Timeout => $chantimeout }, $timeout);
 }
 
 sub attended_transfer {
@@ -1023,6 +1020,7 @@ sub channels {
 		#Clean out junk
 		delete $chan->{'Event'};
 		delete $chan->{'Privilege'};
+		delete $chan->{'ActionID'};
 
 		my $name = $chan->{'Channel'};
 	
@@ -1049,6 +1047,7 @@ sub chan_status {
 
 	delete $status->{'ActionID'};
 	delete $status->{'Event'};
+	delete $status->{'Privilege'};
 
 	return $status;
 }
@@ -1190,6 +1189,28 @@ sub meetme_unmute {
 	return $self->simple_action({	Action => 'MeetmeUnmute',
 					Meetme => $conf,
 					Usernum => $user }, $timeout);
+}
+
+sub mute_chan {
+	my ($self, $chan, $dir, $timeout) = @_;
+
+	$dir = 'all' if (!defined $dir);
+
+	return $self->simple_action({	Action => 'MuteAudio',
+					Channel => $chan,
+					Direction => $dir,
+					State => 'on' }, $timeout);
+}
+
+sub unmute_chan {
+	my ($self, $chan, $dir, $timeout) = @_;
+
+	$dir = 'all' if (!defined $dir);
+
+	return $self->simple_action({	Action => 'MuteAudio',
+					Channel => $chan,
+					Direction => $dir,
+					State => 'off' }, $timeout);
 }
 
 sub monitor {

@@ -23,17 +23,14 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- We were not always calling the on_connect_err callback when we should have.
 
-	- Added method absolute_timeout() to Asteris::AMI::Common. It allows setting a max duration on a channel
-	before hanging it up.
-
 	- Added db_deltree() method to Asterisk::AMI::Common for deleting an entire tree in the astdb.
 
 	- Added de_del() method to Asterisk::AMI::Common for deleting an entry in astdb.
 
-	NOT DONE
+	- Added mute_chan() and unmute_chan() methods to Asterisk::AMI::Common for muting/unmuting inbound/outbound/all
+	audio on a channel.
 
-	- Added mute_audio() method to Asterisk::AMI::Common for muting inbound/outbound audio on a channel
-	*Requires 1.8 no 1.4 equiv
+	NOT DONE
 
 	- Added mixmonitor_mute method to Asterisk::AMI::Common for muting inbound and/or outbound audio in
 	a MixMonitor recording.
