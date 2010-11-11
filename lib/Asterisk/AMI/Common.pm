@@ -438,6 +438,22 @@ monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
 	or timeout.
 	TIMEOUT is optional.
 
+mixmonitor_mute ( CHANNEL [, DIRECTION, TIMEOUT] )
+
+	Requires Asterisk 1.8+
+
+	Mutes audio on CHANNEL. DIRECTION is optiona and can be 'read' for inbound audio only, 'write' for outbound audio
+	only or 'both' to for both directions. If not supplied it defaults to 'both'. Returns 1 on success, 0 if it failed,
+	or undef on error or timeout. TIMEOUT is optional.
+
+mixmonitor_unmute ( CHANNEL [, DIRECTION, TIMEOUT] )
+
+	Requires Asterisk 1.8+
+
+	UnMutes audio on CHANNEL. DIRECTION is optiona and can be 'read' for inbound audio only, 'write' for outbound audio
+	only or 'both' to for both directions. If not supplied it defaults to 'both'. Returns 1 on success, 0 if it failed,
+	or undef on error or timeout. TIMEOUT is optional.
+
 text ( CHANNEL, MESSAGE [, TIMEOUT ] )
 
 	Requires Asterisk 1.8+.
@@ -1250,6 +1266,28 @@ sub monitor_change {
 	return $self->simple_action({	Action => 'ChangeMonitor',
 					Channel => $channel,
 					File => $file }, $timeout);
+}
+
+sub mixmonitor_mute {
+	my ($self, $channel, $dir, $timeout) = @_;
+
+	$dir = 'both' unless (defined $dir);
+
+	return $self->simple_action({	Action => 'MixMonitorMute',
+					Direction => $dir,
+					Channel => $channel,
+					State => 1 }, $timeout);
+}
+
+sub mixmonitor_unmute {
+	my ($self, $channel, $dir, $timeout) = @_;
+
+	$dir = 'both' unless (defined $dir);
+
+	return $self->simple_action({	Action => 'MixMonitorMute',
+					Direction => $dir,
+					Channel => $channel,
+					State => 0 }, $timeout);
 }
 
 sub text {

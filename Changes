@@ -30,11 +30,10 @@ Revision history for Perl extension Asterisk::AMI.
 	- Added mute_chan() and unmute_chan() methods to Asterisk::AMI::Common for muting/unmuting inbound/outbound/all
 	audio on a channel.
 
-	NOT DONE
+	- Added mixmonitor_mute and mixmonitor_unmute methods to Asterisk::AMI::Common for muting inbound and/or outbound audio
+	for a MixMonitor recording.
 
-	- Added mixmonitor_mute method to Asterisk::AMI::Common for muting inbound and/or outbound audio in
-	a MixMonitor recording.
-	*Requires 1.8 no 1.4 equiv
+	NOT DONE
 
 	- Added sip_notify() method to Asterisk::AMI::Common for sending a SIP Notify on a channel.
 	*Requires 1.8 no 1.4 equiv
