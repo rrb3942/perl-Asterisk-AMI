@@ -35,20 +35,17 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Added sip_notify() method to Asterisk::AMI::Common for sending a SIP Notify on a channel.
 
-	NOT DONE
-	
 	- Added module_check() method to Asterisk::AMI::Common for checking if an asterisk module is currently loaded.
-	*Requires 1.8 add 1.4 compat via cli
 
-	- Added module_load() method to Asterisk::AMI::Common for loading an asterisk module.
-	*Maybe also have a module_reload and module_unload
-	*Requires 1.8 add 1.4 compat via cli
-
-	- Added originate() method to Asterisk::AMI::Common for creating a call from asterisk.
+	- Added module_load(), module_reload() and module_unload() methods to Asterisk::AMI::Common for loading/reloading/unloading an asterisk module.
 
 	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
+
+	NOT DONE
+	
+	- Added originate() method to Asterisk::AMI::Common for creating a call from asterisk.
 
 0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 

@@ -501,6 +501,34 @@ voicemail_list ( [ TIMEOUT ] )
 					{'VolumeGain'}
 					{'Dialout'}
 
+module_check ( MODULE [, TIMEOUT ] )
+
+	Full support requires Asterisk 1.8+.
+
+	Partial support is provided on Asterisk 1.4 via cli commands.
+
+	Checks to see if MODULE is loaded. Returns 1 on success (loaded), 0 on failure (not loaded), or undef on error or timeout.
+	MODULE is the name of the module minus its extension. To check for 'app_meetme.so' you would only use 'app_meetme'.
+	TIMEOUT is optional.
+
+module_load, module_reload, module_unload ( MODULE [, TIMEOUT ] )
+
+	Requires Asterisk 1.8+.
+
+	Attempts to load/reload/unload MODULE. Returns 1 on success, 0 on failure, or undef on error or timeout.
+	MODULE is the name of the module with its extension or an asterisk subsystem. To load 'app_meetme.so' you would use 'app_meetme.so'.
+	TIMEOUT is optional.
+
+	Valid Asterisk Subsystems:
+
+		cdr
+		enum
+		dnsmgr
+		extconfig
+		manager
+		rtp
+		http
+
 =head1 See Also
 
 Asterisk::AMI, Asterisk::AMI::Common::Dev
@@ -1335,6 +1363,52 @@ sub voicemail_list {
 
 
 	return $vmusers;
+}
+
+sub module_check {
+	my ($self, $module, $timeout) = @_;
+
+	my $ver = $self->amiver();
+
+	if (defined $ver && $ver >= 1.1) {
+		return $self->simple_action({	Action => 'ModuleCheck',
+						Module => $module }, $timeout);
+	} else {
+		my $resp = $self->action({	Action => 'Command',
+						Command => 'module show like ' . $module }, $timeout);
+
+		return unless (defined $resp && $resp->{'GOOD'});
+
+		return unless ($resp->{'CMD'}->[-1] =~ /(\d+) .*/);
+
+		return 0 if ($1 == 0);
+
+		return 1;
+	}
+}
+
+sub module_load {
+	my ($self, $module, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'ModuleLoad',
+					LoadType => 'load',
+					Module => $module }, $timeout );
+}
+
+sub module_reload {
+	my ($self, $module, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'ModuleLoad',
+					LoadType => 'reload',
+					Module => $module }, $timeout );
+}
+
+sub module_unload {
+	my ($self, $module, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'ModuleLoad',
+					LoadType => 'unload',
+					Module => $module }, $timeout );
 }
 
 1;
