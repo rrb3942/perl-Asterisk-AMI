@@ -197,6 +197,14 @@ sip_peer ( PEERNAME [, TIMEOUT ] )
 		  {'CodecOrder'}
 		  {'SecretExist'}
 
+sip_notify ( PEER, EVENT [, TIMEOUT ]) 
+
+	Sends a SIP NOTIFY to PEER with EVENT. Returns 1 on success 0 on failure or undef on error or timeout.
+
+	Example - Sending a 'check-sync' event to to a SIP PEER named 'Polycom1':
+
+	$astman->sip_notify('Polycom1', 'check-sync');
+
 mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
 
 	Returns an hash reference containing the message counts for the mailbox EXTENSION@CONTEXT, or undef on error or
@@ -805,6 +813,13 @@ sub sip_peer {
 	return;
 }
 
+sub sip_notify {
+	my ($self, $peer, $event, $timeout) = @_;
+
+	return $self->simple_action({	Action => 'SIPnotify',
+					Channel => 'SIP/' . $peer,
+					Variable => 'Event=' . $event }, $timeout);
+}
 
 sub mailboxcount {
 
