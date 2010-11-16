@@ -1474,7 +1474,7 @@ sub originate_async {
 
 	#Bypass async wait, bit hacky
 	#allows us to get the intial response
-	delete $_[0]{RESPONSEBUFFER}->{$actionid}->{'ASYNC'};
+	delete $self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'};
 
 	return $self->check_response($actionid, $timeout);
 }
