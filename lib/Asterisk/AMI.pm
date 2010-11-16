@@ -607,10 +607,10 @@ use AnyEvent; use AnyEvent::Handle; use AnyEvent::Socket; use Digest::MD5; use S
 use version; our $VERSION = qv(0.2.2);
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
-#$_[0]{EVETNBUFFER}->{'Event'} = Something
+#$self->{EVETNBUFFER}->{'Event'} = Something
 
 #Buffer for holding action responses and data
-# Structure: $_[0]{RESPONSEBUFFER}{'ActionID'}->{'Response'}	= (Success|Failure|Follows|Goodbye|Pong|Etc..)	
+# Structure: $self->{RESPONSEBUFFER}{'ActionID'}->{'Response'}	= (Success|Failure|Follows|Goodbye|Pong|Etc..)	
 # //Reponse Status
 #			     {'Message'} = Message //Message in the response {'EVENTS'} = [%hash1, %hash2, ..]  //Arry 
 #			     of Hashes of parsed events and data for this actionID {'PARSED'} = { Hashkey => value, 
@@ -637,8 +637,8 @@ sub anyevent_read_type {
 	my ($hdl, $cb) = @_;
 
 	return sub {
-		if ($_[0]{rbuf} =~ s/^(.+)(?:\015\012\015\012)//so) {
-			$cb->($_[0], $1);
+		if ($hdl->{rbuf} =~ s/^(.+)(?:\015\012\015\012)//so) {
+			$cb->($hdl, $1);
 		}
 
 		return 0;
@@ -748,53 +748,53 @@ sub _configure {
 			}
 		}
 
-		$_[0]->{CONFIG}->{$opt} = $val;
+		$self->{CONFIG}->{$opt} = $val;
 	}
 
 
 	#Check for required options
 	foreach my $req (@required) {
-		if (!exists $_[0]->{CONFIG}->{$req}) {
+		if (!exists $self->{CONFIG}->{$req}) {
 			warn "Must supply a username and secret for connecting to asterisk";
 			return;
 		}
 	}
 
 	#Change default port if using ssl
-	if ($_[0]->{CONFIG}->{USESSL}) {
+	if ($self->{CONFIG}->{USESSL}) {
 		$defaults{PEERPORT} = 5039;
 	}
 
 	#Assign defaults for any missing options
 	while (my ($opt, $val) = each(%defaults)) {
-		if (!defined $_[0]->{CONFIG}->{$opt}) {
-			$_[0]->{CONFIG}->{$opt} = $val;
+		if (!defined $self->{CONFIG}->{$opt}) {
+			$self->{CONFIG}->{$opt} = $val;
 		}
 	}
 
 	#Make adjustments for Originate Async bullscrap
-	if ($_[0]->{CONFIG}->{ORIGINATEHACK}) {
+	if ($self->{CONFIG}->{ORIGINATEHACK}) {
 		#Turn on call events, otherwise we wont get the Async response
-		if (lc($_[0]->{CONFIG}->{EVENTS}) eq 'off') {
-			$_[0]->{CONFIG}->{EVENTS} = 'call';
+		if (lc($self->{CONFIG}->{EVENTS}) eq 'off') {
+			$self->{CONFIG}->{EVENTS} = 'call';
 			#Fake event type so that we will discard events, else by turning on events our event buffer 
 			#Will just continue to fill up.
-			$_[0]->{CONFIG}->{HANDLERS} = { 'JUSTMAKETHEHASHNOTEMPTY' => sub {} } unless ($_[0]->{CONFIG}->{HANDLERS});
+			$self->{CONFIG}->{HANDLERS} = { 'JUSTMAKETHEHASHNOTEMPTY' => sub {} } unless ($self->{CONFIG}->{HANDLERS});
 		#They already turned events on, just add call types to it, assume they are doing something with events 
 		#and don't mess with the handlers
-		} elsif (lc($_[0]->{CONFIG}->{EVENTS}) !~ /on|call/) {
-			$_[0]->{CONFIG}->{EVENTS} .= ',call';
+		} elsif (lc($self->{CONFIG}->{EVENTS}) !~ /on|call/) {
+			$self->{CONFIG}->{EVENTS} .= ',call';
 		}
 	}
 
 	#Initialize the seq number
-	$_[0]{idseq} = 1;
+	$self->{idseq} = 1;
 
 	#Weaken reference for use in anonsub
 	weaken($self);
 
 	#Set keepalive
-	$_[0]->{CONFIG}->{KEEPALIVE} = AE::timer($_[0]->{CONFIG}->{KEEPALIVE}, $_[0]->{CONFIG}->{KEEPALIVE}, sub { $self->_send_keepalive }) if ($_[0]->{CONFIG}->{KEEPALIVE});
+	$self->{CONFIG}->{KEEPALIVE} = AE::timer($self->{CONFIG}->{KEEPALIVE}, $self->{CONFIG}->{KEEPALIVE}, sub { $self->_send_keepalive }) if ($self->{CONFIG}->{KEEPALIVE});
 	
 	return 1;
 }
@@ -804,21 +804,21 @@ sub _on_connect_err {
 
 	my ($self, $message) = @_;
 
-	warn "Failed to connect to asterisk - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
+	warn "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
 	warn "Error Message: $message";
 
 	#Dispatch all callbacks as if they timed out
 	$self->_clear_cbs();
 
-	if (exists $_[0]->{CONFIG}->{ON_CONNECT_ERR}) {
-		$_[0]->{CONFIG}->{ON_CONNECT_ERR}->($self, $message);
-	} elsif (exists $_[0]->{CONFIG}->{ON_ERROR}) {
-		$_[0]->{CONFIG}->{ON_ERROR}->($self, $message);
+	if (exists $self->{CONFIG}->{ON_CONNECT_ERR}) {
+		$self->{CONFIG}->{ON_CONNECT_ERR}->($self, $message);
+	} elsif (exists $self->{CONFIG}->{ON_ERROR}) {
+		$self->{CONFIG}->{ON_ERROR}->($self, $message);
 	}
 
 	$self->destroy();
 
-	$_[0]{SOCKERR} = 1;
+	$self->{SOCKERR} = 1;
 }
 
 #Handles other errors on the socket
@@ -826,17 +826,17 @@ sub _on_error {
 
 	my ($self, $message) = @_;
 
-	warn "Received Error on socket - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
+	warn "Received Error on socket - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
 	warn "Error Message: $message";
 	
 	#Call all cbs as if they had timed out
 	$self->_clear_cbs();
 
-	$_[0]->{CONFIG}->{ON_ERROR}->($self, $message) if (exists $_[0]->{CONFIG}->{ON_ERROR});
+	$self->{CONFIG}->{ON_ERROR}->($self, $message) if (exists $self->{CONFIG}->{ON_ERROR});
 	
 	$self->destroy();
 
-	$_[0]{SOCKERR} = 1;
+	$self->{SOCKERR} = 1;
 }
 
 #Handles the remote end disconnecting
@@ -844,22 +844,22 @@ sub _on_disconnect {
 
 	my ($self) = @_;
 
-	my $message = "Remote end disconnected - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
-	warn "Remote Asterisk Server ended connection - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
+	my $message = "Remote end disconnected - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
+	warn "Remote Asterisk Server ended connection - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
 
 	#Call all callbacks as if they had timed out
 	_
 	$self->_clear_cbs();
 
-	if (exists $_[0]->{CONFIG}->{ON_DISCONNECT}) {
-		$_[0]->{CONFIG}->{ON_DISCONNECT}->($self, $message);
-	} elsif (exists $_[0]->{CONFIG}->{ON_ERROR}) {
-		$_[0]->{CONFIG}->{ON_ERROR}->($self, $message);
+	if (exists $self->{CONFIG}->{ON_DISCONNECT}) {
+		$self->{CONFIG}->{ON_DISCONNECT}->($self, $message);
+	} elsif (exists $self->{CONFIG}->{ON_ERROR}) {
+		$self->{CONFIG}->{ON_ERROR}->($self, $message);
 	}
 
 	$self->destroy();
 
-	$_[0]{SOCKERR} = 1;
+	$self->{SOCKERR} = 1;
 }
 
 #What happens if our keep alive times out
@@ -868,13 +868,13 @@ sub _on_timeout {
 
 	warn $message;
 
-	if (exists $_[0]->{CONFIG}->{ON_TIMEOUT}) {
-		$_[0]->{CONFIG}->{ON_TIMEOUT}->($self, $message);
-	} elsif (exists $_[0]->{CONFIG}->{ON_ERROR}) {
-		$_[0]->{CONFIG}->{ON_ERROR}->($self, $message);
+	if (exists $self->{CONFIG}->{ON_TIMEOUT}) {
+		$self->{CONFIG}->{ON_TIMEOUT}->($self, $message);
+	} elsif (exists $self->{CONFIG}->{ON_ERROR}) {
+		$self->{CONFIG}->{ON_ERROR}->($self, $message);
 	}
 
-	$_[0]{SOCKERR} = 1;
+	$self->{SOCKERR} = 1;
 }
 
 #Things to do after our initial connect
@@ -883,15 +883,15 @@ sub _on_connect {
 	my ($self, $fh, $line) = @_;
 
 	if ($line =~ /^Asterisk Call Manager\/([0-9]\.[0-9])$/o) {
-		$_[0]{AMIVER} = $1;
+		$self->{AMIVER} = $1;
 	} else {
-		warn "Unknown Protocol/AMI Version from $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}";
+		warn "Unknown Protocol/AMI Version from $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
 	}
 
 	#Weak reference for us in anonysub
 	weaken($self);
 
-	$_[0]{handle}->push_read( 'Asterisk::AMI' => sub { $self->_handle_packet(@_); } );
+	$self->{handle}->push_read( 'Asterisk::AMI' => sub { $self->_handle_packet(@_); } );
 }
 
 #Connects to the AMI Returns 1 on success, 0 on failure
@@ -902,34 +902,36 @@ sub _connect {
 	weaken($self);
 
 	#Build a hash of our anyevent::handle options
-	my %hdl = (	connect => [$_[0]->{CONFIG}->{PEERADDR} => $_[0]->{CONFIG}->{PEERPORT}],
+	my %hdl = (	connect => [$self->{CONFIG}->{PEERADDR} => $self->{CONFIG}->{PEERPORT}],
 			on_connect_err => sub { $self->_on_connect_err($_[1]); },
 			on_error => sub { $self->_on_error($_[2]) },
 			on_eof => sub { $self->_on_disconnect; },
 			on_connect => sub { $self->{handle}->push_read( line => sub { $self->_on_connect(@_); } ); });
 
 	#TLS stuff
-	$hdl{'tls'} = 'connect' if ($_[0]->{CONFIG}->{USESSL});
+	$hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
 	#TCP Keepalive
-	$hdl{'keeplive'} = 1 if ($_[0]->{CONFIG}->{TCP_KEEPALIVE});
+	$hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
 
 	#Make connection/create handle
-	$_[0]{handle} = AnyEvent::Handle->new(%hdl);
+	$self->{handle} = AnyEvent::Handle->new(%hdl);
 
 	#Return login status if blocking
-	return $_[0]->_login if ($_[0]->{CONFIG}->{BLOCKING});
+	return $self->_login if ($self->{CONFIG}->{BLOCKING});
 
 	#Queue our login
-	$_[0]->_login;
+	$self->_login;
 
 	#If we have a handle, SUCCESS!
-	return 1 if (defined $_[0]{handle});
+	return 1 if (defined $self->{handle});
 
         return;
 }
 
 sub _handle_packet {
-	foreach my $packet (split /\015\012\015\012/o, $_[2]) {
+	my ($self, $hdl, $buffer) = @_;
+
+	foreach my $packet (split /\015\012\015\012/o, $buffer) {
 		my %parsed;
 
 		foreach my $line (split /\015\012/o, $packet) {
@@ -947,7 +949,7 @@ sub _handle_packet {
 			}
 		}
 
-		$_[0]->_sort_and_buffer(\%parsed);
+		$self->_sort_and_buffer(\%parsed);
 	}
 
 	return 1;
@@ -955,33 +957,33 @@ sub _handle_packet {
 
 #Sorts a packet and places into the appropriate buffer Returns 1 on buffered, 0 on discard
 sub _sort_and_buffer {
-	#my ($self, $packet) = @_;
-	my $packet = $_[1];
+	my ($self, $packet) = @_;
+	#my $packet = $_[1];
 
 	if (exists $packet->{'ActionID'}) {
 		#Snag our actionid
 		my $actionid = $packet->{'ActionID'};
 
-		return unless ($_[0]{EXPECTED}->{$actionid});
+		return unless ($self->{EXPECTED}->{$actionid});
 
 		if (exists $packet->{'Event'}) {
 			#EventCompleted Event?
 			if ($packet->{'Event'} =~ /[cC]omplete/o) {
-				$_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
+				$self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
 			} else {
 				#DBGetResponse and Originate Async Exceptions
 				if ($packet->{'Event'} eq 'DBGetResponse' || $packet->{'Event'} eq 'OriginateResponse') {
-					$_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
+					$self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
 				}
 				
-				push(@{$_[0]{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
+				push(@{$self->{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
 			}
 
 		} elsif (exists $packet->{'Response'}) {
 			#If No indication of future packets, mark as completed
 			if ($packet->{'Response'} ne 'Follows') {
 				#Originate Async Exception is the first test
-				if (!$_[0]{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/o)) {
+				if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/o)) {
 					$packet->{'COMPLETED'} = 1;
 				}
 			} 
@@ -989,38 +991,38 @@ sub _sort_and_buffer {
 			#Copy the response into the buffer
 			foreach (keys %{$packet}) {
 				if ($_ =~ /^(?:Response|Message|ActionID|Privilege|CMD|COMPLETED)$/o) {
-					$_[0]{RESPONSEBUFFER}->{$actionid}->{$_} = $packet->{$_};
+					$self->{RESPONSEBUFFER}->{$actionid}->{$_} = $packet->{$_};
 				} else {
-					$_[0]{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
+					$self->{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
 				}
 			 }
 		}
 	
 		#This block handles callbacks
-		if ($_[0]{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'}) {
+		if ($self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'}) {
 			#This aciton is finished do not accept any more packets for it
-			delete $_[0]{EXPECTED}->{$actionid};
+			delete $self->{EXPECTED}->{$actionid};
 
 			#Determine 'Goodness'
-			if (defined $_[0]{RESPONSEBUFFER}->{$actionid}->{'Response'} && $_[0]{RESPONSEBUFFER}->{$actionid}->{'Response'} =~ /^(?:Success|Follows|Goodbye|Events Off|Pong)$/o) {
-				$_[0]{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
+			if (defined $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} && $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} =~ /^(?:Success|Follows|Goodbye|Events Off|Pong)$/o) {
+				$self->{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
 			}
 
 			#Do callback and cleanup if callback exists
-			if (defined $_[0]{CALLBACKS}->{$actionid}->{'cb'}) {
+			if (defined $self->{CALLBACKS}->{$actionid}->{'cb'}) {
 				#Stuff needed to process callback
-				my $callback = $_[0]{CALLBACKS}->{$actionid}->{'cb'};
-				my $response = $_[0]{RESPONSEBUFFER}->{$actionid};
-				my $store = $_[0]{CALLBACKS}->{$actionid}->{'store'};
+				my $callback = $self->{CALLBACKS}->{$actionid}->{'cb'};
+				my $response = $self->{RESPONSEBUFFER}->{$actionid};
+				my $store = $self->{CALLBACKS}->{$actionid}->{'store'};
 
 				#cleanup
-				delete $_[0]{RESPONSEBUFFER}->{$actionid};
-				delete $_[0]{CALLBACKS}->{$actionid};
+				delete $self->{RESPONSEBUFFER}->{$actionid};
+				delete $self->{CALLBACKS}->{$actionid};
 
 				#Delete Originate Async bullshit
 				delete $response->{'ASYNC'};
 
-				$callback->($_[0], $response, $store);
+				$callback->($self, $response, $store);
 			}
 		}
 
@@ -1028,20 +1030,20 @@ sub _sort_and_buffer {
 	} elsif (exists $packet->{'Event'}) {
 
 		#If handlers were configured just dispatch, don't buffer
-		if ($_[0]->{CONFIG}->{HANDLERS}) {
-			if (exists $_[0]->{CONFIG}->{HANDLERS}->{$packet->{'Event'}}) {
-				$_[0]->{CONFIG}->{HANDLERS}->{$packet->{'Event'}}->($_[0], $packet);
-			} elsif (exists $_[0]->{CONFIG}->{HANDLERS}->{'default'}) {
-				$_[0]->{CONFIG}->{HANDLERS}->{'default'}->($_[0], $packet);
+		if ($self->{CONFIG}->{HANDLERS}) {
+			if (exists $self->{CONFIG}->{HANDLERS}->{$packet->{'Event'}}) {
+				$self->{CONFIG}->{HANDLERS}->{$packet->{'Event'}}->($self, $packet);
+			} elsif (exists $self->{CONFIG}->{HANDLERS}->{'default'}) {
+				$self->{CONFIG}->{HANDLERS}->{'default'}->($self, $packet);
 			}
 		} else {
 			#Someone is waiting on this packet, don't bother buffering
-			if (exists $_[0]{CALLBACKS}->{'EVENT'}) {
-				$_[0]{CALLBACKS}->{'EVENT'}->{'cb'}->($packet);
-				delete $_[0]{CALLBACKS}->{'EVENT'};
+			if (exists $self->{CALLBACKS}->{'EVENT'}) {
+				$self->{CALLBACKS}->{'EVENT'}->{'cb'}->($packet);
+				delete $self->{CALLBACKS}->{'EVENT'};
 			#Save for later
 			} else {
-				push(@{$_[0]{EVENTBUFFER}}, $packet);
+				push(@{$self->{EVENTBUFFER}}, $packet);
 			}
 		}
 
@@ -1059,25 +1061,25 @@ sub _wait_response {
 	my ($self, $id, $timeout) = @_;
 
 	#Already got it?
-	if ($_[0]{RESPONSEBUFFER}->{$id}->{'COMPLETED'}) {
-		my $resp = $_[0]{RESPONSEBUFFER}->{$id};
-		delete $_[0]{RESPONSEBUFFER}->{$id};
-		delete $_[0]{CALLBACKS}->{$id};
-		delete $_[0]{EXPECTED}->{$id};
+	if ($self->{RESPONSEBUFFER}->{$id}->{'COMPLETED'}) {
+		my $resp = $self->{RESPONSEBUFFER}->{$id};
+		delete $self->{RESPONSEBUFFER}->{$id};
+		delete $self->{CALLBACKS}->{$id};
+		delete $self->{EXPECTED}->{$id};
 		return $resp;
 	}
 
 	#Don't Have it, wait for it Install some handlers and use a CV to simulate blocking
 	my $process = AE::cv;
 
-	$_[0]{CALLBACKS}->{$id}->{'cb'} = sub { $process->send($_[1]) };
-	$timeout = $_[0]->{CONFIG}->{TIMEOUT} unless (defined $timeout);
+	$self->{CALLBACKS}->{$id}->{'cb'} = sub { $process->send($_[1]) };
+	$timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
 	#Should not need to weaken here because this is a blocking call Only outcomes can be error, timeout, or 
 	#complete, all of which will finish the cb and clear the reference weaken($self)
 
 	if ($timeout) {
-		$_[0]{CALLBACKS}->{$id}->{'timeout'} = sub {
+		$self->{CALLBACKS}->{$id}->{'timeout'} = sub {
 				my $response = $self->{'RESPONSEBUFFER'}->{$id};
 				delete $self->{RESPONSEBUFFER}->{$id};
 				delete $self->{CALLBACKS}->{$id};
@@ -1088,7 +1090,7 @@ sub _wait_response {
 		#Make sure event loop is up to date in case of sleeps
 		AE::now_update;
 
-		$_[0]{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{$id}->{'timeout'};
+		$self->{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $self->{CALLBACKS}->{$id}->{'timeout'};
 	}
 
 	return $process->recv;
@@ -1099,21 +1101,21 @@ sub send_action {
 	my ($self, $actionhash, $callback, $timeout, $store) = @_;
 
 	#No connection
-	return unless ($_[0]{handle});
+	return unless ($self->{handle});
 
 	#resets id number
-	if ($_[0]{idseq} > $_[0]->{CONFIG}->{BUFFERSIZE}) {
-		$_[0]{idseq} = 1;
+	if ($self->{idseq} > $self->{CONFIG}->{BUFFERSIZE}) {
+		$self->{idseq} = 1;
 	}
 
-	my $id = $_[0]{idseq}++;
+	my $id = $self->{idseq}++;
 
 	#Store the Action ID
-	$_[0]{lastid} = $id;
+	$self->{lastid} = $id;
 
 	#Delete anything that might be in the buffer
-	delete $_[0]{RESPONSEBUFFER}->{$id};
-	delete $_[0]{CALLBACKS}->{$id};
+	delete $self->{RESPONSEBUFFER}->{$id};
+	delete $self->{CALLBACKS}->{$id};
 
 	my $action;
 
@@ -1124,7 +1126,7 @@ sub send_action {
 
 		#Callbacks
 		if ($key eq 'CALLBACK') {
-			unless ($_[0]->{CONFIG}->{DEPRECATED}) {
+			unless ($self->{CONFIG}->{DEPRECATED}) {
 				warn "Use of the CALLBACK key in an action is deprecated and will be removed in a future release.\n",
 				"Please use the syntax that is available.";
 			}
@@ -1132,7 +1134,7 @@ sub send_action {
 			next;
 		#Timeout
 		} elsif ($key eq 'TIMEOUT') {
-			unless ($_[0]->{CONFIG}->{DEPRECATED}) {
+			unless ($self->{CONFIG}->{DEPRECATED}) {
 				warn "Use of the TIMEOUT key in an action is deprecated and will be removed in a future release\n",
 				"Please use the syntax that is available.";
 			}
@@ -1140,7 +1142,7 @@ sub send_action {
 			next;
 		#Exception of Orignate Async
 		} elsif ($lkey eq 'async' && $value == 1) {
-			$_[0]{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
+			$self->{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
 		#Clean out user ActionIDs
 		} elsif ($lkey eq 'actionid') {
 			next;
@@ -1158,33 +1160,33 @@ sub send_action {
 	#Append ActionID and End Command
 	$action .= 'ActionID: ' . $id . "\015\012\015\012";
 
-	if ($_[0]{LOGGEDIN} || lc($actionhash->{'Action'}) =~ /login|challenge/) {
-		$_[0]{handle}->push_write($action);
+	if ($self->{LOGGEDIN} || lc($actionhash->{'Action'}) =~ /login|challenge/) {
+		$self->{handle}->push_write($action);
 	} else {
-		$_[0]{PRELOGIN}->{$id} = $action;
+		$self->{PRELOGIN}->{$id} = $action;
 	}
 
-	$_[0]{RESPONSEBUFFER}->{$id}->{'COMPLETED'} = 0;
-	$_[0]{RESPONSEBUFFER}->{$id}->{'GOOD'} = 0;
-	$_[0]{EXPECTED}->{$id} = 1;
+	$self->{RESPONSEBUFFER}->{$id}->{'COMPLETED'} = 0;
+	$self->{RESPONSEBUFFER}->{$id}->{'GOOD'} = 0;
+	$self->{EXPECTED}->{$id} = 1;
 
 	#Weaken ref of use in anonsub
 	weaken($self);
 
 	#Set default timeout if needed
-	$timeout = $_[0]->{CONFIG}->{TIMEOUT} unless (defined $timeout);
+	$timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
 
 	if (defined $callback) {
 		#Set callback if defined
-		$_[0]{CALLBACKS}->{$id}->{'cb'} = $callback;
+		$self->{CALLBACKS}->{$id}->{'cb'} = $callback;
 		#Variable to return with Callback
-		$_[0]{CALLBACKS}->{$id}->{'store'} = $store;
+		$self->{CALLBACKS}->{$id}->{'store'} = $store;
 	}
 
 	#Start timer for timeouts
-	if ($timeout && defined $_[0]{CALLBACKS}->{$id}) {
-		$_[0]{CALLBACKS}->{$id}->{'timeout'} = sub {
+	if ($timeout && defined $self->{CALLBACKS}->{$id}) {
+		$self->{CALLBACKS}->{$id}->{'timeout'} = sub {
 				my $response = $self->{RESPONSEBUFFER}->{$id};
 				my $callback = $self->{CALLBACKS}->{$id}->{'cb'};
 				my $store = $self->{CALLBACKS}->{$id}->{'store'};
@@ -1194,7 +1196,7 @@ sub send_action {
 				delete $self->{PRELOGIN}->{$id};
 				$callback->($self, $response, $store);;
 			};
-		$_[0]{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{$id}->{'timeout'};
+		$self->{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $self->{CALLBACKS}->{$id}->{'timeout'};
 	}
 
 	return $id;
@@ -1206,7 +1208,7 @@ sub check_response {
 	my ($self, $actionid, $timeout) = @_;
 
 	#Check if an actionid was passed, else us last
-	$actionid = $_[0]{lastid} unless (defined $actionid);
+	$actionid = $self->{lastid} unless (defined $actionid);
 
 	my $resp = $self->_wait_response($actionid, $timeout);
 
@@ -1223,7 +1225,7 @@ sub get_response {
 	my ($self, $actionid, $timeout) = @_;
 
 	#Check if an actionid was passed, else us last
-	$actionid = $_[0]{lastid} unless (defined $actionid);
+	$actionid = $self->{lastid} unless (defined $actionid);
 
 	#Wait for the action to complete
 	my $resp = $self->_wait_response($actionid, $timeout);
@@ -1268,31 +1270,31 @@ sub simple_action {
 
 #Logs into the AMI
 sub _login {
-	my $self = $_[0];
+	my ($self) = @_;
 
 	#Auth challenge
 	my %challenge;
 
 	#Timeout to use
 	my $timeout;
-	$timeout = 5 unless ($_[0]->{CONFIG}->{TIMEOUT});
+	$timeout = 5 unless ($self->{CONFIG}->{TIMEOUT});
 	
 	#Build login action
 	my %action = (	Action => 'login',
-			Username => $_[0]->{CONFIG}->{USERNAME},
-			Events => $_[0]->{CONFIG}->{EVENTS} );
+			Username => $self->{CONFIG}->{USERNAME},
+			Events => $self->{CONFIG}->{EVENTS} );
 
 	#Actions to take for different authtypes
-	if (lc($_[0]->{CONFIG}->{AUTHTYPE}) eq 'md5') {
+	if (lc($self->{CONFIG}->{AUTHTYPE}) eq 'md5') {
 		#Do a challenge
 		%challenge = (	Action => 'Challenge',
-				AuthType => $_[0]->{CONFIG}->{AUTHTYPE});
+				AuthType => $self->{CONFIG}->{AUTHTYPE});
 	} else {
-		$action{'Secret'} = $_[0]->{CONFIG}->{SECRET};
+		$action{'Secret'} = $self->{CONFIG}->{SECRET};
 	}
 
 	#Blocking connect
-	if ($_[0]->{CONFIG}->{BLOCKING}) {
+	if ($self->{CONFIG}->{BLOCKING}) {
 		my $resp;
 
 		#If a challenge exists do handle it first before the login
@@ -1305,12 +1307,12 @@ sub _login {
 				my $md5 = Digest::MD5->new();
 
 				$md5->add($chresp->{'PARSED'}->{'Challenge'});
-				$md5->add($_[0]->{CONFIG}->{SECRET});
+				$md5->add($self->{CONFIG}->{SECRET});
 
 				$md5 = $md5->hexdigest;
 
 				$action{'Key'} = $md5;
-				$action{'AuthType'} = $_[0]->{CONFIG}->{AUTHTYPE};
+				$action{'AuthType'} = $self->{CONFIG}->{AUTHTYPE};
 
 				#Login
 				$resp = $self->action(\%action,$timeout);
@@ -1318,7 +1320,7 @@ sub _login {
 			} else {
 				#Challenge Failed
 				if ($chresp->{'COMPLETED'}) {
-					$self->_on_connect_err("$_[0]->{CONFIG}->{AUTHTYPE} challenge failed");
+					$self->_on_connect_err("$self->{CONFIG}->{AUTHTYPE} challenge failed");
 				} else {
 					$self->_on_connect_err("Timed out waiting for challenge");
 				}
@@ -1333,21 +1335,21 @@ sub _login {
 		
 		if ($resp->{'GOOD'}){
 			#Login successful
-			$_[0]{LOGGEDIN} = 1;
+			$self->{LOGGEDIN} = 1;
 			#Run on_connect stuff
-			$_[0]->{CONFIG}->{ON_CONNECT}->($self) if (defined $_[0]->{CONFIG}->{ON_CONNECT});
+			$self->{CONFIG}->{ON_CONNECT}->($self) if (defined $self->{CONFIG}->{ON_CONNECT});
 
 			#Flush pre-login buffer
-			foreach (values %{$_[0]{PRELOGIN}}) {
-				$_[0]{handle}->push_write($_);
+			foreach (values %{$self->{PRELOGIN}}) {
+				$self->{handle}->push_write($_);
 			}
 
-			delete $_[0]{PRELOGIN};
+			delete $self->{PRELOGIN};
 
 			return 1;
 		} else {
 			#Login Failed
-			$_[0]{LOGGEDIN} = 0;
+			$self->{LOGGEDIN} = 0;
 			if ($resp->{'COMPLETED'}) {
 				$self->_on_connect_err("Authentication Failed");
 			} else {
@@ -1378,9 +1380,9 @@ sub _login {
 					} else {
 						#Login failed
 						if ($_[1]->{'COMPLETED'}) {
-							$self->_on_connect_err("Login Failed to Asterisk at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}");
+							$self->_on_connect_err("Login Failed to Asterisk at $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
 						} else {
-							$self->_on_connect_err("Login Failed to Asterisk due to timeout at $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}");
+							$self->_on_connect_err("Login Failed to Asterisk due to timeout at $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
 						}
 
 						return;
@@ -1395,18 +1397,18 @@ sub _login {
 					my $md5 = Digest::MD5->new();
 
 					$md5->add($_[1]->{'PARSED'}->{'Challenge'});
-					$md5->add($_[0]->{CONFIG}->{SECRET});
+					$md5->add($self->{CONFIG}->{SECRET});
 
 					$md5 = $md5->hexdigest;
 
 					$action{'Key'} = $md5;
-					$action{'AuthType'} = $_[0]->{CONFIG}->{AUTHTYPE};
+					$action{'AuthType'} = $self->{CONFIG}->{AUTHTYPE};
 
 					$self->send_action(\%action, $login_cb, $timeout);
 						
 				} else {
 					if ($_[1]->{'COMPLETED'}) {
-						$self->_on_connect_err("$_[0]->{CONFIG}->{AUTHTYPE} challenge failed");
+						$self->_on_connect_err("$self->{CONFIG}->{AUTHTYPE} challenge failed");
 					} else {
 						$self->_on_connect_err("Timed out waiting for challenge");
 					}
@@ -1440,37 +1442,38 @@ sub disconnect {
 
 #Pops the topmost event out of the buffer and returns it Events are hash references
 sub get_event {
-	#my ($self, $timeout) = @_;
-	my $timeout = $_[1];
+	my ($self, $timeout) = @_;
+	#my $timeout = $_[1];
 
-	$timeout = $_[0]->{CONFIG}->{TIMEOUT} unless (defined $timeout);
+	$timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
-	unless (defined $_[0]{EVENTBUFFER}->[0]) {
+	unless (defined $self->{EVENTBUFFER}->[0]) {
 
 		my $process = AE::cv;
 
-		$_[0]{CALLBACKS}->{'EVENT'}->{'cb'} = sub { $process->send($_[0]) };
-		$_[0]{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warn "Timed out waiting for event"; $process->send(undef); };
+		$self->{CALLBACKS}->{'EVENT'}->{'cb'} = sub { $process->send($self) };
+		$self->{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warn "Timed out waiting for event"; $process->send(undef); };
 
-		$timeout = $_[0]->{CONFIG}->{TIMEOUT} unless (defined $timeout);
+		$timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
 		if ($timeout) {
 
 			#Make sure event loop is up to date in case of sleeps
 			AE::now_update;
 
-			$_[0]{CALLBACKS}->{'EVENT'}->{'timer'} = AE::timer $timeout, 0, $_[0]{CALLBACKS}->{'EVENT'}->{'timeout'};
+			$self->{CALLBACKS}->{'EVENT'}->{'timer'} = AE::timer $timeout, 0, $self->{CALLBACKS}->{'EVENT'}->{'timeout'};
 		}
 
 		return $process->recv;
 	}
 
-	return shift @{$_[0]{EVENTBUFFER}};
+	return shift @{$self->{EVENTBUFFER}};
 }
 
 #Returns server AMI version
 sub amiver {
-	return $_[0]{AMIVER};
+	my ($self) = @_;
+	return $self->{AMIVER};
 }
 
 #Checks the connection, returns 1 if the connection is good
@@ -1486,7 +1489,8 @@ sub connected {
 
 #Check whether there was an error on the socket
 sub error {
-	return $_[0]{SOCKERR};
+	my ($self) = @_;
+	return $self->{SOCKERR};
 }
 
 #Sends a keep alive
@@ -1496,25 +1500,27 @@ sub _send_keepalive {
 	weaken($self);
 	my $cb = sub { 
 			unless ($_[1]->{'GOOD'}) {
-				$self->_on_timeout("Asterisk failed to respond to keepalive - $_[0]->{CONFIG}->{PEERADDR}:$_[0]->{CONFIG}->{PEERPORT}");
+				$self->_on_timeout("Asterisk failed to respond to keepalive - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
 			};
 		 };
 
-	my $timeout = $_[0]->{CONFIG}->{TIMEOUT} || 5;
+	my $timeout = $self->{CONFIG}->{TIMEOUT} || 5;
 	
 	$self->send_action({ Action => 'Ping' }, $cb, $timeout);
 }
 
 #Calls all callbacks as if they had timed out Used when an error has occured on the socket
 sub _clear_cbs {
-	foreach my $id (keys %{$_[0]{CALLBACKS}}) {
-		my $response = $_[0]{RESPONSEBUFFER}->{$id};
-		my $callback = $_[0]{CALLBACKS}->{$id}->{'cb'};
-		my $store = $_[0]{CALLBACKS}->{$id}->{'store'};
-		delete $_[0]{RESPONSEBUFFER}->{$id};
-		delete $_[0]{CALLBACKS}->{$id};
-		delete $_[0]{EXPECTED}->{$id};
-		$callback->($_[0], $response, $store);
+	my ($self) = @_;
+
+	foreach my $id (keys %{$self->{CALLBACKS}}) {
+		my $response = $self->{RESPONSEBUFFER}->{$id};
+		my $callback = $self->{CALLBACKS}->{$id}->{'cb'};
+		my $store = $self->{CALLBACKS}->{$id}->{'store'};
+		delete $self->{RESPONSEBUFFER}->{$id};
+		delete $self->{CALLBACKS}->{$id};
+		delete $self->{EXPECTED}->{$id};
+		$callback->($self, $response, $store);
 	}
 }
 
@@ -1534,22 +1540,24 @@ sub loop {
 
 #Bye bye
 sub DESTROY {
+	my ($self) = @_;
+
 	#Logoff
-	if ($_[0]{LOGGEDIN}) {
-		$_[0]->send_action({ Action => 'Logoff' });
-		undef $_[0]{LOGGEDIN};
+	if ($self->{LOGGEDIN}) {
+		$self->send_action({ Action => 'Logoff' });
+		undef $self->{LOGGEDIN};
 	}
 
 	#Destroy our handle first to cause it to flush
-	if ($_[0]{handle}) {
-		$_[0]{handle}->destroy();
+	if ($self->{handle}) {
+		$self->{handle}->destroy();
 	}
 
 	#Do our own flushing
-	$_[0]->_clear_cbs();
+	$self->_clear_cbs();
 
 	#Cleanup, remove everything
-	%{$_[0]} = ();
+	%{$self} = ();
 }
 
 sub Asterisk::AMI::destroyed::AUTOLOAD {
