@@ -819,6 +819,8 @@ sub _on_connect_err {
 	$self->destroy();
 
 	$self->{SOCKERR} = 1;
+
+	return;
 }
 
 #Handles other errors on the socket
@@ -837,6 +839,8 @@ sub _on_error {
 	$self->destroy();
 
 	$self->{SOCKERR} = 1;
+
+	return;
 }
 
 #Handles the remote end disconnecting
@@ -860,6 +864,8 @@ sub _on_disconnect {
 	$self->destroy();
 
 	$self->{SOCKERR} = 1;
+
+	return;
 }
 
 #What happens if our keep alive times out
@@ -875,6 +881,8 @@ sub _on_timeout {
 	}
 
 	$self->{SOCKERR} = 1;
+
+	return;
 }
 
 #Things to do after our initial connect
@@ -892,6 +900,8 @@ sub _on_connect {
 	weaken($self);
 
 	$self->{handle}->push_read( 'Asterisk::AMI' => sub { $self->_handle_packet(@_); } );
+
+	return 1;
 }
 
 #Connects to the AMI Returns 1 on success, 0 on failure
@@ -1506,7 +1516,7 @@ sub _send_keepalive {
 
 	my $timeout = $self->{CONFIG}->{TIMEOUT} || 5;
 	
-	$self->send_action({ Action => 'Ping' }, $cb, $timeout);
+	return $self->send_action({ Action => 'Ping' }, $cb, $timeout);
 }
 
 #Calls all callbacks as if they had timed out Used when an error has occured on the socket
@@ -1522,6 +1532,8 @@ sub _clear_cbs {
 		delete $self->{EXPECTED}->{$id};
 		$callback->($self, $response, $store);
 	}
+
+	return 1;
 }
 
 #Cleans up
@@ -1531,11 +1543,13 @@ sub destroy {
 	$self->DESTROY;
 
 	bless $self, "Asterisk::AMI::destroyed";
+
+	return 1;
 }
 
 #Runs the AnyEvent loop
 sub loop {
-	AnyEvent->loop;
+	return AnyEvent->loop;
 }
 
 #Bye bye
@@ -1558,6 +1572,8 @@ sub DESTROY {
 
 	#Cleanup, remove everything
 	%{$self} = ();
+
+	return 1;
 }
 
 sub Asterisk::AMI::destroyed::AUTOLOAD {
