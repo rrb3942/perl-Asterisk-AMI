@@ -1,6 +1,5 @@
 Revision history for Perl extension Asterisk::AMI.
 0.2.3
-	DONE
 	- Deprecated the use of the CALLBACK and TIMEOUT keys for setting timeouts and callbacks for actions sent with
 	send_action. A warning is emitted if they are used. To supress this warning set Deprecated => 1 in the
 	constructor. Please use the new syntax introduced in version version 0.2.0. This was done to minimize potential
@@ -25,7 +24,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Added db_deltree() method to Asterisk::AMI::Common for deleting an entire tree in the astdb.
 
-	- Added de_del() method to Asterisk::AMI::Common for deleting an entry in astdb.
+	- Added db_del() method to Asterisk::AMI::Common for deleting an entry in astdb.
 
 	- Added mute_chan() and unmute_chan() methods to Asterisk::AMI::Common for muting/unmuting inbound/outbound/all
 	audio on a channel.
@@ -39,19 +38,19 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Added module_load(), module_reload() and module_unload() methods to Asterisk::AMI::Common for loading/reloading/unloading an asterisk module.
 
+	- Added originate() and orignate_async() methods to Asterisk::AMI::Common for creating a call from asterisk.
+
 	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
 
-	NOT DONE
-	
-	- Added originate() method to Asterisk::AMI::Common for creating a call from asterisk.
-
-0.2.2   - Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
+0.2.2
+	- Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
 	  blocking call would return a timeout (rt #61148).
 
-0.2.1	- Fixed some errors in the documentation
+0.2.1
+	- Fixed some errors in the documentation
 
 	- Fixed a bug where we would leave an empty value in callbacks on a get_response if the response was already in the
 	buffer. Only error message for this happend once the Asterisk::AMI object went away and attempted to flush all

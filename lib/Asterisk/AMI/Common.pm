@@ -529,6 +529,28 @@ module_load, module_reload, module_unload ( MODULE [, TIMEOUT ] )
 		rtp
 		http
 
+originate ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
+
+	Attempts to dial CHANNEL and then drops it into EXTEN@CONTEXT in the dialplan. Optionally a CALLERID can be provided.
+	CTIMEOUT is optional and determines how long the call will dial/ring for in seconds. TIMEOUT is optional.
+
+	CTIMEOUT + TIMEOUT will be used for the command timeout. For example if CTIMEOUT is 30 seconds and TIMEOUT is 5 seconds, the entire
+	command will timeout after 35 seconds.
+
+	Returns 1 on success 0 on failure, or undef on error or timeout.
+
+	WARNING: This method can block for a very long time (CTIMEOUT + TIMEOUT).
+
+originate_async ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
+
+	Attempts to dial CHANNEL and then drops it into EXTEN@CONTEXT in the dialplan asynchronously. Optionally a CALLERID can be provided.
+	CTIMEOUT is optional and determines how long the call will dial/ring for in seconds. TIMEOUT is optional and only affects how long we will
+	wait for the initial response from Asterisk indicating if the call has been queued.
+
+	Returns 1 if the call was successfully queued, 0 on failure, or undef on error or timeout.
+
+	WARNING: A successfully queued call does not mean the call completed or even originated.
+
 =head1 See Also
 
 Asterisk::AMI, Asterisk::AMI::Common::Dev
@@ -1409,6 +1431,52 @@ sub module_unload {
 	return $self->simple_action({	Action => 'ModuleLoad',
 					LoadType => 'unload',
 					Module => $module }, $timeout );
+}
+
+sub originate {
+	my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
+
+	my %action = (	Action => 'Originate',
+			Channel => $chan,
+			Context => $context,
+			Exten => $exten,
+			Priority => 1,
+			);
+
+	$action{'CallerID'} = $callerid if (defined $callerid);
+
+	if (defined $ctime) {
+		$action{'Timeout'} = $ctime * 1000;
+
+		if ($timeout) {
+			$timeout = $ctime + $timeout;
+		}
+	}
+
+	return $self->simple_action(\%action, $timeout);
+}
+
+sub originate_async {
+	my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
+
+	my %action = (	Action => 'Originate',
+			Channel => $chan,
+			Context => $context,
+			Exten => $exten,
+			Priority => 1,
+			Async => 1
+			);
+
+	$action{'CallerID'} = $callerid if (defined $callerid);
+	$action{'Timeout'} = $ctime * 1000 if (defined $ctime);
+
+	my $actionid = $self->send_action(\%action);
+
+	#Bypass async wait, bit hacky
+	#allows us to get the intial response
+	delete $_[0]{RESPONSEBUFFER}->{$actionid}->{'ASYNC'};
+
+	return $self->check_response($actionid, $timeout);
 }
 
 1;
