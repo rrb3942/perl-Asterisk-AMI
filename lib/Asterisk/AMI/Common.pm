@@ -625,12 +625,12 @@ sub commands {
 	my %commands;
 
 	while (my ($cmd, $desc) = each %{$action->{'PARSED'}}) {
-		$desc =~ s/\s*\(Priv: (.+)\)$//;
-
-		my @privs = split /,/,$1;
+		if ($desc =~ s/\s*\(Priv:\ (.+)\)$//x) {
+			my @privs = split /,/x,$1;
+			$commands{$cmd}->{'Priv'} = \@privs;
+		}
 
 		$commands{$cmd}->{'Desc'} = $desc;
-		$commands{$cmd}->{'Priv'} = \@privs;
 	}
 
 	return \%commands;
@@ -675,19 +675,20 @@ sub db_show {
 	my $database;
 
 	foreach my $dbentry (@{$action->{'CMD'}}) {
-		next unless $dbentry =~ /^(.+?)\s*:\s*([^.]+)$/o;
-		my $family = $1;
-		my $key;
+		if ($dbentry =~ /^(.+?)\s*:\s*([^.]+)$/ox) {
+			my $family = $1;
+			my $val = $2;
+			
+			my @split = split /\//ox,$family;
 
-		my @split = split /\//o,$family;
+			my $key = pop(@split);
 
-		$key = pop(@split);
+			$family = join('/', @split);
 
-		$family = join('/', @split);
+			$family = substr($family, 1);
 
-		$family = substr($family, 1);
-
-		$database->{$family}->{$key} = $2;
+			$database->{$family}->{$key} = $val;
+		}
 	}
 
 	return $database;	
@@ -1182,7 +1183,7 @@ sub meetme_list {
 
 		#Get members for each list
 		foreach my $conf (@cmd) {
-			my @confline = split/\s{2,}/, $conf;
+			my @confline = split/\s{2,}/x, $conf;
 			my $meetme = $self->meetme_members($confline[0], $timeout);
 
 			return unless (defined $meetme);
@@ -1225,7 +1226,7 @@ sub meetme_members {
 		return unless ($members->{'GOOD'});
 
 		foreach my $line (@{$members->{'CMD'}}) {
-			my @split = split /\!/, $line;
+			my @split = split /\!/x, $line;
 				
 			my $member;
 			#0 - User num
@@ -1401,11 +1402,14 @@ sub module_check {
 
 		return unless (defined $resp && $resp->{'GOOD'});
 
-		return unless ($resp->{'CMD'}->[-1] =~ /(\d+) .*/);
+		if ($resp->{'CMD'}->[-1] =~ /(\d+)\ .*/x) {
 
-		return 0 if ($1 == 0);
+			return 0 if ($1 == 0);
 
-		return 1;
+			return 1;
+		}
+
+		return;
 	}
 }
 
