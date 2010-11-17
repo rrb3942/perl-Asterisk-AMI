@@ -65,7 +65,6 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         on_disconnect        A subroutine to call when the remote end disconnects
         on_timeout        A subroutine to call if our Keepalive times out
         OriginateHack        Changes settings to allow Async Originates to work 0|1
-        Deprecated        Supresses warnings associated with deprecated features 0|1
 
         'PeerAddr' defaults to 127.0.0.1.
         'PeerPort' defaults to 5038.
@@ -111,8 +110,6 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         or never callback. You don't need this if you are already doing work with events, simply add 'call' events
         to your eventmask.
 
-        'Deprecated' defaults to 0 (warnings are not suppressed).
-        
 =head2 Warning - Mixing Event-loops and blocking actions
 
         If you are running an event loop and use blocking methods (e.g. get_response, check_response, action,
@@ -599,9 +596,18 @@ warranty of merchantability or fitness for a particular purpose.
 
 package Asterisk::AMI;
 
-use strict; use warnings;
+#Register warnings
+use warnings::register;
 
-use AnyEvent; use AnyEvent::Handle; use AnyEvent::Socket; use Digest::MD5; use Scalar::Util qw/weaken/;
+use strict;
+use warnings;
+
+use AnyEvent;
+use AnyEvent::Handle;
+use AnyEvent::Socket;
+use Digest::MD5;
+use Scalar::Util qw/weaken/;
+use Carp qw/carp/;
 
 #Duh
 use version; our $VERSION = qv(0.2.2);
@@ -692,7 +698,7 @@ sub _configure {
 
                 #Unknown keys
                 if (!exists $config_options{$opt}) {
-                        warn "Unknown constructor option: $key";
+                        carp "Unknown constructor option: $key" if warnings::enabled('Asterisk::AMI');
                         next;
                 #Undef values
                 } elsif (!defined $val) {
@@ -704,23 +710,23 @@ sub _configure {
 
                         #If they are ref types then fail
                         if ($config_options{$opt} eq 'CODE') {
-                                        warn "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference";
+                                        carp "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
                                         return;
                         } elsif ($config_options{$opt} eq 'HASH') {
-                                        warn "Constructor option \'$key\' requires a hash reference";
+                                        carp "Constructor option \'$key\' requires a hash reference" if warnings::enabled('Asterisk::AMI');
                                         return;
                         }
 
                         #Boolean values
                         if ($config_options{$opt} eq 'bool') {
                                 if ($val =~ /[^\d]/x || ($val != 0 && $val != 1)) {
-                                        warn "Constructor option \'$key\' requires a boolean value (0 or 1)";
+                                        carp "Constructor option \'$key\' requires a boolean value (0 or 1)" if warnings::enabled('Asterisk::AMI');
                                         return;
                                 }
                         #Numeric values
                         } elsif ($config_options{$opt} eq 'num') {
                                 if ($val =~ /[^\d]/x) {
-                                        warn "Constructor option \'$key\' requires a numeric value";
+                                        carp "Constructor option \'$key\' requires a numeric value" if warnings::enabled('Asterisk::AMI');
                                         return;
                                 }
                         #Hard coded list of options
@@ -730,7 +736,7 @@ sub _configure {
                                 my @match = grep { $lval eq $_ } split /\|/x,$config_options{$opt};
 
                                 if (!@match) {
-                                        warn "Constructor option \'$key\' requires one of the following options: $config_options{$opt}";
+                                        carp "Constructor option \'$key\' requires one of the following options: $config_options{$opt}" if warnings::enabled('Asterisk::AMI');
                                         return;
                                 } else {
                                         #lowercase it for consistency
@@ -742,7 +748,7 @@ sub _configure {
                 } elsif ($opt eq 'HANDLERS') {
                         while (my ($event, $handler) = each %{$val}) {
                                 if (ref($handler) ne 'CODE') {
-                                        warn "Handler for event type \'$event\' must be an anonymous subroutine or a subroutine reference";
+                                        carp "Handler for event type \'$event\' must be an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
                                         return;
                                 }
                         }
@@ -755,7 +761,7 @@ sub _configure {
         #Check for required options
         foreach my $req (@required) {
                 if (!exists $self->{CONFIG}->{$req}) {
-                        warn "Must supply a username and secret for connecting to asterisk";
+                        carp "Must supply a username and secret for connecting to asterisk" if warnings::enabled('Asterisk::AMI');
                         return;
                 }
         }
@@ -804,8 +810,8 @@ sub _on_connect_err {
 
         my ($self, $message) = @_;
 
-        warn "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
-        warn "Error Message: $message";
+        warnings::warnif('Asterisk::AMI', "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        warnings::warnif('Asterisk::AMI', "Error Message: $message");
 
         #Dispatch all callbacks as if they timed out
         $self->_clear_cbs();
@@ -828,8 +834,8 @@ sub _on_error {
 
         my ($self, $message) = @_;
 
-        warn "Received Error on socket - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
-        warn "Error Message: $message";
+        warnings::warnif('Asterisk::AMI', "Received Error on socket - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        warnings::warnif('Asterisk::AMI', "Error Message: $message");
         
         #Call all cbs as if they had timed out
         $self->_clear_cbs();
@@ -849,7 +855,7 @@ sub _on_disconnect {
         my ($self) = @_;
 
         my $message = "Remote end disconnected - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
-        warn "Remote Asterisk Server ended connection - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
+        warnings::warnif('Asterisk::AMI', "Remote Asterisk Server ended connection - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
 
         #Call all callbacks as if they had timed out
         _
@@ -872,7 +878,7 @@ sub _on_disconnect {
 sub _on_timeout {
         my ($self, $message) = @_;
 
-        warn $message;
+        warnings::warnif('Asterisk::AMI', $message);
 
         if (exists $self->{CONFIG}->{ON_TIMEOUT}) {
                 $self->{CONFIG}->{ON_TIMEOUT}->($self, $message);
@@ -893,7 +899,7 @@ sub _on_connect {
         if ($line =~ /^Asterisk\ Call\ Manager\/([0-9]\.[0-9])$/ox) {
                 $self->{AMIVER} = $1;
         } else {
-                warn "Unknown Protocol/AMI Version from $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
+                warnings::warnif('Asterisk::AMI', "Unknown Protocol/AMI Version from $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
         }
 
         #Weak reference for us in anonysub
@@ -1136,18 +1142,16 @@ sub send_action {
 
                 #Callbacks
                 if ($key eq 'CALLBACK') {
-                        unless ($self->{CONFIG}->{DEPRECATED}) {
-                                warn "Use of the CALLBACK key in an action is deprecated and will be removed in a future release.\n",
-                                "Please use the syntax that is available.";
-                        }
+                        carp "Use of the CALLBACK key in an action is deprecated and will be removed in a future release.\n",
+                        "Please use the syntax that is available." if warnings::enabled('Asterisk::AMI');
+
                         $callback = $actionhash->{$key} unless (defined $callback);
                         next;
                 #Timeout
                 } elsif ($key eq 'TIMEOUT') {
-                        unless ($self->{CONFIG}->{DEPRECATED}) {
-                                warn "Use of the TIMEOUT key in an action is deprecated and will be removed in a future release\n",
-                                "Please use the syntax that is available.";
-                        }
+                        carp "Use of the TIMEOUT key in an action is deprecated and will be removed in a future release\n",
+                        "Please use the syntax that is available." if warnings::enabled('Asterisk::AMI');
+
                         $timeout = $actionhash->{$key} unless (defined $timeout);
                         next;
                 #Exception of Orignate Async
@@ -1155,9 +1159,11 @@ sub send_action {
                         $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
                 #Clean out user ActionIDs
                 } elsif ($lkey eq 'actionid') {
+                        carp "User supplied ActionID being ignored." if warnings::enabled('Asterisk::AMI');
                         next;
                 }
 
+                #Handle multiple values
                 if (ref($value) eq 'ARRAY') {
                         foreach my $var (@{$value}) {
                                 $action .= $key . ': ' . $var . "\015\012";
@@ -1465,7 +1471,7 @@ sub get_event {
                 my $process = AE::cv;
 
                 $self->{CALLBACKS}->{'EVENT'}->{'cb'} = sub { $process->send($self) };
-                $self->{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warn "Timed out waiting for event"; $process->send(undef); };
+                $self->{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warnings::warnif('Asterisk::AMI', "Timed out waiting for event"); $process->send(undef); };
 
                 $timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 

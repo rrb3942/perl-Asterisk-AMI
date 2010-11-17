@@ -27,6 +27,7 @@ This module requires these other modules and libraries:
 	AnyEvent::Socket
 	Digest::MD5
 	Scalar::Util
+        Carp
 	version
 	parent
 

@@ -1,9 +1,15 @@
 Revision history for Perl extension Asterisk::AMI.
 0.2.3
+        - The Carp module is now required.
+
+        - Switched certain warnings to now use carp where appropriate.
+
+        - We now honor the 'use warnings' pragma and only present warnings when it is enabled. To disable all warnings
+        specific to this module you can use 'no warnings qw(Asterisk::AMI)'.
+
 	- Deprecated the use of the CALLBACK and TIMEOUT keys for setting timeouts and callbacks for actions sent with
-	send_action. A warning is emitted if they are used. To supress this warning set Deprecated => 1 in the
-	constructor. Please use the new syntax introduced in version version 0.2.0. This was done to minimize potential
-	hash key collisions with actual manager command options.
+	send_action. A warning is emitted if they are used. Please use the new syntax introduced in version version 0.2.0.
+        This was done to minimize potential hash key collisions with actual manager command options.
 
 	- Allow passing of a perl variable to an action callback via a new argument for the send_action() method.
 	This can be used to pass along additional information to the callback. See the documentation for more details.
@@ -45,6 +51,11 @@ Revision history for Perl extension Asterisk::AMI.
 	- Added compatibility to some Asterisk::AMI::Common methods so that they can be used with Asterisk 1.4.
 	Compatibility for 1.4 often requires invokation of cli commands and/or multiple manager actions to gather
 	the required information. Check method documentation for more information.
+
+        - Made general changes to become more compliant with PBP. No warnings with perlcritic -4, very few with -3.
+
+        - Split up the functions of our internal _login subroutine to simplify logic. Should make login errors between
+        blocking and non-blocking to be more consistent. Also consolidates some code.
 
 0.2.2
 	- Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
