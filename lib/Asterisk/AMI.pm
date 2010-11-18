@@ -616,7 +616,7 @@ use version; our $VERSION = qv(0.2.2);
 #$self->{EVETNBUFFER}->{'Event'} = Something
 
 #Buffer for holding action responses and data
-# Structure: $self->{RESPONSEBUFFER}{'ActionID'}->{'Response'}        = (Success|Failure|Follows|Goodbye|Pong|Etc..)        
+# Structure: $self->{RESPONSEBUFFER}->{'ActionID'}->{'Response'}        = (Success|Failure|Follows|Goodbye|Pong|Etc..)        
 # //Reponse Status
 #                             {'Message'} = Message //Message in the response {'EVENTS'} = [%hash1, %hash2, ..]  //Arry 
 #                             of Hashes of parsed events and data for this actionID {'PARSED'} = { Hashkey => value, 
@@ -692,7 +692,7 @@ sub _configure {
                                 DEPRECATED => 'bool'
                                 );
 
-        #Config Validation
+        #Config Validation + Setting
         while (my ($key, $val) = each(%config)) {
                 my $opt = uc($key);
 
@@ -957,7 +957,7 @@ sub _handle_packet {
 
                                 push(@{$parsed{'CMD'}},split(/\x20*\x0A/ox, $line));
                         } else {
-                        #Regular output, split on :\
+                                #Regular output, split on :\
                                 my ($key, $value) = split /:\ /x, $line, 2;
 
                                 $parsed{$key} = $value;
@@ -965,107 +965,124 @@ sub _handle_packet {
                         }
                 }
 
-                $self->_sort_and_buffer(\%parsed);
+                #Dispatch depending on packet type
+                if (exists $parsed{'ActionID'}) {
+                        $self->_handle_action(\%parsed);
+                } elsif (exists $parsed{'Event'}) {
+                        $self->_handle_event(\%parsed);
+                }
         }
 
         return 1;
 }
 
-#Sorts a packet and places into the appropriate buffer Returns 1 on buffered, 0 on discard
-sub _sort_and_buffer {
+#Used once and action completes
+#Determines goodness and performs any oustanding callbacks
+sub _action_complete {
+        my ($self, $actionid) = @_;
+
+        #Determine 'Goodness'
+        if (defined $self->{RESPONSEBUFFER}->{$actionid}->{'Response'}
+                && $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} =~ /^(?:Success|Follows|Goodbye|Events Off|Pong)$/ox) {
+                $self->{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
+        }
+
+        #Do callback and cleanup if callback exists
+        if (defined $self->{CALLBACKS}->{$actionid}->{'cb'}) {
+                #Stuff needed to process callback
+                my $callback = $self->{CALLBACKS}->{$actionid}->{'cb'};
+                my $response = $self->{RESPONSEBUFFER}->{$actionid};
+                my $store = $self->{CALLBACKS}->{$actionid}->{'store'};
+
+                #cleanup
+                delete $self->{RESPONSEBUFFER}->{$actionid};
+                delete $self->{CALLBACKS}->{$actionid};
+
+                #Delete Originate Async bullshit
+                delete $response->{'ASYNC'};
+
+                $callback->($self, $response, $store);
+        }
+
+        return 1;
+}
+
+#Handles proccessing and callbacks for action responses
+sub _handle_action {
         my ($self, $packet) = @_;
-        #my $packet = $_[1];
 
-        if (exists $packet->{'ActionID'}) {
-                #Snag our actionid
-                my $actionid = $packet->{'ActionID'};
+        #Snag our actionid
+        my $actionid = $packet->{'ActionID'};
 
-                return unless ($self->{EXPECTED}->{$actionid});
+        #Discard Unknown ActionIDs
+        return unless ($self->{EXPECTED}->{$actionid});
 
-                if (exists $packet->{'Event'}) {
-                        #EventCompleted Event?
-                        if ($packet->{'Event'} =~ /[cC]omplete/ox) {
-                                $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
-                        } else {
-                                #DBGetResponse and Originate Async Exceptions
-                                if ($packet->{'Event'} eq 'DBGetResponse' || $packet->{'Event'} eq 'OriginateResponse') {
-                                        $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
-                                }
-                                
-                                push(@{$self->{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
-                        }
-
-                } elsif (exists $packet->{'Response'}) {
-                        #If No indication of future packets, mark as completed
-                        if ($packet->{'Response'} ne 'Follows') {
-                                #Originate Async Exception is the first test
-                                if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/ox)) {
-                                        $packet->{'COMPLETED'} = 1;
-                                }
-                        } 
-
-                        #Copy the response into the buffer
-                        foreach (keys %{$packet}) {
-                                if ($_ =~ /^(?:Response|Message|ActionID|Privilege|CMD|COMPLETED)$/ox) {
-                                        $self->{RESPONSEBUFFER}->{$actionid}->{$_} = $packet->{$_};
-                                } else {
-                                        $self->{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
-                                }
-                         }
-                }
-        
-                #This block handles callbacks
-                if ($self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'}) {
-                        #This aciton is finished do not accept any more packets for it
-                        delete $self->{EXPECTED}->{$actionid};
-
-                        #Determine 'Goodness'
-                        if (defined $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} && $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} =~ /^(?:Success|Follows|Goodbye|Events Off|Pong)$/ox) {
-                                $self->{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
-                        }
-
-                        #Do callback and cleanup if callback exists
-                        if (defined $self->{CALLBACKS}->{$actionid}->{'cb'}) {
-                                #Stuff needed to process callback
-                                my $callback = $self->{CALLBACKS}->{$actionid}->{'cb'};
-                                my $response = $self->{RESPONSEBUFFER}->{$actionid};
-                                my $store = $self->{CALLBACKS}->{$actionid}->{'store'};
-
-                                #cleanup
-                                delete $self->{RESPONSEBUFFER}->{$actionid};
-                                delete $self->{CALLBACKS}->{$actionid};
-
-                                #Delete Originate Async bullshit
-                                delete $response->{'ASYNC'};
-
-                                $callback->($self, $response, $store);
-                        }
-                }
-
-        #Is it an event?
-        } elsif (exists $packet->{'Event'}) {
-
-                #If handlers were configured just dispatch, don't buffer
-                if ($self->{CONFIG}->{HANDLERS}) {
-                        if (exists $self->{CONFIG}->{HANDLERS}->{$packet->{'Event'}}) {
-                                $self->{CONFIG}->{HANDLERS}->{$packet->{'Event'}}->($self, $packet);
-                        } elsif (exists $self->{CONFIG}->{HANDLERS}->{'default'}) {
-                                $self->{CONFIG}->{HANDLERS}->{'default'}->($self, $packet);
-                        }
+        #Event responses 
+        if (exists $packet->{'Event'}) {
+                #EventCompleted Event?
+                if ($packet->{'Event'} =~ /[cC]omplete/ox) {
+                        $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
                 } else {
-                        #Someone is waiting on this packet, don't bother buffering
-                        if (exists $self->{CALLBACKS}->{'EVENT'}) {
-                                $self->{CALLBACKS}->{'EVENT'}->{'cb'}->($packet);
-                                delete $self->{CALLBACKS}->{'EVENT'};
-                        #Save for later
+                        #DBGetResponse and Originate Async Exceptions
+                        if ($packet->{'Event'} eq 'DBGetResponse' || $packet->{'Event'} eq 'OriginateResponse') {
+                                $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
+                        }
+                        
+                        #To the buffer        
+                        push(@{$self->{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
+                }
+        #Response packets
+        } elsif (exists $packet->{'Response'}) {
+                #If No indication of future packets, mark as completed
+                if ($packet->{'Response'} ne 'Follows') {
+                        #Originate Async Exception is the first test
+                        if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} 
+                                && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/ox)) {
+                                $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
+                        }
+                } 
+
+                #Copy the response into the buffer
+                foreach (keys %{$packet}) {
+                        if ($_ =~ /^(?:Response|Message|ActionID|Privilege|CMD|COMPLETED)$/ox) {
+                                $self->{RESPONSEBUFFER}->{$actionid}->{$_} = $packet->{$_};
                         } else {
-                                push(@{$self->{EVENTBUFFER}}, $packet);
+                                $self->{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
                         }
                 }
+        }
+        
+        if ($self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'}) {
+                #This aciton is finished do not accept any more packets for it
+                delete $self->{EXPECTED}->{$actionid};
 
-        #Not a response, not an Event, bad packet
+                #Determine goodness, do callback
+                $self->_action_complete($actionid);
+        }
+
+        return 1;
+}
+
+#Handles proccessing and callbacks for 'Event' packets
+sub _handle_event {
+        my ($self, $event) = @_;
+
+        #If handlers were configured just dispatch, don't buffer
+        if ($self->{CONFIG}->{HANDLERS}) {
+                if (exists $self->{CONFIG}->{HANDLERS}->{$event->{'Event'}}) {
+                        $self->{CONFIG}->{HANDLERS}->{$event->{'Event'}}->($self, $event);
+                } elsif (exists $self->{CONFIG}->{HANDLERS}->{'default'}) {
+                        $self->{CONFIG}->{HANDLERS}->{'default'}->($self, $event);
+                }
         } else {
-                return 0;
+                #Someone is waiting on this packet, don't bother buffering
+                if (exists $self->{CALLBACKS}->{'EVENT'}) {
+                        $self->{CALLBACKS}->{'EVENT'}->{'cb'}->($event);
+                        delete $self->{CALLBACKS}->{'EVENT'};
+                        #Save for later
+                } else {
+                        push(@{$self->{EVENTBUFFER}}, $event);
+                }
         }
 
         return 1;
@@ -1112,28 +1129,13 @@ sub _wait_response {
         return $process->recv;
 }
 
-#Sends an action to the AMI Accepts an Array Returns the actionid of the action
-sub send_action {
-        my ($self, $actionhash, $callback, $timeout, $store) = @_;
-
-        #No connection
-        return unless ($self->{handle});
-
-        #resets id number
-        if ($self->{idseq} > $self->{CONFIG}->{BUFFERSIZE}) {
-                $self->{idseq} = 1;
-        }
-
-        my $id = $self->{idseq}++;
-
-        #Store the Action ID
-        $self->{lastid} = $id;
-
-        #Delete anything that might be in the buffer
-        delete $self->{RESPONSEBUFFER}->{$id};
-        delete $self->{CALLBACKS}->{$id};
+sub _build_action {
+        my ($actionhash, $id) = @_;
 
         my $action;
+        my $async;
+        my $callback;
+        my $timeout;
 
         #Create an action out of a hash
         while (my ($key, $value) = each(%{$actionhash})) {
@@ -1156,7 +1158,7 @@ sub send_action {
                         next;
                 #Exception of Orignate Async
                 } elsif ($lkey eq 'async' && $value == 1) {
-                        $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'} = 1;
+                        $async = 1;
                 #Clean out user ActionIDs
                 } elsif ($lkey eq 'actionid') {
                         carp "User supplied ActionID being ignored." if warnings::enabled('Asterisk::AMI');
@@ -1175,6 +1177,37 @@ sub send_action {
 
         #Append ActionID and End Command
         $action .= 'ActionID: ' . $id . "\015\012\015\012";
+
+        return ($action, $async, $callback, $timeout);
+}
+
+#Sends an action to the AMI Accepts an Array Returns the actionid of the action
+sub send_action {
+        my ($self, $actionhash, $callback, $timeout, $store) = @_;
+
+        #No connection
+        return unless ($self->{handle});
+
+        #resets id number
+        if ($self->{idseq} > $self->{CONFIG}->{BUFFERSIZE}) {
+                $self->{idseq} = 1;
+        }
+
+        my $id = $self->{idseq}++;
+
+        #Store the Action ID
+        $self->{lastid} = $id;
+
+        #Delete anything that might be in the buffer
+        delete $self->{RESPONSEBUFFER}->{$id};
+        delete $self->{CALLBACKS}->{$id};
+
+        my ($action, $hcb, $htimeout);
+
+        ($action, $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'}, $hcb, $htimeout) = _build_action($actionhash, $id);
+
+        $callback = $hcb unless (defined $callback);
+        $timeout = $htimeout unless (defined $timeout);
 
         if ($self->{LOGGEDIN} || lc($actionhash->{'Action'}) =~ /login|challenge/x) {
                 $self->{handle}->push_write($action);

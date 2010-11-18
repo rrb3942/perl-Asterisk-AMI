@@ -26,7 +26,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Notes have been added to Asterisk::AMI::Common methods that require Asterisk 1.8+.
 
-	- Fixed a typo in the get_var() method in Asterisk::AMI::Common. $self-action should have been $self->action.
+	- Fixed a typo in the get_var() method in Asterisk::AMI::Common that broke the method.
 
 	- We were not always calling the on_connect_err callback when we should have.
 
@@ -54,8 +54,7 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Made general changes to become more compliant with PBP. No warnings with perlcritic -4, very few with -3.
 
-        - Split up the functions of our internal _login subroutine to simplify logic. Should make login errors between
-        blocking and non-blocking to be more consistent. Also consolidates some code.
+        - General refactoring for a some internal methods for the sake of maintainability
 
 0.2.2
 	- Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
