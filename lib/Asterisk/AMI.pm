@@ -30,7 +30,7 @@ reliable way to interact with Asterisk upon which other applications may be buil
 can integrate very easily into event-based applications, but it still provides blocking functions for us with standard 
 scripting.
 
-=head2 SSL SUPPEERPORT INFORMAION
+=head2 SSL SUPPORT INFORMATION
 
 For SSL support you will also need the module that AnyEvent::Handle uses for SSL support, which is not a required 
 dependency. Currently that module is 'Net::SSLeay' (AnyEvent:Handle version 5.251) but it may change in the future.
@@ -110,10 +110,23 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         or never callback. You don't need this if you are already doing work with events, simply add 'call' events
         to your eventmask.
 
+=head2 Disabling Warnings
+
+        If you have warnings enabled this module will emit a number of them on connection errors, deprecated features, etc.
+        To disable this but still have all other warnings in perl enabled you can do the following:
+
+                use Asterisk::AMI;
+                use warnings;
+                no warnings qw(Asterisk::AMI);
+
+        That will enable warnings but disable any warnings from this module.
+
 =head2 Warning - Mixing Event-loops and blocking actions
 
+        For an intro to Event-Based programming please check out the documentation in AnyEvent::Intro.
+
         If you are running an event loop and use blocking methods (e.g. get_response, check_response, action,
-        simple_action, connected) the outcome is unspecified. It may work, it may lock everything up, the action may
+        simple_action, connected, or a blocking connect) the outcome is unspecified. It may work, it may lock everything up, the action may
         work but break something else. I have tested it and behavior seems unpredictable at best and is very
         circumstantial.
 
@@ -269,7 +282,7 @@ combines send_action() and get_response(), and therefore returns a Response obje
                                         Variable = [ 'var1=1', 'var2=2' ]});
 
         Example 3 - An Async Originate
-        If youre Async Originate never returns please read about the 'OriginateHack' option for the constructor.
+        If your Async Originate never returns please read about the 'OriginateHack' option for the constructor.
 
         my $response = $astman->action({Action => 'Originate',
                                         Channel => 'SIP/peer/12345',
@@ -316,7 +329,7 @@ combines send_action() and get_response(), and therefore returns a Response obje
         $astman->send_action({ Action => 'Ping' }, \&somemethod, 7, $somevar);
 
 In this example once the action 'Ping' finishes we will call somemethod() and pass it the a copy of our AMI object, 
-the Response Object for the action, and an optional variable to pass to the callback. If a timeout is not specified
+the Response Object for the action, and an optional variable $somevar. If a timeout is not specified
 it will use the default set. A value of 0 means no timeout. When the timeout is reached somemethod() will be called
 and passed a reference to our $astman and the uncompleted Response Object, therefore somemethod() should check the
 state of the object. Checking the key {'GOOD'} is usually a good indication if the response is useable.
@@ -354,7 +367,7 @@ out before ever even attempting to receive the response.
 =head2 Passing Variables in an Action Response
 
 Sometimes, when working in an event framework, you want a way to associate/map the response to an action with another 
-identifier used in your application. Normally you would have to maintain some sort of seperate mapping involving the 
+identifier used in your application. Normally you would have to maintain some sort of separate mapping involving the 
 ActionID to accomplish this. This modules provides a generic way to pass any perl scalar (this includes references) 
 with your action which is then passed to the callback with the response.
 
@@ -378,18 +391,11 @@ And to pass a reference:
 
 The passed variable will be available as the third argument to the callback.
 
-To retrive in a callback:
+To retrieve in a callback:
 
         my ($astman, $resp, $store) = @_;
 
         print $store . " was stored\n";
-
-=head3 Case Sensitivity
-        
-The case of the 'Store' key is maintained. If you use 'store' to store the value you must use 'store' to retrieve it. 
-Likewise if you use 'STORE' to store it you must use 'STORE' to retrieve it.
-
-Storing it using the 'store' key and then trying to retrieve it by accessing the 'STORE' key will not work.
 
 =head2 Responses and Events
 
@@ -409,7 +415,6 @@ Storing it using the 'store' key and then trying to retrieve it by accessing the
                    {'CMD'} Contains command output from 'Action: Command's. It is an array reference.
                    {'COMPLETED'} 1 if completed, 0 if not (timeout)
                    {'GOOD'} 1 if good, 0 if bad. Good means no errors and COMPLETED.
-                   {'Store'} Stored variable
 
 =head3 Events
 
@@ -572,13 +577,13 @@ loop ()
 
 =head1 See Also
 
-Asterisk::AMI::Common, Asterisk::AMI::Common::Dev
+AnyEvent, Asterisk::AMI::Common, Asterisk::AMI::Common::Dev
 
 =head1 AUTHOR
 
 Ryan Bullock (rrb3942@gmail.com)
 
-=head1 BUG REPEERPORTING AND FEEBACK
+=head1 BUG REPORTING AND FEEDBACK
 
 Please report any bugs or errors to our github issue tracker at http://github.com/rrb3942/perl-Asterisk-AMI/issues or 
 the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=perl-Asterisk-AMI
