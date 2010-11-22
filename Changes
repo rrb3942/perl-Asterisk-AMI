@@ -56,6 +56,8 @@ Revision history for Perl extension Asterisk::AMI.
 
         - General refactoring for a some internal methods for the sake of maintainability
 
+        - Updated cmd_server.pl to use new syntax and variable passing
+
 0.2.2
 	- Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
 	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
