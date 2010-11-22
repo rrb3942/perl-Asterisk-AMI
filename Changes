@@ -18,9 +18,9 @@ Revision history for Perl extension Asterisk::AMI.
 	more flexible. Obvious errors should now be caught earlier (e.g. not using a subroutine refernce for an error
 	or event handler).
 
-        - db_show() was not honoring timeouts passed to it.
-
 	- Constructor options are now case-insensitive.
+
+        - db_show() was not honoring timeouts passed to it.
 
 	- Merged Asterisk::AMI::Common::Dev into Asterisk::AMI::Common. This was done because Asterisk 1.8 is now released.
 

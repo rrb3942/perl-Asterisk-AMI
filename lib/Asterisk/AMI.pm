@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.2
+0.2.3
 
 =head1 SYNOPSIS
 
@@ -241,7 +241,6 @@ combines send_action() and get_response(), and therefore returns a Response obje
 
 =head3 Originate Examples
 
-        I see enough searches hit my site for this that I figure it should be included in the documentation.
         These don't include non-blocking examples, please read the section on 'Callbacks' below for information
         on using non-blocking callbacks and events.
 
@@ -615,7 +614,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.2.2);
+use version; our $VERSION = qv(0.2.3);
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
@@ -670,8 +669,7 @@ sub _configure {
                                 AUTHTYPE => 'plaintext',
                                 EVENTS => 'off',
                                 BUFFERSIZE => 30000,
-                                BLOCKING => 1,
-                                DEPRECATED => 0
+                                BLOCKING => 1
                         );
 
         #Create list of all options and acceptable values
@@ -693,8 +691,7 @@ sub _configure {
                                 ON_CONNECT_ERR => 'CODE',
                                 ON_ERROR => 'CODE',
                                 ON_DISCONNECT => 'CODE',
-                                ON_TIMEOUT => 'CODE',
-                                DEPRECATED => 'bool'
+                                ON_TIMEOUT => 'CODE'
                                 );
 
         #Config Validation + Setting
