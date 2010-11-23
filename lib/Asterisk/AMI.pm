@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.5
+0.3.0
 
 =head1 SYNOPSIS
 
@@ -614,7 +614,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.2.5);
+use version; our $VERSION = qv(0.3.0);
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
@@ -1144,22 +1144,8 @@ sub _build_action {
 
                 my $lkey = lc($key);
 
-                #Callbacks
-                if ($key eq 'CALLBACK') {
-                        carp "Use of the CALLBACK key in an action is deprecated and will be removed in a future release.\n",
-                        "Please use the syntax that is available." if warnings::enabled('Asterisk::AMI');
-
-                        $callback = $actionhash->{$key} unless (defined $callback);
-                        next;
-                #Timeout
-                } elsif ($key eq 'TIMEOUT') {
-                        carp "Use of the TIMEOUT key in an action is deprecated and will be removed in a future release\n",
-                        "Please use the syntax that is available." if warnings::enabled('Asterisk::AMI');
-
-                        $timeout = $actionhash->{$key} unless (defined $timeout);
-                        next;
                 #Exception of Orignate Async
-                } elsif ($lkey eq 'async' && $value == 1) {
+                if ($lkey eq 'async' && $value == 1) {
                         $async = 1;
                 #Clean out user ActionIDs
                 } elsif ($lkey eq 'actionid') {
