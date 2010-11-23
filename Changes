@@ -1,4 +1,6 @@
 Revision history for Perl extension Asterisk::AMI.
+0.2.4
+        - Due to a bug introduced in 0.2.3 get_event would return a reference to the current Asterisk::AMI object instead of the event. 
 0.2.3
         - The Carp module is now required.
 

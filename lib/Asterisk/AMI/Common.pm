@@ -6,7 +6,7 @@ Asterisk::AMI::Common - Extends Asterisk::AMI to provide simple access to common
 
 =head1 VERSION
 
-0.2.3
+0.2.4
 
 =head1 SYNOPSIS
 
@@ -584,7 +584,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI);
 
-use version; our $VERSION = qv(0.2.3);
+use version; our $VERSION = qv(0.2.4);
 
 sub new {
         my ($class, %options) = @_;

@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.3
+0.2.4
 
 =head1 SYNOPSIS
 
@@ -614,7 +614,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.2.3);
+use version; our $VERSION = qv(0.2.4);
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
@@ -1505,7 +1505,7 @@ sub get_event {
 
                 my $process = AE::cv;
 
-                $self->{CALLBACKS}->{'EVENT'}->{'cb'} = sub { $process->send($self) };
+                $self->{CALLBACKS}->{'EVENT'}->{'cb'} = sub { $process->send($_[0]) };
                 $self->{CALLBACKS}->{'EVENT'}->{'timeout'} = sub { warnings::warnif('Asterisk::AMI', "Timed out waiting for event"); $process->send(undef); };
 
                 $timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
