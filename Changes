@@ -1,7 +1,24 @@
 Revision history for Perl extension Asterisk::AMI.
-0.2.5   - Fix RT#65782 Consume all memory on dropped connection.
+=======
+0.3
+        NOT DONE
+        - Support for old Callback and Timeout syntax has been removed.
+
+        - Added Asterisk::AMI::Helper. Similiar to Asterisk::AMI::Common but can be used in an event based application.
+
+        - Abstracted some of the logic in Asterisk::AMI::Common to a seperate module so that it may be shared with
+        Asterisk::AMI::Helper.
+
+        - Default Authentication method changed to MD5 instead of plaintext. (Auto failback?)
+
+        - Originate Hack? Default? On? Off?
+
+0.2.5
+        - Fix RT#65782 Consume all memory on dropped connection.
+
 0.2.4
         - Due to a bug introduced in 0.2.3 get_event would return a reference to the current Asterisk::AMI object instead of the event. 
+
 0.2.3
         - The Carp module is now required.
 
