@@ -564,11 +564,10 @@ error ()
 
         Returns 1 if there are currently errors on the socket, 0 if everything is ok.
 
-destroy ( [ FATAL ] )
+destroy ()
 
-        Destroys the contents of all buffers and removes any current callbacks that are set. If FATAL is true
-        it will also destroy our IO handle and its associated watcher. Mostly used internally. Useful if you want to
-        ensure that our IO handle watcher gets removed.
+        Destroys the contents of all buffers and removes any current callbacks that are set. Mostly used internally.
+        Useful if you want to ensure that our IO handle watcher gets removed.
 
 loop ()
 
@@ -651,7 +650,7 @@ sub anyevent_read_type {
                         $cb->($hdl, $1);
                 }
 
-                return 0;
+                return;
         }
 }
 
@@ -666,7 +665,7 @@ sub _configure {
         #Defaults
         my %defaults = (        PEERADDR => '127.0.0.1',
                                 PEERPORT => 5038,
-                                AUTHTYPE => 'plaintext',
+                                AUTHTYPE => 'md5',
                                 EVENTS => 'off',
                                 BUFFERSIZE => 30000,
                                 BLOCKING => 1
@@ -896,7 +895,7 @@ sub _on_timeout {
 #Things to do after our initial connect
 sub _on_connect {
 
-        my ($self, $fh, $line) = @_;
+        my ($self, $hdl, $line) = @_;
 
         if ($line =~ /^Asterisk\ Call\ Manager\/([0-9]\.[0-9])$/ox) {
                 $self->{AMIVER} = $1;
@@ -983,44 +982,9 @@ sub _handle_packet {
         return 1;
 }
 
-#Used once and action completes
-#Determines goodness and performs any oustanding callbacks
-sub _action_complete {
-        my ($self, $actionids) = @_;
-
-        foreach my $actionid (@{$actionids}) {
-                #Determine 'Goodness'
-                if (defined $self->{RESPONSEBUFFER}->{$actionid}->{'Response'}
-                        && $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} =~ /^(?:Success|Follows|Goodbye|Events Off|Pong)$/ox) {
-                        $self->{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
-                }
-
-                #Do callback and cleanup if callback exists
-                if (defined $self->{CALLBACKS}->{$actionid}->{'cb'}) {
-                        #Stuff needed to process callback
-                        my $callback = $self->{CALLBACKS}->{$actionid}->{'cb'};
-                        my $response = $self->{RESPONSEBUFFER}->{$actionid};
-                        my $store = $self->{CALLBACKS}->{$actionid}->{'store'};
-
-                        #cleanup
-                        delete $self->{RESPONSEBUFFER}->{$actionid};
-                        delete $self->{CALLBACKS}->{$actionid};
-
-                        #Delete Originate Async bullshit
-                        delete $response->{'ASYNC'};
-
-                        $callback->($self, $response, $store);
-                }
-        }
-
-        return 1;
-}
-
 #Handles proccessing and callbacks for action responses
 sub _handle_actions {
         my ($self, $packets) = @_;
-
-        my @completed;
 
         foreach my $packet (@{$packets}) {
                 #Snag our actionid
@@ -1040,13 +1004,14 @@ sub _handle_actions {
                                         $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
                                 }
                         
-                                #To the buffer        
+                                #To the buffer
                                 push(@{$self->{RESPONSEBUFFER}->{$actionid}->{'EVENTS'}}, $packet);
                         }
                 #Response packets
                 } elsif (exists $packet->{'Response'}) {
                         #If No indication of future packets, mark as completed
                         if ($packet->{'Response'} ne 'Follows') {
+                                #Rewrite these tests
                                 #Originate Async Exception is the first test
                                 if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} 
                                         && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/ox)) {
@@ -1063,18 +1028,25 @@ sub _handle_actions {
                                 }
                         }
                 }
-        
+
                 if ($self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'}) {
                         #This aciton is finished do not accept any more packets for it
                         delete $self->{EXPECTED}->{$actionid};
-                        
-                        #Queue for callback
-                        push @completed, $actionid;
+
+                        #Do we really need to check if response is there? was required before EXPECTED?
+                        #Determine 'Goodness'
+                        if (defined $self->{RESPONSEBUFFER}->{$actionid}->{'Response'}
+                                && $self->{RESPONSEBUFFER}->{$actionid}->{'Response'} =~ /^(?:Success|Follows|Goodbye|Events Off|Pong)$/ox) {
+
+                                $self->{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
+                        }
+
+                        #Do callback and cleanup if callback exists
+                        if (defined $self->{CALLBACKS}->{$actionid}) {
+                                $self->{CALLBACKS}->{$actionid}->();
+                        }
                 }
         }
-
-        #Determine goodness, do callback
-        $self->_action_complete(\@completed) if (@completed);
 
         return 1;
 }
@@ -1096,7 +1068,7 @@ sub _handle_events {
                         if (exists $self->{EVENTWAIT}) {
                                 $self->{EVENTWAIT}->{'cb'}->($event);
                                 delete $self->{EVENTWAIT};
-                                #Save for later
+                        #Save for later
                         } else {
                                 push(@{$self->{EVENTBUFFER}}, $event);
                         }
@@ -1106,7 +1078,7 @@ sub _handle_events {
         return 1;
 }
 
-#This is used to provide blocking behavior for calls It installs callbacks for an action if it is not in the buffer 
+#This is used to provide blocking behavior for calls. It installs callbacks for an action if it is not in the buffer 
 #and waits for the response before returning it.
 sub _wait_response {
         my ($self, $id, $timeout) = @_;
@@ -1114,8 +1086,9 @@ sub _wait_response {
         #Already got it?
         if ($self->{RESPONSEBUFFER}->{$id}->{'COMPLETED'}) {
                 my $resp = $self->{RESPONSEBUFFER}->{$id};
-                delete $self->{RESPONSEBUFFER}->{$id};
                 delete $self->{CALLBACKS}->{$id};
+                delete $self->{RESPONSEBUFFER}->{$id};
+                delete $self->{TIMERS}->{$id};
                 delete $self->{EXPECTED}->{$id};
                 return $resp;
         }
@@ -1123,25 +1096,26 @@ sub _wait_response {
         #Don't Have it, wait for it Install some handlers and use a CV to simulate blocking
         my $process = AE::cv;
 
-        $self->{CALLBACKS}->{$id}->{'cb'} = sub { $process->send($_[1]) };
+        my $cb = sub {
+                my $response = $self->{RESPONSEBUFFER}->{$id};
+                delete $self->{CALLBACKS}->{$id};
+                delete $self->{RESPONSEBUFFER}->{$id};
+                delete $self->{TIMERS}->{$id};
+                delete $self->{EXPECTED}->{$id};
+                $process->($response);
+        };
+
+        $self->{CALLBACKS}->{$id} = $cb;
         $timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
         #Should not need to weaken here because this is a blocking call Only outcomes can be error, timeout, or 
         #complete, all of which will finish the cb and clear the reference weaken($self)
 
         if ($timeout) {
-                $self->{CALLBACKS}->{$id}->{'timeout'} = sub {
-                                my $response = $self->{'RESPONSEBUFFER'}->{$id};
-                                delete $self->{RESPONSEBUFFER}->{$id};
-                                delete $self->{CALLBACKS}->{$id};
-                                delete $self->{EXPECTED}->{$id};
-                                $process->send($response);
-                        };
-
                 #Make sure event loop is up to date in case of sleeps
                 AE::now_update;
 
-                $self->{CALLBACKS}->{$id}->{'timer'} = AE::timer $timeout, 0, $self->{CALLBACKS}->{$id}->{'timeout'};
+                $self->{TIMEOUTS}->{$id} = AE::timer $timeout, 0, $cb;
         }
 
         return $process->recv;
@@ -1152,8 +1126,6 @@ sub _build_action {
 
         my $action;
         my $async;
-        my $callback;
-        my $timeout;
 
         #Create an action out of a hash
         while (my ($key, $value) = each(%{$actionhash})) {
@@ -1182,7 +1154,7 @@ sub _build_action {
         #Append ActionID and End Command
         $action .= 'ActionID: ' . $id . "\015\012\015\012";
 
-        return ($action, $async, $callback, $timeout);
+        return ($action, $async);
 }
 
 #Sends an action to the AMI Accepts an Array Returns the actionid of the action
@@ -1206,22 +1178,23 @@ sub send_action {
         delete $self->{RESPONSEBUFFER}->{$id};
         delete $self->{CALLBACKS}->{$id};
 
-        my ($action, $hcb, $htimeout);
+        my $action;
 
-        ($action, $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'}, $hcb, $htimeout) = _build_action($actionhash, $id);
+        #Build our AMI command
+        ($action, $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'}) = _build_action($actionhash, $id);
 
-        $callback = $hcb unless (defined $callback);
-        $timeout = $htimeout unless (defined $timeout);
-
+        #If logged in send action
         if ($self->{LOGGEDIN} || lc($actionhash->{'Action'}) =~ /login|challenge/x) {
                 $self->{handle}->push_write($action);
+        #Not logged in buffer till we are
         } else {
                 $self->{PRELOGIN}->{$id} = $action;
         }
 
+        #Initialize default status of response
         $self->{RESPONSEBUFFER}->{$id}->{'COMPLETED'} = 0;
         $self->{RESPONSEBUFFER}->{$id}->{'GOOD'} = 0;
-        $self->{EXPECTED}->{$id} = 1;
+        $self->{EXPECTED}->{$id} = undef;
 
         #Weaken ref of use in anonsub
         weaken($self);
@@ -1231,7 +1204,7 @@ sub send_action {
 
         #Setup callback
         if (defined $callback) {
-                my $cb = sub {
+                $self->{CALLBACKS}->{$id} = sub {
                         my $response = $self->{RESPONSEBUFFER}->{$id};
                         delete $self->{CALLBACKS}->{$id};
                         delete $self->{RESPONSEBUFFER}->{$id};
@@ -1241,11 +1214,9 @@ sub send_action {
                         $callback->($self, $response, $store);
                 };
 
-                $self->{CALLBACKS}->{$id} = $cb;
-
                 #Start timer for timeouts
                 if ($timeout) {
-                        $self->{TIMERS}->{$id} = AE::timer $timeout, 0, $cb;
+                        $self->{TIMERS}->{$id} = AE::timer $timeout, 0, $self->{CALLBACKS}->{$id};
                 }
         }
 
@@ -1269,8 +1240,8 @@ sub check_response {
         return;
 }
 
-#Returns the Action with all command data and event Actions are hash references If an actionid is specified returns 
-#that action, otherwise uses last actionid sent Removes the event from the buffer
+#Returns the Action with all command data and event Actions are hash references 
+#If an actionid is specified returns that action, otherwise uses last actionid sent
 sub get_response {
         my ($self, $actionid, $timeout) = @_;
 
@@ -1560,17 +1531,12 @@ sub _send_keepalive {
         return $self->send_action({ Action => 'Ping' }, $cb, $timeout);
 }
 
-#Calls all callbacks as if they had timed out Used when an error has occured on the socket
+#Calls all callbacks as if they had timed out
+#Used when an error has occured on the socket
 sub _clear_cbs {
         my ($self) = @_;
 
         foreach my $callback (values %{$self->{CALLBACKS}}) {
-#                my $response = $self->{RESPONSEBUFFER}->{$id};
- #               my $callback = $self->{CALLBACKS}->{$id}->{'cb'};
-  #              my $store = $self->{CALLBACKS}->{$id}->{'store'};
-   #             delete $self->{RESPONSEBUFFER}->{$id};
-    #            delete $self->{CALLBACKS}->{$id};
-     #           delete $self->{EXPECTED}->{$id};
                 $callback->();
         }
 
