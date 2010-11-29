@@ -991,8 +991,7 @@ sub _handle_actions {
                 my $actionid = $packet->{'ActionID'};
 
                 #Discard Unknown ActionIDs
-                return unless ($self->{EXPECTED}->{$actionid});
-
+                return unless (exists $self->{EXPECTED}->{$actionid});
                 #Event responses 
                 if (exists $packet->{'Event'}) {
                         #EventCompleted Event?
@@ -1040,7 +1039,6 @@ sub _handle_actions {
 
                                 $self->{RESPONSEBUFFER}->{$actionid}->{'GOOD'} = 1;
                         }
-
                         #Do callback and cleanup if callback exists
                         if (defined $self->{CALLBACKS}->{$actionid}) {
                                 $self->{CALLBACKS}->{$actionid}->();
