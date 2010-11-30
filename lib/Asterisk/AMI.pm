@@ -1113,7 +1113,7 @@ sub _wait_response {
                 #Make sure event loop is up to date in case of sleeps
                 AE::now_update;
 
-                $self->{TIMEOUTS}->{$id} = AE::timer $timeout, 0, $cb;
+                $self->{TIMERS}->{$id} = AE::timer $timeout, 0, $cb;
         }
 
         return $process->recv;
