@@ -51,7 +51,7 @@ use warnings;
 
 use version; our $VERSION = qv(0.3.0);
 
-#Returns a hash
+#Returns a hashref
 sub commands {
 
         my ($action) = @_;
@@ -74,32 +74,13 @@ sub commands {
 
 }
 
-sub db_get {
-
-        my ($self, $family, $key, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'DBGet',
-                                        Family => $family,
-                                        Key => $key }, $timeout);
-
-
-        if ($action->{'GOOD'}) {
-                return $action->{'EVENTS'}->[0]->{'Val'};
-        }
-
-        return;
-}
-
 sub db_show {
 
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'Command',
-                                        Command => 'database show'}, $timeout);
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
-        my $database;
+        my %database;
 
         foreach my $dbentry (@{$action->{'CMD'}}) {
                 if ($dbentry =~ /^(.+?)\s*:\s*([^.]+)$/ox) {
@@ -114,52 +95,20 @@ sub db_show {
 
                         $family = substr($family, 1);
 
-                        $database->{$family}->{$key} = $val;
+                        $database{$family}->{$key} = $val;
                 }
         }
 
-        return $database;
-}
-
-sub get_var {
-
-        my ($self, $channel, $variable, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'GetVar',
-                                        Channel => $channel,
-                                        Variable => $variable }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Value'};
-        }
-
-        return;
-}
-
-sub exten_state {
-
-        my ($self, $exten, $context, $timeout) = @_;
-
-        my $action = $self->action({    Action  => 'ExtensionState',
-                                        Exten   => $exten,
-                                        Context => $context }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Status'};
-        }
-
-        return;
+        return \%database;
 }
 
 sub parked_calls {
 
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
-        my $parkinglots;
+        my %parkinglots;
 
         foreach my $lot (@{$action->{'EVENTS'}}) {
                 delete $lot->{'ActionID'};
@@ -169,17 +118,15 @@ sub parked_calls {
 
                 delete $lot->{'Exten'};
 
-                $parkinglots->{$lotnum} = $lot;
+                $parkinglots{$lotnum} = $lot;
         }
 
-        return $parkinglots;
+        return \%parkinglots;
 }
 
 sub sip_peers {
 
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'Sippeers' }, $timeout);
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
@@ -199,58 +146,13 @@ sub sip_peers {
         return $peers;
 }
 
-sub sip_peer {
-
-        my ($self, $peername, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'SIPshowpeer',
-                                        Peer => $peername }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'};
-        }
-
-        return;
-}
-
-sub mailboxcount {
-
-        my ($self, $exten, $context, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'MailboxCount',
-                                        Mailbox => $exten . '@' . $context }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'};
-        }
-
-        return;
-}
-
-sub mailboxstatus {
-
-        my ($self, $exten, $context, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'MailboxStatus',
-                                        Mailbox => $exten . '@' . $context }, $timeout);
-
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Waiting'};
-        }
-
-        return;
-}
-
 sub queues {
         
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
-        my $queues;
+        my %queues;
 
         foreach my $event (@{$action->{'EVENTS'}}) {
 
@@ -263,7 +165,7 @@ sub queues {
                         
                 if ($qevent eq 'QueueParams') {
                         while (my ($key, $value) = each %{$event}) {
-                                $queues->{$queue}->{$key} = $value;
+                                $queues{$queue}->{$key} = $value;
                         }
                 } elsif ($qevent eq 'QueueMember') {
 
@@ -271,7 +173,7 @@ sub queues {
 
                         delete $event->{'Name'};
 
-                        $queues->{$queue}->{'MEMBERS'}->{$name} = $event;
+                        $queues{$queue}->{'MEMBERS'}->{$name} = $event;
 
                 } elsif ($qevent eq 'QueueEntry') {
 
@@ -279,25 +181,21 @@ sub queues {
 
                         delete $event->{'Position'};
                         
-                        $queues->{$queue}->{'ENTRIES'}->{$pos} = $event;
+                        $queues{$queue}->{'ENTRIES'}->{$pos} = $event;
                 }
 
         }
 
-        return $queues;
+        return \%queues;
 }
 
 sub queue_status {
         
-        my ($self, $queue, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'QueueStatus',
-                                        Queue => $queue }, $timeout);
-
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
-        my $queueobj;
+        my %queueobj;
 
         foreach my $event (@{$action->{'EVENTS'}}) {
 
@@ -308,7 +206,7 @@ sub queue_status {
                         
                 if ($qevent eq 'QueueParams') {
                         while (my ($key, $value) = each %{$event}) {
-                                $queueobj->{$key} = $value;
+                                $queueobj{$key} = $value;
                         }
                 } elsif ($qevent eq 'QueueMember') {
 
@@ -317,7 +215,7 @@ sub queue_status {
                         delete $event->{'Name'};
                         delete $event->{'Queue'};
 
-                        $queueobj->{'MEMBERS'}->{$name} = $event;
+                        $queueobj{'MEMBERS'}->{$name} = $event;
 
                 } elsif ($qevent eq 'QueueEntry') {
 
@@ -326,52 +224,32 @@ sub queue_status {
                         delete $event->{'Queue'};
                         delete $event->{'Position'};
                         
-                        $queueobj->{'ENTRIES'}->{$pos} = $event;
+                        $queueobj{'ENTRIES'}->{$pos} = $event;
                 }
 
         }
 
-        return $queueobj;
+        return \%queueobj;
 }
 
 sub play_digits {
 
-        my ($self, $channel, $digits, $timeout) = @_;
+        my ($actions) = @_;
 
-        my $return = 1;
-        my $err = 0;
-
-        my @actions = map { $self->send_action({ Action => 'PlayDTMF',
-                                                 Channel => $channel,
-                                                 Digit => $_}) } @{$digits};
-
-        foreach my $action (@actions) {
-                my $resp = $self->check_response($action,$timeout);
-
-                next if ($err);
-
-                unless (defined $resp) {
-                        $err = 1;
-                        next;
-                }
-
-                $return = 0 unless ($resp);
+        foreach my $action (@{$actions}) {
+                return unless ($action->{GOOD});
         }
 
-        if ($err) { return };
-
-        return $return;
+        return 1;
 }
 
 sub channels {
         
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({Action => 'Status'},$timeout);
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
-        my $channels;
+        my %channels;
 
         foreach my $chan (@{$action->{'EVENTS'}}) {
                 #Clean out junk
@@ -383,18 +261,15 @@ sub channels {
         
                 delete $chan->{'Channel'};
 
-                $channels->{$name} = $chan;
+                $channels{$name} = $chan;
         }
 
-        return $channels;
+        return \%channels;
 }
 
 sub chan_status {
 
-        my ($self, $channel, $timeout) = @_;
-
-        my $action = $self->action({    Action  => 'Status',
-                                        Channel => $channel}, $timeout);
+        my ($action) = @_;
 
         return unless ($action->{'GOOD'});
 
@@ -410,124 +285,104 @@ sub chan_status {
 }
 
 sub meetme_list {
-        my ($self, $timeout) = @_;
+        my ($action) = @_;
 
-        my $meetmes;
-
-        my $amiver = $self->amiver();
-
-        #1.8+
-        if (defined($amiver) && $amiver >= 1.1) {
-                my $action = $self->action({Action => 'MeetmeList'}, $timeout);
-
-                return unless ($action->{'GOOD'});
-
-                foreach my $member (@{$action->{'EVENTS'}}) {
-                        my $conf = $member->{'Conference'};
-                        my $chan = $member->{'Channel'};
-                        delete $member->{'Conference'};
-                        delete $member->{'ActionID'};
-                        delete $member->{'Channel'};
-                        delete $member->{'Event'};
-                        $meetmes->{$conf}->{$chan} = $member;
-                }
-        #Compat mode for 1.4
-        } else {
-                #List of all conferences
-                my $list = $self->action({ Action => 'Command', Command => 'meetme' }, $timeout);
-
-                return unless ($list->{'GOOD'});
-
-                my @cmd = @{$list->{'CMD'}};
-
-                #Get rid of header and footer of cli
-                shift @cmd;
-                pop @cmd;
-
-                #Get members for each list
-                foreach my $conf (@cmd) {
-                        my @confline = split/\s{2,}/x, $conf;
-                        my $meetme = $self->meetme_members($confline[0], $timeout);
-
-                        return unless (defined $meetme);
-
-                        $meetmes->{$confline[0]} = $meetme;
-                }
-        }
-        
-        return $meetmes;
-}
-
-sub meetme_members {
-        my ($self, $conf, $timeout) = @_;
-
-        my $meetme;
-
-        my $amiver = $self->amiver();
-
-        #1.8+
-        if (defined($amiver) && $amiver >= 1.1) {
-                my $action = $self->action({    Action => 'MeetmeList',
-                                                Conference => $conf }, $timeout);
-
-                return unless ($action->{'GOOD'});
-
-                foreach my $member (@{$action->{'EVENTS'}}) {
-                        my $chan = $member->{'Channel'};
-                        delete $member->{'Conference'};
-                        delete $member->{'ActionID'};
-                        delete $member->{'Channel'};
-                        delete $member->{'Event'};
-                        $meetme->{$chan} = $member;
-                }
-        #1.4 Compat
-        } else {
-
-                my $members = $self->action({   Action => 'Command',
-                                                Command => 'meetme list ' . $conf . ' concise' });
-
-                return unless ($members->{'GOOD'});
-
-                foreach my $line (@{$members->{'CMD'}}) {
-                        my @split = split /\!/x, $line;
-                                
-                        my $member;
-                        #0 - User num
-                        #1 - CID Name
-                        #2 - CID Num
-                        #3 - Chan
-                        #4 - Admin
-                        #5 - Monitor?
-                        #6 - Muted
-                        #7 - Talking
-                        #8 - Time
-                        $member->{'UserNumber'} = $split[0];
-
-                        $member->{'CallerIDName'} = $split[1];
-
-                        $member->{'CallerIDNum'} = $split[2];
-
-                        $member->{'Admin'} = $split[4] ? "Yes" : "No";
-
-                        $member->{'Muted'} = $split[6] ? "Yes" : "No";
-
-                        $member->{'Talking'} = $split[7] ? "Yes" : "No";
-
-                        $meetme->{$split[3]} = $member;
-                }
-        }
-        
-        return $meetme;
-}
-
-sub voicemail_list {
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'VoicemailUsersList' }, $timeout);
+        my %meetmes;
 
         return unless ($action->{'GOOD'});
 
-        my $vmusers;
+        foreach my $member (@{$action->{'EVENTS'}}) {
+                my $conf = $member->{'Conference'};
+                my $chan = $member->{'Channel'};
+                delete $member->{'Conference'};
+                delete $member->{'ActionID'};
+                delete $member->{'Channel'};
+                delete $member->{'Event'};
+                $meetmes{$conf}->{$chan} = $member;
+        }
+        
+        return \%meetmes;
+}
+
+sub meetme_list_1_4 {
+
+        my ($action) = @_;
+
+        return unless ($action->{'GOOD'});
+
+        #Get rid of header and footer of cli
+        shift @{$action->{'CMD'}};
+        pop @{$action->{'CMD'}};
+
+        my @meetmes = map { my @split = split /\s{2,}/x; $split[0] } @{$action->{'CMD'}};
+
+        return \@meetmes;
+}
+
+sub meetme_members {
+        my ($action) = @_;
+
+        return unless ($action->{'GOOD'});
+
+        my %meetme;
+
+        foreach my $member (@{$action->{'EVENTS'}}) {
+                my $chan = $member->{'Channel'};
+                delete $member->{'Conference'};
+                delete $member->{'ActionID'};
+                delete $member->{'Channel'};
+                delete $member->{'Event'};
+                $meetme{$chan} = $member;
+        }
+        
+        return \%meetme;
+}
+
+sub meetme_members_1_4 {
+
+        my ($action) = @_;
+
+        return unless ($action->{'GOOD'});
+
+        my %meetme;
+
+        foreach my $line (@{$action->{'CMD'}}) {
+                my @split = split /\!/x, $line;
+                                
+                my $member;
+                #0 - User num
+                #1 - CID Name
+                #2 - CID Num
+                #3 - Chan
+                #4 - Admin
+                #5 - Monitor?
+                #6 - Muted
+                #7 - Talking
+                #8 - Time
+                $member->{'UserNumber'} = $split[0];
+
+                $member->{'CallerIDName'} = $split[1];
+
+                $member->{'CallerIDNum'} = $split[2];
+
+                $member->{'Admin'} = $split[4] ? "Yes" : "No";
+
+                $member->{'Muted'} = $split[6] ? "Yes" : "No";
+
+                $member->{'Talking'} = $split[7] ? "Yes" : "No";
+
+                $meetme{$split[3]} = $member;
+        }
+
+        return \%meetme;
+}
+
+sub voicemail_list {
+        my ($action) = @_;
+
+        return unless ($action->{'GOOD'});
+
+        my %vmusers;
 
         foreach my $box (@{$action->{'EVENTS'}}) {
                 my $context = $box->{'VMContext'};
@@ -537,11 +392,10 @@ sub voicemail_list {
                 delete $box->{'VoiceMailbox'};
                 delete $box->{'ActionID'};
                 delete $box->{'Event'};
-                $vmusers->{$context}->{$user} = $box;
+                $vmusers{$context}->{$user} = $box;
         }
 
-
-        return $vmusers;
+        return \%vmusers;
 }
 
 sub module_check {
@@ -553,66 +407,23 @@ sub module_check {
                 return $self->simple_action({   Action => 'ModuleCheck',
                                                 Module => $module }, $timeout);
         } else {
-                my $resp = $self->action({      Action => 'Command',
-                                                Command => 'module show like ' . $module }, $timeout);
-
-                return unless (defined $resp && $resp->{'GOOD'});
-
-                if ($resp->{'CMD'}->[-1] =~ /(\d+)\ .*/x) {
-
-                        return 0 if ($1 == 0);
-
-                        return 1;
-                }
-
-                return;
         }
 }
 
-sub originate {
-        my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
+sub module_check_1_4 {
 
-        my %action = (  Action => 'Originate',
-                        Channel => $chan,
-                        Context => $context,
-                        Exten => $exten,
-                        Priority => 1,
-                        );
+        my ($resp) = @_;
 
-        $action{'CallerID'} = $callerid if (defined $callerid);
+        return unless ($resp->{'GOOD'});
 
-        if (defined $ctime) {
-                $action{'Timeout'} = $ctime * 1000;
+        if ($resp->{'CMD'}->[-1] =~ /(\d+)\ .*/x) {
 
-                if ($timeout) {
-                        $timeout = $ctime + $timeout;
-                }
+                return 0 if ($1 == 0);
+
+                return 1;
         }
 
-        return $self->simple_action(\%action, $timeout);
-}
-
-sub originate_async {
-        my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
-
-        my %action = (  Action => 'Originate',
-                        Channel => $chan,
-                        Context => $context,
-                        Exten => $exten,
-                        Priority => 1,
-                        Async => 1
-                        );
-
-        $action{'CallerID'} = $callerid if (defined $callerid);
-        $action{'Timeout'} = $ctime * 1000 if (defined $ctime);
-
-        my $actionid = $self->send_action(\%action);
-
-        #Bypass async wait, bit hacky
-        #allows us to get the intial response
-        delete $self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'};
-
-        return $self->check_response($actionid, $timeout);
+        return;
 }
 
 1;
