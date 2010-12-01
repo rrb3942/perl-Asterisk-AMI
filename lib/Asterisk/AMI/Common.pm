@@ -279,15 +279,15 @@ queue_status ( QUEUE [, TIMEOUT ] )
                                            {'CallerIDName'}
                                            {'Wait'}
 
-queue_member_pause ( QUEUE, MEMBER, PAUSEVALUE [, TIMEOUT ] )
+queue_member_pause ( QUEUE, MEMBER [, TIMEOUT ] )
 
-        Sets the MEMBER of QUEUE to PAUSEVALUE. A value of 0 will un-pause a member, and 1 will pause them.
+        Pauses MEMBER in QUEUE.
         Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
-queue_member_toggle ( QUEUE, MEMBER [, TIMEOUT ] )
+queue_member_unpause ( QUEUE, MEMBER [, TIMEOUT ] )
 
-        Toggles MEMBER of QUEUE pause status. From paused to un-paused, and un-paused to paused.
-        Returns 1 if the the pause status was toggled, 0 if failed, or undef on error or timeout. TIMEOUT is optional
+        Unpauses MEMBER in QUEUE.
+        Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
 
@@ -880,33 +880,22 @@ sub queue_status {
 
 sub queue_member_pause {
 
-        my ($self, $queue, $member, $paused, $timeout) = @_;
+        my ($self, $queue, $member, $timeout) = @_;
 
         return $self->simple_action({   Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => $paused }, $timeout);
+                                        Paused => 1 }, $timeout);
 }
 
-sub queue_member_toggle {
+sub queue_member_pause {
 
         my ($self, $queue, $member, $timeout) = @_;
 
-        my $queueobj = $self->queue_status($queue, $timeout);
-
-        return unless ($queueobj);
-
-        my $paused;
-
-        if ($queueobj->{'MEMBERS'}->{$member}->{'Paused'} == 0) {
-                $paused = 1;
-        } elsif ($queueobj->{'MEMBERS'}->{$member}->{'Paused'}) {
-                $paused = 0;
-        }
-
-        if (defined $paused) { $self->queue_member_pause($queue, $member, $paused, $timeout) or undef $paused };
-
-        return $paused;
+        return $self->simple_action({   Action => 'QueuePause',
+                                        Queue => $queue,
+                                        Interface => $member,
+                                        Paused => 0 }, $timeout);
 }
 
 sub queue_add {
@@ -998,7 +987,7 @@ sub meetme_list {
 
                 return unless ($action->{'GOOD'});
 
-                return Asterisk::AMI::Share::format_meetme_list($action);
+                return Asterisk::AMI::Shared::format_meetme_list($action);
         #Compat mode for 1.4
         } else {
                 #List of all conferences
