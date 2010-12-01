@@ -52,16 +52,13 @@ use warnings;
 use version; our $VERSION = qv(0.3.0);
 
 #Returns a hashref
-sub commands {
+sub format_commands {
 
-        my ($action) = @_;
-
-        #Early bail out on bad response
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %commands;
 
-        while (my ($cmd, $desc) = each %{$action->{'PARSED'}}) {
+        while (my ($cmd, $desc) = each %{$response->{'PARSED'}}) {
                 if ($desc =~ s/\s*\(Priv:\ (.+)\)$//x) {
                         my @privs = split /,/x,$1;
                         $commands{$cmd}->{'Priv'} = \@privs;
@@ -74,15 +71,13 @@ sub commands {
 
 }
 
-sub db_show {
+sub format_db_show {
 
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %database;
 
-        foreach my $dbentry (@{$action->{'CMD'}}) {
+        foreach my $dbentry (@{$response->{'CMD'}}) {
                 if ($dbentry =~ /^(.+?)\s*:\s*([^.]+)$/ox) {
                         my $family = $1;
                         my $val = $2;
@@ -102,15 +97,13 @@ sub db_show {
         return \%database;
 }
 
-sub parked_calls {
+sub format_parked_calls {
 
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %parkinglots;
 
-        foreach my $lot (@{$action->{'EVENTS'}}) {
+        foreach my $lot (@{$response->{'EVENTS'}}) {
                 delete $lot->{'ActionID'};
                 delete $lot->{'Event'};
 
@@ -124,15 +117,13 @@ sub parked_calls {
         return \%parkinglots;
 }
 
-sub sip_peers {
+sub format_sip_peers {
 
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my $peers;
 
-        foreach my $peer (@{$action->{'EVENTS'}}) {
+        foreach my $peer (@{$response->{'EVENTS'}}) {
                 delete $peer->{'ActionID'};
                 delete $peer->{'Event'};
 
@@ -146,15 +137,13 @@ sub sip_peers {
         return $peers;
 }
 
-sub queues {
+sub format_queues {
         
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %queues;
 
-        foreach my $event (@{$action->{'EVENTS'}}) {
+        foreach my $event (@{$response->{'EVENTS'}}) {
 
                 my $qevent = $event->{'Event'};
                 my $queue = $event->{'Queue'};
@@ -189,15 +178,13 @@ sub queues {
         return \%queues;
 }
 
-sub queue_status {
+sub format_queue_status {
         
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %queueobj;
 
-        foreach my $event (@{$action->{'EVENTS'}}) {
+        foreach my $event (@{$response->{'EVENTS'}}) {
 
                 my $qevent = $event->{'Event'};
 
@@ -232,26 +219,24 @@ sub queue_status {
         return \%queueobj;
 }
 
-sub play_digits {
+sub check_play_digits {
 
-        my ($actions) = @_;
+        my ($responses) = @_;
 
-        foreach my $action (@{$actions}) {
-                return unless ($action->{GOOD});
+        foreach my $response (@{$responses}) {
+                return unless ($response->{GOOD});
         }
 
         return 1;
 }
 
-sub channels {
+sub format_channels {
         
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %channels;
 
-        foreach my $chan (@{$action->{'EVENTS'}}) {
+        foreach my $chan (@{$response->{'EVENTS'}}) {
                 #Clean out junk
                 delete $chan->{'Event'};
                 delete $chan->{'Privilege'};
@@ -267,15 +252,13 @@ sub channels {
         return \%channels;
 }
 
-sub chan_status {
+sub format_chan_status {
 
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my $status;
 
-        $status = $action->{'EVENTS'}->[0];
+        $status = $response->{'EVENTS'}->[0];
 
         delete $status->{'ActionID'};
         delete $status->{'Event'};
@@ -284,14 +267,12 @@ sub chan_status {
         return $status;
 }
 
-sub meetme_list {
-        my ($action) = @_;
+sub format_meetme_list {
+        my ($response) = @_;
 
         my %meetmes;
 
-        return unless ($action->{'GOOD'});
-
-        foreach my $member (@{$action->{'EVENTS'}}) {
+        foreach my $member (@{$response->{'EVENTS'}}) {
                 my $conf = $member->{'Conference'};
                 my $chan = $member->{'Channel'};
                 delete $member->{'Conference'};
@@ -304,29 +285,25 @@ sub meetme_list {
         return \%meetmes;
 }
 
-sub meetme_list_1_4 {
+sub parse_meetme_list_1_4 {
 
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         #Get rid of header and footer of cli
-        shift @{$action->{'CMD'}};
-        pop @{$action->{'CMD'}};
+        shift @{$response->{'CMD'}};
+        pop @{$response->{'CMD'}};
 
-        my @meetmes = map { my @split = split /\s{2,}/x; $split[0] } @{$action->{'CMD'}};
+        my @meetmes = map { my @split = split /\s{2,}/x; $split[0] } @{$response->{'CMD'}};
 
         return \@meetmes;
 }
 
-sub meetme_members {
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+sub format_meetme_members {
+        my ($response) = @_;
 
         my %meetme;
 
-        foreach my $member (@{$action->{'EVENTS'}}) {
+        foreach my $member (@{$response->{'EVENTS'}}) {
                 my $chan = $member->{'Channel'};
                 delete $member->{'Conference'};
                 delete $member->{'ActionID'};
@@ -338,15 +315,13 @@ sub meetme_members {
         return \%meetme;
 }
 
-sub meetme_members_1_4 {
+sub format_meetme_members_1_4 {
 
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+        my ($response) = @_;
 
         my %meetme;
 
-        foreach my $line (@{$action->{'CMD'}}) {
+        foreach my $line (@{$response->{'CMD'}}) {
                 my @split = split /\!/x, $line;
                                 
                 my $member;
@@ -377,14 +352,12 @@ sub meetme_members_1_4 {
         return \%meetme;
 }
 
-sub voicemail_list {
-        my ($action) = @_;
-
-        return unless ($action->{'GOOD'});
+sub format_voicemail_list {
+        my ($response) = @_;
 
         my %vmusers;
 
-        foreach my $box (@{$action->{'EVENTS'}}) {
+        foreach my $box (@{$response->{'EVENTS'}}) {
                 my $context = $box->{'VMContext'};
                 my $user = $box->{'VoiceMailbox'};
 
@@ -398,23 +371,9 @@ sub voicemail_list {
         return \%vmusers;
 }
 
-sub module_check {
-        my ($self, $module, $timeout) = @_;
-
-        my $ver = $self->amiver();
-
-        if (defined $ver && $ver >= 1.1) {
-                return $self->simple_action({   Action => 'ModuleCheck',
-                                                Module => $module }, $timeout);
-        } else {
-        }
-}
-
-sub module_check_1_4 {
+sub check_module_check_1_4 {
 
         my ($resp) = @_;
-
-        return unless ($resp->{'GOOD'});
 
         if ($resp->{'CMD'}->[-1] =~ /(\d+)\ .*/x) {
 

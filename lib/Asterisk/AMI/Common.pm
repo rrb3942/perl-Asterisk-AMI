@@ -583,6 +583,7 @@ package Asterisk::AMI::Common;
 use strict;
 use warnings;
 use parent qw(Asterisk::AMI);
+use Asterisk::AMI::Shared;
 
 use version; our $VERSION = qv(0.3.0);
 
@@ -622,18 +623,7 @@ sub commands {
         #Early bail out on bad response
         return unless ($action->{'GOOD'});
 
-        my %commands;
-
-        while (my ($cmd, $desc) = each %{$action->{'PARSED'}}) {
-                if ($desc =~ s/\s*\(Priv:\ (.+)\)$//x) {
-                        my @privs = split /,/x,$1;
-                        $commands{$cmd}->{'Priv'} = \@privs;
-                }
-
-                $commands{$cmd}->{'Desc'} = $desc;
-        }
-
-        return \%commands;
+        return Asterisk::AMI::Shared::format_commands($action);
 
 }
 
@@ -672,26 +662,7 @@ sub db_show {
 
         return unless ($action->{'GOOD'});
 
-        my $database;
-
-        foreach my $dbentry (@{$action->{'CMD'}}) {
-                if ($dbentry =~ /^(.+?)\s*:\s*([^.]+)$/ox) {
-                        my $family = $1;
-                        my $val = $2;
-                        
-                        my @split = split /\//ox,$family;
-
-                        my $key = pop(@split);
-
-                        $family = join('/', @split);
-
-                        $family = substr($family, 1);
-
-                        $database->{$family}->{$key} = $val;
-                }
-        }
-
-        return $database;
+        return Asterisk::AMI::Shared::format_db_show($action);
 }
 
 sub db_del {
@@ -809,20 +780,7 @@ sub parked_calls {
 
         return unless ($action->{'GOOD'});
 
-        my $parkinglots;
-
-        foreach my $lot (@{$action->{'EVENTS'}}) {
-                delete $lot->{'ActionID'};
-                delete $lot->{'Event'};
-
-                my $lotnum = $lot->{'Exten'};
-
-                delete $lot->{'Exten'};
-
-                $parkinglots->{$lotnum} = $lot;
-        }
-
-        return $parkinglots;
+        return Asterisk::AMI::Shared::format_parked_calls($action);
 }
 
 sub sip_peers {
@@ -833,20 +791,7 @@ sub sip_peers {
 
         return unless ($action->{'GOOD'});
 
-        my $peers;
-
-        foreach my $peer (@{$action->{'EVENTS'}}) {
-                delete $peer->{'ActionID'};
-                delete $peer->{'Event'};
-
-                my $peername = $peer->{'ObjectName'};
-
-                delete $peer->{'ObjectName'};
-
-                $peers->{$peername} = $peer;
-        }
-
-        return $peers;
+        return Asterisk::AMI::Shared::format_sip_peers($action);;
 }
 
 sub sip_peer {
@@ -917,41 +862,7 @@ sub queues {
 
         return unless ($action->{'GOOD'});
 
-        my $queues;
-
-        foreach my $event (@{$action->{'EVENTS'}}) {
-
-                my $qevent = $event->{'Event'};
-                my $queue = $event->{'Queue'};
-
-                delete $event->{'Event'};
-                delete $event->{'ActionID'};
-                delete $event->{'Queue'};
-                        
-                if ($qevent eq 'QueueParams') {
-                        while (my ($key, $value) = each %{$event}) {
-                                $queues->{$queue}->{$key} = $value;
-                        }
-                } elsif ($qevent eq 'QueueMember') {
-
-                        my $name = $event->{'Name'};
-
-                        delete $event->{'Name'};
-
-                        $queues->{$queue}->{'MEMBERS'}->{$name} = $event;
-
-                } elsif ($qevent eq 'QueueEntry') {
-
-                        my $pos = $event->{'Position'};
-
-                        delete $event->{'Position'};
-                        
-                        $queues->{$queue}->{'ENTRIES'}->{$pos} = $event;
-                }
-
-        }
-
-        return $queues;
+        return Asterisk::AMI::Shared::format_queues($action);
 }
 
 sub queue_status {
@@ -964,41 +875,7 @@ sub queue_status {
 
         return unless ($action->{'GOOD'});
 
-        my $queueobj;
-
-        foreach my $event (@{$action->{'EVENTS'}}) {
-
-                my $qevent = $event->{'Event'};
-
-                delete $event->{'Event'};
-                delete $event->{'ActionID'};
-                        
-                if ($qevent eq 'QueueParams') {
-                        while (my ($key, $value) = each %{$event}) {
-                                $queueobj->{$key} = $value;
-                        }
-                } elsif ($qevent eq 'QueueMember') {
-
-                        my $name = $event->{'Name'};
-
-                        delete $event->{'Name'};
-                        delete $event->{'Queue'};
-
-                        $queueobj->{'MEMBERS'}->{$name} = $event;
-
-                } elsif ($qevent eq 'QueueEntry') {
-
-                        my $pos = $event->{'Position'};
-
-                        delete $event->{'Queue'};
-                        delete $event->{'Position'};
-                        
-                        $queueobj->{'ENTRIES'}->{$pos} = $event;
-                }
-
-        }
-
-        return $queueobj;
+        return Asterisk::AMI::Shared::format_queue_status($action);
 }
 
 sub queue_member_pause {
@@ -1027,7 +904,7 @@ sub queue_member_toggle {
                 $paused = 0;
         }
 
-        if (defined $paused) { $self->queue_pause($queue, $member, $paused, $timeout) or undef $paused };
+        if (defined $paused) { $self->queue_member_pause($queue, $member, $paused, $timeout) or undef $paused };
 
         return $paused;
 }
@@ -1066,26 +943,11 @@ sub play_digits {
         my $return = 1;
         my $err = 0;
 
-        my @actions = map { $self->send_action({ Action => 'PlayDTMF',
+        my @actions = map { $self->action({ Action => 'PlayDTMF',
                                                  Channel => $channel,
-                                                 Digit => $_}) } @{$digits};
+                                                 Digit => $_}, $timeout) } @{$digits};
 
-        foreach my $action (@actions) {
-                my $resp = $self->check_response($action,$timeout);
-
-                next if ($err);
-
-                unless (defined $resp) {
-                        $err = 1;
-                        next;
-                }
-
-                $return = 0 unless ($resp);
-        }
-
-        if ($err) { return };
-
-        return $return;
+        return Asterisk::AMI::Shared::check_play_digits(\@actions);
 }
 
 sub channels {
@@ -1096,22 +958,7 @@ sub channels {
 
         return unless ($action->{'GOOD'});
 
-        my $channels;
-
-        foreach my $chan (@{$action->{'EVENTS'}}) {
-                #Clean out junk
-                delete $chan->{'Event'};
-                delete $chan->{'Privilege'};
-                delete $chan->{'ActionID'};
-
-                my $name = $chan->{'Channel'};
-        
-                delete $chan->{'Channel'};
-
-                $channels->{$name} = $chan;
-        }
-
-        return $channels;
+        return Asterisk::AMI::Shared::format_channels($action);
 }
 
 sub chan_status {
@@ -1123,15 +970,7 @@ sub chan_status {
 
         return unless ($action->{'GOOD'});
 
-        my $status;
-
-        $status = $action->{'EVENTS'}->[0];
-
-        delete $status->{'ActionID'};
-        delete $status->{'Event'};
-        delete $status->{'Privilege'};
-
-        return $status;
+        return Asterisk::AMI::Shared::format_chan_status($action);
 }
 
 sub transfer {
@@ -1159,36 +998,23 @@ sub meetme_list {
 
                 return unless ($action->{'GOOD'});
 
-                foreach my $member (@{$action->{'EVENTS'}}) {
-                        my $conf = $member->{'Conference'};
-                        my $chan = $member->{'Channel'};
-                        delete $member->{'Conference'};
-                        delete $member->{'ActionID'};
-                        delete $member->{'Channel'};
-                        delete $member->{'Event'};
-                        $meetmes->{$conf}->{$chan} = $member;
-                }
+                return Asterisk::AMI::Share::format_meetme_list($action);
         #Compat mode for 1.4
         } else {
                 #List of all conferences
-                my $list = $self->action({ Action => 'Command', Command => 'meetme' }, $timeout);
+                my $action = $self->action({ Action => 'Command', Command => 'meetme' }, $timeout);
 
-                return unless ($list->{'GOOD'});
+                return unless ($action->{'GOOD'});
 
-                my @cmd = @{$list->{'CMD'}};
-
-                #Get rid of header and footer of cli
-                shift @cmd;
-                pop @cmd;
+                my @confs = Asterisk::AMI::Shared::parse_meetme_list_1_4($action);
 
                 #Get members for each list
-                foreach my $conf (@cmd) {
-                        my @confline = split/\s{2,}/x, $conf;
-                        my $meetme = $self->meetme_members($confline[0], $timeout);
+                foreach my $conf (@confs) {
+                        my $meetme = $self->meetme_members($conf, $timeout);
 
                         return unless (defined $meetme);
 
-                        $meetmes->{$confline[0]} = $meetme;
+                        $meetmes->{$conf} = $meetme;
                 }
         }
         
@@ -1371,21 +1197,7 @@ sub voicemail_list {
 
         return unless ($action->{'GOOD'});
 
-        my $vmusers;
-
-        foreach my $box (@{$action->{'EVENTS'}}) {
-                my $context = $box->{'VMContext'};
-                my $user = $box->{'VoiceMailbox'};
-
-                delete $box->{'VMContext'};
-                delete $box->{'VoiceMailbox'};
-                delete $box->{'ActionID'};
-                delete $box->{'Event'};
-                $vmusers->{$context}->{$user} = $box;
-        }
-
-
-        return $vmusers;
+        return Asterisk::AMI::Shared::format_voicemail_list($action);
 }
 
 sub module_check {
@@ -1402,15 +1214,10 @@ sub module_check {
 
                 return unless (defined $resp && $resp->{'GOOD'});
 
-                if ($resp->{'CMD'}->[-1] =~ /(\d+)\ .*/x) {
-
-                        return 0 if ($1 == 0);
-
-                        return 1;
-                }
-
-                return;
+                return Asterisk::AMI::Shared::check_module_check_1_4($resp);
         }
+
+        return;
 }
 
 sub module_load {

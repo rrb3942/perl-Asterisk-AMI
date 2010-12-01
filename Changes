@@ -1,6 +1,9 @@
 Revision history for Perl extension Asterisk::AMI.
 =======
 0.3
+
+        - Error in method called in queue toggle. Called queue_pause instead of queue_member_pause
+
         NOT DONE
         - Support for old Callback and Timeout syntax has been removed.
 
