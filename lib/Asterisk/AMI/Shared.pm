@@ -1,49 +1,3 @@
-﻿#!/usr/bin/perl
-
-=head1 NAME
-
-Asterisk::AMI::Shared - Provides some shared functions used by Asterisk::AMI::Common and Asterisk::AMI::Helper
-
-=head1 VERSION
-
-0.3.0
-
-=head1 SYNOPSIS
-
-        use Asterisk::AMI::Shared;
-
-=head1 DESCRIPTION
-
-This module provides some shared functions used by bot Asterisk::AMI::Common and Asterisk::AMI::Helper
-
-=head2 Methods
-
-=head1 See Also
-
-Asterisk::AMI, Asterisk::AMI::Common
-
-=head1 AUTHOR
-
-Ryan Bullock (rrb3942@gmail.com)
-
-=head1 BUG REPORTING AND FEEBACK
-
-Please report any bugs or errors to our github issue tracker at http://github.com/rrb3942/perl-Asterisk-AMI/issues
-or the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=perl-Asterisk-AMI
-
-=head1 LICENSE
-
-Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
-
-This module is free software.  You can redistribute it and/or
-modify it under the terms of the Artistic License 2.0.
-
-This program is distributed in the hope that it will be useful,
-but without any warranty; without even the implied warranty of
-merchantability or fitness for a particular purpose.
-
-=cut
-
 package Asterisk::AMI::Shared;
 
 use strict;
@@ -386,3 +340,49 @@ sub check_module_check_1_4 {
 }
 
 1;
+
+__END__
+
+=head1 NAME
+
+Asterisk::AMI::Shared - Provides some shared functions used by Asterisk::AMI::Common and Asterisk::AMI::Helper
+
+=head1 VERSION
+
+0.3.0
+
+=head1 SYNOPSIS
+
+        use Asterisk::AMI::Shared;
+
+=head1 DESCRIPTION
+
+This module provides some shared functions used by bot Asterisk::AMI::Common and Asterisk::AMI::Helper
+
+=head2 Methods
+
+=head1 See Also
+
+Asterisk::AMI, Asterisk::AMI::Common
+
+=head1 AUTHOR
+
+Ryan Bullock (rrb3942@gmail.com)
+
+=head1 BUG REPORTING AND FEEBACK
+
+Please report any bugs or errors to our github issue tracker at http://github.com/rrb3942/perl-Asterisk-AMI/issues
+or the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=perl-Asterisk-AMI
+
+=head1 LICENSE
+
+Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+
+This module is free software.  You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut

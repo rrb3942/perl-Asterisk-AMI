@@ -1,4 +1,707 @@
-﻿#!/usr/bin/perl
+package Asterisk::AMI::Common;
+
+use strict;
+use warnings;
+use parent qw(Asterisk::AMI);
+use Asterisk::AMI::Shared;
+
+use version; our $VERSION = qv(0.3.0);
+
+sub new {
+        my ($class, %options) = @_;
+
+        return $class->SUPER::new(%options);
+}
+
+sub attended_transfer {
+
+        my ($self, $channel, $exten, $context, $timeout) = @_;
+
+        return $self->simple_action({   Action  => 'Atxfer',
+                                        Channel => $channel,
+                                        Exten   => $exten,
+                                        Context => $context,
+                                        Priority => 1 }, $timeout);
+}
+
+sub bridge {
+        my ($self, $chan1, $chan2, $timeout) = @_;
+
+        return $self->simple_action({   Action  => 'Bridge',
+                                        Channel1 => $chan1,
+                                        Channel2 => $chan2,
+                                        Tone    => 'Yes'}, $timeout);
+}
+
+#Returns a hash
+sub commands {
+
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({ Action => 'ListCommands' }, $timeout);
+
+        #Early bail out on bad response
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_commands($action);
+
+}
+
+sub db_get {
+
+        my ($self, $family, $key, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'DBGet',
+                                        Family => $family,
+                                        Key => $key }, $timeout);
+
+
+        if ($action->{'GOOD'}) {
+                return $action->{'EVENTS'}->[0]->{'Val'};
+        }
+
+        return;
+}
+
+sub db_put {
+
+        my ($self, $family, $key, $value, $timeout) = @_;
+
+        return $self->simple_action({   Action  => 'DBPut',
+                                        Family  => $family,
+                                        Key     => $key,
+                                        Val     => $value }, $timeout);
+}
+
+sub db_show {
+
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'Command',
+                                        Command => 'database show'}, $timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_db_show($action);
+}
+
+sub db_del {
+
+        my ($self, $family, $key, $timeout) = @_;
+
+        my $ver = $self->amiver();
+
+        if (defined($ver) && $ver >= 1.1) {
+                return $self->simple_action({   Action => 'DBDel',
+                                                Family => $family,
+                                                Key => $key }, $timeout);
+        } else {
+                return $self->simple_action({   Action => 'Command',
+                                                Command => 'database del ' . $family . ' ' . $key }, $timeout);
+        }
+
+        return;
+}
+
+sub db_deltree {
+
+        my ($self, $family, $key, $timeout) = @_;
+
+        my $ver = $self->amiver();
+
+        if (defined($ver) && $ver >= 1.1) {
+
+                my %action = (  Action => 'DBDelTree',
+                                Family => $family );
+
+                $action{'Key'} = $key if (defined $key);
+
+                return $self->simple_action(\%action, $timeout);
+        } else {
+                
+                my $cmd = 'database deltree ' . $family;
+
+                if (defined $key) {
+                        $cmd .= ' ' . $key;
+                }
+
+                return $self->simple_action({   Action => 'Command',
+                                                Command => $cmd }, $timeout);
+        }
+
+        return;
+}
+
+sub get_var {
+
+        my ($self, $channel, $variable, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'GetVar',
+                                        Channel => $channel,
+                                        Variable => $variable }, $timeout);
+
+        if ($action->{'GOOD'}) {
+                return $action->{'PARSED'}->{'Value'};
+        }
+
+        return;
+}
+
+sub set_var {
+
+        my ($self, $channel, $varname, $value, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'Setvar',
+                                        Channel => $channel,
+                                        Variable => $varname,
+                                        Value => $value }, $timeout);
+}
+
+sub hangup {
+
+        my ($self, $channel, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'Hangup',
+                                        Channel => $channel }, $timeout);
+}
+
+sub exten_state {
+
+        my ($self, $exten, $context, $timeout) = @_;
+
+        my $action = $self->action({    Action  => 'ExtensionState',
+                                        Exten   => $exten,
+                                        Context => $context }, $timeout);
+
+        if ($action->{'GOOD'}) {
+                return $action->{'PARSED'}->{'Status'};
+        }
+
+        return;
+}
+
+sub park {
+        my ($self, $chan1, $chan2, $parktime, $timeout) = @_;
+
+        my %action = (  Action  => 'Park',
+                        Channel => $chan1,
+                        Channel2 => $chan2 );
+
+        $action{'Timeout'} = $parktime if (defined $parktime);
+
+        return $self->simple_action(\%action, $timeout);
+}
+
+sub parked_calls {
+
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_parked_calls($action);
+}
+
+sub sip_peers {
+
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({ Action => 'Sippeers' }, $timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_sip_peers($action);;
+}
+
+sub sip_peer {
+
+        my ($self, $peername, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'SIPshowpeer',
+                                        Peer => $peername }, $timeout);
+
+        if ($action->{'GOOD'}) {
+                return $action->{'PARSED'};
+        }
+
+        return;
+}
+
+sub sip_notify {
+        my ($self, $peer, $event, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'SIPnotify',
+                                        Channel => 'SIP/' . $peer,
+                                        Variable => 'Event=' . $event }, $timeout);
+}
+
+sub mailboxcount {
+
+        my ($self, $exten, $context, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'MailboxCount',
+                                        Mailbox => $exten . '@' . $context }, $timeout);
+
+        if ($action->{'GOOD'}) {
+                return $action->{'PARSED'};
+        }
+
+        return;
+}
+
+sub mailboxstatus {
+
+        my ($self, $exten, $context, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'MailboxStatus',
+                                        Mailbox => $exten . '@' . $context }, $timeout);
+
+
+        if ($action->{'GOOD'}) {
+                return $action->{'PARSED'}->{'Waiting'};
+        }
+
+        return;
+}
+
+sub chan_timeout {
+
+        my ($self, $channel, $chantimeout, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'AbsoluteTimeout',
+                                        Channel => $channel,
+                                        Timeout => $chantimeout }, $timeout);
+}
+
+sub queues {
+        
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_queues($action);
+}
+
+sub queue_status {
+        
+        my ($self, $queue, $timeout) = @_;
+
+        my $action = $self->action({    Action => 'QueueStatus',
+                                        Queue => $queue }, $timeout);
+
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_queue_status($action);
+}
+
+sub queue_member_pause {
+
+        my ($self, $queue, $member, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'QueuePause',
+                                        Queue => $queue,
+                                        Interface => $member,
+                                        Paused => 1 }, $timeout);
+}
+
+sub queue_member_unpause {
+
+        my ($self, $queue, $member, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'QueuePause',
+                                        Queue => $queue,
+                                        Interface => $member,
+                                        Paused => 0 }, $timeout);
+}
+
+sub queue_add {
+
+        my ($self, $queue, $member, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'QueueAdd',
+                                        Queue => $queue,
+                                        Interface => $member }, $timeout);
+}
+
+sub queue_remove {
+
+        my ($self, $queue, $member, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'QueueRemove',
+                                        Queue => $queue,
+                                        Interface => $member }, $timeout);
+}
+
+sub play_dtmf {
+
+        my ($self, $channel, $digit, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'PlayDTMF',
+                                        Channel => $channel,
+                                        Digit => $digit }, $timeout);
+}
+
+sub play_digits {
+
+        my ($self, $channel, $digits, $timeout) = @_;
+
+        my $return = 1;
+        my $err = 0;
+
+        my @actions = map { $self->action({ Action => 'PlayDTMF',
+                                                 Channel => $channel,
+                                                 Digit => $_}, $timeout) } @{$digits};
+
+        return Asterisk::AMI::Shared::check_play_digits(\@actions);
+}
+
+sub channels {
+        
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({Action => 'Status'},$timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_channels($action);
+}
+
+sub chan_status {
+
+        my ($self, $channel, $timeout) = @_;
+
+        my $action = $self->action({    Action  => 'Status',
+                                        Channel => $channel}, $timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_chan_status($action);
+}
+
+sub transfer {
+
+        my ($self, $channel, $exten, $context, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'Redirect',
+                                        Channel => $channel,
+                                        Exten => $exten,
+                                        Context => $context,
+                                        Priority => 1 }, $timeout);
+
+}
+
+sub meetme_list {
+        my ($self, $timeout) = @_;
+
+        my $meetmes;
+
+        my $amiver = $self->amiver();
+
+        #1.8+
+        if (defined($amiver) && $amiver >= 1.1) {
+                my $action = $self->action({Action => 'MeetmeList'}, $timeout);
+
+                return unless ($action->{'GOOD'});
+
+                return Asterisk::AMI::Shared::format_meetme_list($action);
+        #Compat mode for 1.4
+        } else {
+                #List of all conferences
+                my $action = $self->action({ Action => 'Command', Command => 'meetme' }, $timeout);
+
+                return unless ($action->{'GOOD'});
+
+                my @confs = Asterisk::AMI::Shared::parse_meetme_list_1_4($action);
+
+                #Get members for each list
+                foreach my $conf (@confs) {
+                        my $meetme = $self->meetme_members($conf, $timeout);
+
+                        return unless (defined $meetme);
+
+                        $meetmes->{$conf} = $meetme;
+                }
+        }
+        
+        return $meetmes;
+}
+
+sub meetme_members {
+        my ($self, $conf, $timeout) = @_;
+
+        my $meetme;
+
+        my $amiver = $self->amiver();
+
+        #1.8+
+        if (defined($amiver) && $amiver >= 1.1) {
+                my $action = $self->action({    Action => 'MeetmeList',
+                                                Conference => $conf }, $timeout);
+
+                return unless ($action->{'GOOD'});
+
+                foreach my $member (@{$action->{'EVENTS'}}) {
+                        my $chan = $member->{'Channel'};
+                        delete $member->{'Conference'};
+                        delete $member->{'ActionID'};
+                        delete $member->{'Channel'};
+                        delete $member->{'Event'};
+                        $meetme->{$chan} = $member;
+                }
+        #1.4 Compat
+        } else {
+
+                my $members = $self->action({   Action => 'Command',
+                                                Command => 'meetme list ' . $conf . ' concise' });
+
+                return unless ($members->{'GOOD'});
+
+                foreach my $line (@{$members->{'CMD'}}) {
+                        my @split = split /\!/x, $line;
+                                
+                        my $member;
+                        #0 - User num
+                        #1 - CID Name
+                        #2 - CID Num
+                        #3 - Chan
+                        #4 - Admin
+                        #5 - Monitor?
+                        #6 - Muted
+                        #7 - Talking
+                        #8 - Time
+                        $member->{'UserNumber'} = $split[0];
+
+                        $member->{'CallerIDName'} = $split[1];
+
+                        $member->{'CallerIDNum'} = $split[2];
+
+                        $member->{'Admin'} = $split[4] ? "Yes" : "No";
+
+                        $member->{'Muted'} = $split[6] ? "Yes" : "No";
+
+                        $member->{'Talking'} = $split[7] ? "Yes" : "No";
+
+                        $meetme->{$split[3]} = $member;
+                }
+        }
+        
+        return $meetme;
+}
+
+sub meetme_mute {
+        my ($self, $conf, $user, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'MeetmeMute',
+                                        Meetme => $conf,
+                                        Usernum => $user }, $timeout);
+}
+
+sub meetme_unmute {
+        my ($self, $conf, $user, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'MeetmeUnmute',
+                                        Meetme => $conf,
+                                        Usernum => $user }, $timeout);
+}
+
+sub mute_chan {
+        my ($self, $chan, $dir, $timeout) = @_;
+
+        $dir = 'all' if (!defined $dir);
+
+        return $self->simple_action({   Action => 'MuteAudio',
+                                        Channel => $chan,
+                                        Direction => $dir,
+                                        State => 'on' }, $timeout);
+}
+
+sub unmute_chan {
+        my ($self, $chan, $dir, $timeout) = @_;
+
+        $dir = 'all' if (!defined $dir);
+
+        return $self->simple_action({   Action => 'MuteAudio',
+                                        Channel => $chan,
+                                        Direction => $dir,
+                                        State => 'off' }, $timeout);
+}
+
+sub monitor {
+        my ($self, $channel, $file, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'Monitor',
+                                        Channel => $channel,
+                                        File => $file,
+                                        Format => 'wav',
+                                        Mix => '1' }, $timeout);
+}
+
+sub monitor_stop {
+        my ($self, $channel, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'StopMonitor',
+                                        Channel => $channel }, $timeout);
+}
+
+sub monitor_pause {
+        my ($self, $channel, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'PauseMonitor',
+                                        Channel => $channel }, $timeout);
+}
+
+sub monitor_unpause {
+        my ($self, $channel, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'UnpauseMonitor',
+                                        Channel => $channel }, $timeout);
+}
+
+sub monitor_change {
+        my ($self, $channel, $file, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'ChangeMonitor',
+                                        Channel => $channel,
+                                        File => $file }, $timeout);
+}
+
+sub mixmonitor_mute {
+        my ($self, $channel, $dir, $timeout) = @_;
+
+        $dir = 'both' unless (defined $dir);
+
+        return $self->simple_action({   Action => 'MixMonitorMute',
+                                        Direction => $dir,
+                                        Channel => $channel,
+                                        State => 1 }, $timeout);
+}
+
+sub mixmonitor_unmute {
+        my ($self, $channel, $dir, $timeout) = @_;
+
+        $dir = 'both' unless (defined $dir);
+
+        return $self->simple_action({   Action => 'MixMonitorMute',
+                                        Direction => $dir,
+                                        Channel => $channel,
+                                        State => 0 }, $timeout);
+}
+
+sub text {
+        my ($self, $chan, $message, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'SendText',
+                                        Channel => $chan,
+                                        Message => $message }, $timeout);
+}
+
+sub voicemail_list {
+        my ($self, $timeout) = @_;
+
+        my $action = $self->action({ Action => 'VoicemailUsersList' }, $timeout);
+
+        return unless ($action->{'GOOD'});
+
+        return Asterisk::AMI::Shared::format_voicemail_list($action);
+}
+
+sub module_check {
+        my ($self, $module, $timeout) = @_;
+
+        my $ver = $self->amiver();
+
+        if (defined $ver && $ver >= 1.1) {
+                return $self->simple_action({   Action => 'ModuleCheck',
+                                                Module => $module }, $timeout);
+        } else {
+                my $resp = $self->action({      Action => 'Command',
+                                                Command => 'module show like ' . $module }, $timeout);
+
+                return unless (defined $resp && $resp->{'GOOD'});
+
+                return Asterisk::AMI::Shared::check_module_check_1_4($resp);
+        }
+
+        return;
+}
+
+sub module_load {
+        my ($self, $module, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'ModuleLoad',
+                                        LoadType => 'load',
+                                        Module => $module }, $timeout );
+}
+
+sub module_reload {
+        my ($self, $module, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'ModuleLoad',
+                                        LoadType => 'reload',
+                                        Module => $module }, $timeout );
+}
+
+sub module_unload {
+        my ($self, $module, $timeout) = @_;
+
+        return $self->simple_action({   Action => 'ModuleLoad',
+                                        LoadType => 'unload',
+                                        Module => $module }, $timeout );
+}
+
+sub originate {
+        my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
+
+        my %action = (  Action => 'Originate',
+                        Channel => $chan,
+                        Context => $context,
+                        Exten => $exten,
+                        Priority => 1,
+                        );
+
+        $action{'CallerID'} = $callerid if (defined $callerid);
+
+        if (defined $ctime) {
+                $action{'Timeout'} = $ctime * 1000;
+
+                if ($timeout) {
+                        $timeout = $ctime + $timeout;
+                }
+        }
+
+        return $self->simple_action(\%action, $timeout);
+}
+
+sub originate_async {
+        my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
+
+        my %action = (  Action => 'Originate',
+                        Channel => $chan,
+                        Context => $context,
+                        Exten => $exten,
+                        Priority => 1,
+                        Async => 1
+                        );
+
+        $action{'CallerID'} = $callerid if (defined $callerid);
+        $action{'Timeout'} = $ctime * 1000 if (defined $ctime);
+
+        my $actionid = $self->send_action(\%action);
+
+        #Bypass async wait, bit hacky
+        #allows us to get the intial response
+        delete $self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'};
+
+        return $self->check_response($actionid, $timeout);
+}
+
+1;
+
+__END__
 
 =head1 NAME
 
@@ -20,7 +723,7 @@ Asterisk::AMI::Common - Extends Asterisk::AMI to provide simple access to common
 
         die "Unable to connect to asterisk" unless ($astman);
 
-        $astman->db_get();
+        my $db = $astman->db_get();
 
 =head1 DESCRIPTION
 
@@ -576,707 +1279,3 @@ but without any warranty; without even the implied warranty of
 merchantability or fitness for a particular purpose.
 
 =cut
-
-package Asterisk::AMI::Common;
-
-
-use strict;
-use warnings;
-use parent qw(Asterisk::AMI);
-use Asterisk::AMI::Shared;
-
-use version; our $VERSION = qv(0.3.0);
-
-sub new {
-        my ($class, %options) = @_;
-
-        return $class->SUPER::new(%options);
-}
-
-sub attended_transfer {
-
-        my ($self, $channel, $exten, $context, $timeout) = @_;
-
-        return $self->simple_action({   Action  => 'Atxfer',
-                                        Channel => $channel,
-                                        Exten   => $exten,
-                                        Context => $context,
-                                        Priority => 1 }, $timeout);
-}
-
-sub bridge {
-        my ($self, $chan1, $chan2, $timeout) = @_;
-
-        return $self->simple_action({   Action  => 'Bridge',
-                                        Channel1 => $chan1,
-                                        Channel2 => $chan2,
-                                        Tone    => 'Yes'}, $timeout);
-}
-
-#Returns a hash
-sub commands {
-
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'ListCommands' }, $timeout);
-
-        #Early bail out on bad response
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_commands($action);
-
-}
-
-sub db_get {
-
-        my ($self, $family, $key, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'DBGet',
-                                        Family => $family,
-                                        Key => $key }, $timeout);
-
-
-        if ($action->{'GOOD'}) {
-                return $action->{'EVENTS'}->[0]->{'Val'};
-        }
-
-        return;
-}
-
-sub db_put {
-
-        my ($self, $family, $key, $value, $timeout) = @_;
-
-        return $self->simple_action({   Action  => 'DBPut',
-                                        Family  => $family,
-                                        Key     => $key,
-                                        Val     => $value }, $timeout);
-}
-
-sub db_show {
-
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'Command',
-                                        Command => 'database show'}, $timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_db_show($action);
-}
-
-sub db_del {
-
-        my ($self, $family, $key, $timeout) = @_;
-
-        my $ver = $self->amiver();
-
-        if (defined($ver) && $ver >= 1.1) {
-                return $self->simple_action({   Action => 'DBDel',
-                                                Family => $family,
-                                                Key => $key }, $timeout);
-        } else {
-                return $self->simple_action({   Action => 'Command',
-                                                Command => 'database del ' . $family . ' ' . $key }, $timeout);
-        }
-
-        return;
-}
-
-sub db_deltree {
-
-        my ($self, $family, $key, $timeout) = @_;
-
-        my $ver = $self->amiver();
-
-        if (defined($ver) && $ver >= 1.1) {
-
-                my %action = (  Action => 'DBDelTree',
-                                Family => $family );
-
-                $action{'Key'} = $key if (defined $key);
-
-                return $self->simple_action(\%action, $timeout);
-        } else {
-                
-                my $cmd = 'database deltree ' . $family;
-
-                if (defined $key) {
-                        $cmd .= ' ' . $key;
-                }
-
-                return $self->simple_action({   Action => 'Command',
-                                                Command => $cmd }, $timeout);
-        }
-
-        return;
-}
-
-sub get_var {
-
-        my ($self, $channel, $variable, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'GetVar',
-                                        Channel => $channel,
-                                        Variable => $variable }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Value'};
-        }
-
-        return;
-}
-
-sub set_var {
-
-        my ($self, $channel, $varname, $value, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'Setvar',
-                                        Channel => $channel,
-                                        Variable => $varname,
-                                        Value => $value }, $timeout);
-}
-
-sub hangup {
-
-        my ($self, $channel, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'Hangup',
-                                        Channel => $channel }, $timeout);
-}
-
-sub exten_state {
-
-        my ($self, $exten, $context, $timeout) = @_;
-
-        my $action = $self->action({    Action  => 'ExtensionState',
-                                        Exten   => $exten,
-                                        Context => $context }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Status'};
-        }
-
-        return;
-}
-
-sub park {
-        my ($self, $chan1, $chan2, $parktime, $timeout) = @_;
-
-        my %action = (  Action  => 'Park',
-                        Channel => $chan1,
-                        Channel2 => $chan2 );
-
-        $action{'Timeout'} = $parktime if (defined $parktime);
-
-        return $self->simple_action(\%action, $timeout);
-}
-
-sub parked_calls {
-
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_parked_calls($action);
-}
-
-sub sip_peers {
-
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'Sippeers' }, $timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_sip_peers($action);;
-}
-
-sub sip_peer {
-
-        my ($self, $peername, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'SIPshowpeer',
-                                        Peer => $peername }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'};
-        }
-
-        return;
-}
-
-sub sip_notify {
-        my ($self, $peer, $event, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'SIPnotify',
-                                        Channel => 'SIP/' . $peer,
-                                        Variable => 'Event=' . $event }, $timeout);
-}
-
-sub mailboxcount {
-
-        my ($self, $exten, $context, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'MailboxCount',
-                                        Mailbox => $exten . '@' . $context }, $timeout);
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'};
-        }
-
-        return;
-}
-
-sub mailboxstatus {
-
-        my ($self, $exten, $context, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'MailboxStatus',
-                                        Mailbox => $exten . '@' . $context }, $timeout);
-
-
-        if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Waiting'};
-        }
-
-        return;
-}
-
-sub chan_timeout {
-
-        my ($self, $channel, $chantimeout, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'AbsoluteTimeout',
-                                        Channel => $channel,
-                                        Timeout => $chantimeout }, $timeout);
-}
-
-sub queues {
-        
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_queues($action);
-}
-
-sub queue_status {
-        
-        my ($self, $queue, $timeout) = @_;
-
-        my $action = $self->action({    Action => 'QueueStatus',
-                                        Queue => $queue }, $timeout);
-
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_queue_status($action);
-}
-
-sub queue_member_pause {
-
-        my ($self, $queue, $member, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'QueuePause',
-                                        Queue => $queue,
-                                        Interface => $member,
-                                        Paused => 1 }, $timeout);
-}
-
-sub queue_member_pause {
-
-        my ($self, $queue, $member, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'QueuePause',
-                                        Queue => $queue,
-                                        Interface => $member,
-                                        Paused => 0 }, $timeout);
-}
-
-sub queue_add {
-
-        my ($self, $queue, $member, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'QueueAdd',
-                                        Queue => $queue,
-                                        Interface => $member }, $timeout);
-}
-
-sub queue_remove {
-
-        my ($self, $queue, $member, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'QueueRemove',
-                                        Queue => $queue,
-                                        Interface => $member }, $timeout);
-}
-
-sub play_dtmf {
-
-        my ($self, $channel, $digit, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'PlayDTMF',
-                                        Channel => $channel,
-                                        Digit => $digit }, $timeout);
-}
-
-sub play_digits {
-
-        my ($self, $channel, $digits, $timeout) = @_;
-
-        my $return = 1;
-        my $err = 0;
-
-        my @actions = map { $self->action({ Action => 'PlayDTMF',
-                                                 Channel => $channel,
-                                                 Digit => $_}, $timeout) } @{$digits};
-
-        return Asterisk::AMI::Shared::check_play_digits(\@actions);
-}
-
-sub channels {
-        
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({Action => 'Status'},$timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_channels($action);
-}
-
-sub chan_status {
-
-        my ($self, $channel, $timeout) = @_;
-
-        my $action = $self->action({    Action  => 'Status',
-                                        Channel => $channel}, $timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_chan_status($action);
-}
-
-sub transfer {
-
-        my ($self, $channel, $exten, $context, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'Redirect',
-                                        Channel => $channel,
-                                        Exten => $exten,
-                                        Context => $context,
-                                        Priority => 1 }, $timeout);
-
-}
-
-sub meetme_list {
-        my ($self, $timeout) = @_;
-
-        my $meetmes;
-
-        my $amiver = $self->amiver();
-
-        #1.8+
-        if (defined($amiver) && $amiver >= 1.1) {
-                my $action = $self->action({Action => 'MeetmeList'}, $timeout);
-
-                return unless ($action->{'GOOD'});
-
-                return Asterisk::AMI::Shared::format_meetme_list($action);
-        #Compat mode for 1.4
-        } else {
-                #List of all conferences
-                my $action = $self->action({ Action => 'Command', Command => 'meetme' }, $timeout);
-
-                return unless ($action->{'GOOD'});
-
-                my @confs = Asterisk::AMI::Shared::parse_meetme_list_1_4($action);
-
-                #Get members for each list
-                foreach my $conf (@confs) {
-                        my $meetme = $self->meetme_members($conf, $timeout);
-
-                        return unless (defined $meetme);
-
-                        $meetmes->{$conf} = $meetme;
-                }
-        }
-        
-        return $meetmes;
-}
-
-sub meetme_members {
-        my ($self, $conf, $timeout) = @_;
-
-        my $meetme;
-
-        my $amiver = $self->amiver();
-
-        #1.8+
-        if (defined($amiver) && $amiver >= 1.1) {
-                my $action = $self->action({    Action => 'MeetmeList',
-                                                Conference => $conf }, $timeout);
-
-                return unless ($action->{'GOOD'});
-
-                foreach my $member (@{$action->{'EVENTS'}}) {
-                        my $chan = $member->{'Channel'};
-                        delete $member->{'Conference'};
-                        delete $member->{'ActionID'};
-                        delete $member->{'Channel'};
-                        delete $member->{'Event'};
-                        $meetme->{$chan} = $member;
-                }
-        #1.4 Compat
-        } else {
-
-                my $members = $self->action({   Action => 'Command',
-                                                Command => 'meetme list ' . $conf . ' concise' });
-
-                return unless ($members->{'GOOD'});
-
-                foreach my $line (@{$members->{'CMD'}}) {
-                        my @split = split /\!/x, $line;
-                                
-                        my $member;
-                        #0 - User num
-                        #1 - CID Name
-                        #2 - CID Num
-                        #3 - Chan
-                        #4 - Admin
-                        #5 - Monitor?
-                        #6 - Muted
-                        #7 - Talking
-                        #8 - Time
-                        $member->{'UserNumber'} = $split[0];
-
-                        $member->{'CallerIDName'} = $split[1];
-
-                        $member->{'CallerIDNum'} = $split[2];
-
-                        $member->{'Admin'} = $split[4] ? "Yes" : "No";
-
-                        $member->{'Muted'} = $split[6] ? "Yes" : "No";
-
-                        $member->{'Talking'} = $split[7] ? "Yes" : "No";
-
-                        $meetme->{$split[3]} = $member;
-                }
-        }
-        
-        return $meetme;
-}
-
-sub meetme_mute {
-        my ($self, $conf, $user, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'MeetmeMute',
-                                        Meetme => $conf,
-                                        Usernum => $user }, $timeout);
-}
-
-sub meetme_unmute {
-        my ($self, $conf, $user, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'MeetmeUnmute',
-                                        Meetme => $conf,
-                                        Usernum => $user }, $timeout);
-}
-
-sub mute_chan {
-        my ($self, $chan, $dir, $timeout) = @_;
-
-        $dir = 'all' if (!defined $dir);
-
-        return $self->simple_action({   Action => 'MuteAudio',
-                                        Channel => $chan,
-                                        Direction => $dir,
-                                        State => 'on' }, $timeout);
-}
-
-sub unmute_chan {
-        my ($self, $chan, $dir, $timeout) = @_;
-
-        $dir = 'all' if (!defined $dir);
-
-        return $self->simple_action({   Action => 'MuteAudio',
-                                        Channel => $chan,
-                                        Direction => $dir,
-                                        State => 'off' }, $timeout);
-}
-
-sub monitor {
-        my ($self, $channel, $file, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'Monitor',
-                                        Channel => $channel,
-                                        File => $file,
-                                        Format => 'wav',
-                                        Mix => '1' }, $timeout);
-}
-
-sub monitor_stop {
-        my ($self, $channel, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'StopMonitor',
-                                        Channel => $channel }, $timeout);
-}
-
-sub monitor_pause {
-        my ($self, $channel, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'PauseMonitor',
-                                        Channel => $channel }, $timeout);
-}
-
-sub monitor_unpause {
-        my ($self, $channel, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'UnpauseMonitor',
-                                        Channel => $channel }, $timeout);
-}
-
-sub monitor_change {
-        my ($self, $channel, $file, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'ChangeMonitor',
-                                        Channel => $channel,
-                                        File => $file }, $timeout);
-}
-
-sub mixmonitor_mute {
-        my ($self, $channel, $dir, $timeout) = @_;
-
-        $dir = 'both' unless (defined $dir);
-
-        return $self->simple_action({   Action => 'MixMonitorMute',
-                                        Direction => $dir,
-                                        Channel => $channel,
-                                        State => 1 }, $timeout);
-}
-
-sub mixmonitor_unmute {
-        my ($self, $channel, $dir, $timeout) = @_;
-
-        $dir = 'both' unless (defined $dir);
-
-        return $self->simple_action({   Action => 'MixMonitorMute',
-                                        Direction => $dir,
-                                        Channel => $channel,
-                                        State => 0 }, $timeout);
-}
-
-sub text {
-        my ($self, $chan, $message, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'SendText',
-                                        Channel => $chan,
-                                        Message => $message }, $timeout);
-}
-
-sub voicemail_list {
-        my ($self, $timeout) = @_;
-
-        my $action = $self->action({ Action => 'VoicemailUsersList' }, $timeout);
-
-        return unless ($action->{'GOOD'});
-
-        return Asterisk::AMI::Shared::format_voicemail_list($action);
-}
-
-sub module_check {
-        my ($self, $module, $timeout) = @_;
-
-        my $ver = $self->amiver();
-
-        if (defined $ver && $ver >= 1.1) {
-                return $self->simple_action({   Action => 'ModuleCheck',
-                                                Module => $module }, $timeout);
-        } else {
-                my $resp = $self->action({      Action => 'Command',
-                                                Command => 'module show like ' . $module }, $timeout);
-
-                return unless (defined $resp && $resp->{'GOOD'});
-
-                return Asterisk::AMI::Shared::check_module_check_1_4($resp);
-        }
-
-        return;
-}
-
-sub module_load {
-        my ($self, $module, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'ModuleLoad',
-                                        LoadType => 'load',
-                                        Module => $module }, $timeout );
-}
-
-sub module_reload {
-        my ($self, $module, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'ModuleLoad',
-                                        LoadType => 'reload',
-                                        Module => $module }, $timeout );
-}
-
-sub module_unload {
-        my ($self, $module, $timeout) = @_;
-
-        return $self->simple_action({   Action => 'ModuleLoad',
-                                        LoadType => 'unload',
-                                        Module => $module }, $timeout );
-}
-
-sub originate {
-        my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
-
-        my %action = (  Action => 'Originate',
-                        Channel => $chan,
-                        Context => $context,
-                        Exten => $exten,
-                        Priority => 1,
-                        );
-
-        $action{'CallerID'} = $callerid if (defined $callerid);
-
-        if (defined $ctime) {
-                $action{'Timeout'} = $ctime * 1000;
-
-                if ($timeout) {
-                        $timeout = $ctime + $timeout;
-                }
-        }
-
-        return $self->simple_action(\%action, $timeout);
-}
-
-sub originate_async {
-        my ($self, $chan, $context, $exten, $callerid, $ctime, $timeout) = @_;
-
-        my %action = (  Action => 'Originate',
-                        Channel => $chan,
-                        Context => $context,
-                        Exten => $exten,
-                        Priority => 1,
-                        Async => 1
-                        );
-
-        $action{'CallerID'} = $callerid if (defined $callerid);
-        $action{'Timeout'} = $ctime * 1000 if (defined $ctime);
-
-        my $actionid = $self->send_action(\%action);
-
-        #Bypass async wait, bit hacky
-        #allows us to get the intial response
-        delete $self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'};
-
-        return $self->check_response($actionid, $timeout);
-}
-
-1;

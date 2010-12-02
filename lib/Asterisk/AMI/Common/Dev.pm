@@ -1,4 +1,20 @@
-﻿#!/usr/bin/perl
+package Asterisk::AMI::Common::Dev;
+
+use strict;
+use warnings;
+use parent qw(Asterisk::AMI::Common);
+
+use version; our $VERSION = qv(0.3.0);
+
+sub new {
+	my ($class, %options) = @_;
+
+	return $class->SUPER::new(%options);
+}
+
+1;
+
+__END__
 
 =head1 NAME
 
@@ -64,19 +80,3 @@ but without any warranty; without even the implied warranty of
 merchantability or fitness for a particular purpose.
 
 =cut
-
-package Asterisk::AMI::Common::Dev;
-
-use strict;
-use warnings;
-use parent qw(Asterisk::AMI::Common);
-
-use version; our $VERSION = qv(0.3.0);
-
-sub new {
-	my ($class, %options) = @_;
-
-	return $class->SUPER::new(%options);
-}
-
-1;
