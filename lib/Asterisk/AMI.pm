@@ -1065,8 +1065,8 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         login action.
         'Username' has no default and must be supplied.
         'Secret' has no default and must be supplied.
-        'AuthType' sets the authentication type to use for login. Default is 'plaintext'.  Use 'MD5' for MD5 challenge
-        authentication.
+        'AuthType' sets the authentication type to use for login. Default is 'MD5'.  Use 'MD5' for MD5 challenge
+        authentication or 'plaintext' for a plaintext login.
         'UseSSL' defaults to 0 (no ssl). When SSL is enabled the default PeerPort changes to 5039.
         'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
         'Timeout' has a default of 0, which means no timeout on blocking.
@@ -1568,7 +1568,7 @@ loop ()
 
 =head1 See Also
 
-AnyEvent, Asterisk::AMI::Common, Asterisk::AMI::Common::Dev
+AnyEvent, Asterisk::AMI::Common
 
 =head1 AUTHOR
 
