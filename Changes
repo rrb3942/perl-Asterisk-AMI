@@ -13,7 +13,7 @@ Revision history for Perl extension Asterisk::AMI.
         added about compatibility.
 
         - Abstracted some of the logic in Asterisk::AMI::Common to a seperate module so that it may be shared with
-        Asterisk::AMI::Helper.
+        Asterisk::AMI::Async.
 
         - Default Authentication method changed to MD5 instead of plaintext.
 
@@ -21,10 +21,11 @@ Revision history for Perl extension Asterisk::AMI.
 
         NOT DONE
 
-        - Added Asterisk::AMI::Helper. Similiar to Asterisk::AMI::Common but can be used in an event based application.
+        - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but can be used in an event based application.
 
         - (Auto failback?) for MD5 auth?
 
+        - Look at the broken pipe issue
 
 0.2.5
         - Fix RT#65782 Consume all memory on dropped connection.
