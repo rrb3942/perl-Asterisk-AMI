@@ -415,6 +415,7 @@ sub meetme_list {
 
                 return unless ($action->{'GOOD'});
 
+                #List of conferences
                 my @confs = Asterisk::AMI::Shared::parse_meetme_list_1_4($action);
 
                 #Get members for each list
@@ -433,8 +434,6 @@ sub meetme_list {
 sub meetme_members {
         my ($self, $conf, $timeout) = @_;
 
-        my $meetme;
-
         my $amiver = $self->amiver();
 
         #1.8+
@@ -444,52 +443,18 @@ sub meetme_members {
 
                 return unless ($action->{'GOOD'});
 
-                foreach my $member (@{$action->{'EVENTS'}}) {
-                        my $chan = $member->{'Channel'};
-                        delete $member->{'Conference'};
-                        delete $member->{'ActionID'};
-                        delete $member->{'Channel'};
-                        delete $member->{'Event'};
-                        $meetme->{$chan} = $member;
-                }
+                return Asterisk::AMI::Shared::format_meetme_members($action);
         #1.4 Compat
         } else {
-
-                my $members = $self->action({   Action => 'Command',
+                my $action = $self->action({   Action => 'Command',
                                                 Command => 'meetme list ' . $conf . ' concise' });
 
-                return unless ($members->{'GOOD'});
+                return unless ($action->{'GOOD'});
 
-                foreach my $line (@{$members->{'CMD'}}) {
-                        my @split = split /\!/x, $line;
-                                
-                        my $member;
-                        #0 - User num
-                        #1 - CID Name
-                        #2 - CID Num
-                        #3 - Chan
-                        #4 - Admin
-                        #5 - Monitor?
-                        #6 - Muted
-                        #7 - Talking
-                        #8 - Time
-                        $member->{'UserNumber'} = $split[0];
-
-                        $member->{'CallerIDName'} = $split[1];
-
-                        $member->{'CallerIDNum'} = $split[2];
-
-                        $member->{'Admin'} = $split[4] ? "Yes" : "No";
-
-                        $member->{'Muted'} = $split[6] ? "Yes" : "No";
-
-                        $member->{'Talking'} = $split[7] ? "Yes" : "No";
-
-                        $meetme->{$split[3]} = $member;
-                }
+                return Asterisk::AMI::Shared::format_meetme_members_1_4($action);
         }
         
-        return $meetme;
+        return;
 }
 
 sub meetme_mute {
