@@ -15,13 +15,16 @@ Revision history for Perl extension Asterisk::AMI.
         - Abstracted some of the logic in Asterisk::AMI::Common to a seperate module so that it may be shared with
         Asterisk::AMI::Helper.
 
+        - Default Authentication method changed to MD5 instead of plaintext.
+
+        - The 'OriginateHack' is now on by default which also meas call events are enabled by default
+
         NOT DONE
 
         - Added Asterisk::AMI::Helper. Similiar to Asterisk::AMI::Common but can be used in an event based application.
 
-        - Default Authentication method changed to MD5 instead of plaintext. (Auto failback?)
+        - (Auto failback?) for MD5 auth?
 
-        - Originate Hack? Default? On? Off?
 
 0.2.5
         - Fix RT#65782 Consume all memory on dropped connection.

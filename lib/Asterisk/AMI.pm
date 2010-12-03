@@ -69,7 +69,8 @@ sub _configure {
                                 AUTHTYPE => 'md5',
                                 EVENTS => 'off',
                                 BUFFERSIZE => 30000,
-                                BLOCKING => 1
+                                BLOCKING => 1,
+                                ORIGINATEHACK => 1
                         );
 
         #Create list of all options and acceptable values
@@ -187,7 +188,7 @@ sub _configure {
                         $self->{CONFIG}->{EVENTS} = 'call';
                         #Fake event type so that we will discard events, else by turning on events our event buffer 
                         #Will just continue to fill up.
-                        $self->{CONFIG}->{HANDLERS} = { 'JUSTMAKETHEHASHNOTEMPTY' => sub {} } unless ($self->{CONFIG}->{HANDLERS});
+                        $self->{CONFIG}->{HANDLERS} = {} unless ($self->{CONFIG}->{HANDLERS});
                 #They already turned events on, just add call types to it, assume they are doing something with events 
                 #and don't mess with the handlers
                 } elsif (lc($self->{CONFIG}->{EVENTS}) !~ /on|call/x) {
@@ -456,7 +457,7 @@ sub _handle_events {
 
         foreach my $event (@{$events}) {
                 #If handlers were configured just dispatch, don't buffer
-                if ($self->{CONFIG}->{HANDLERS}) {
+                if (defined $self->{CONFIG}->{HANDLERS}) {
                         if (exists $self->{CONFIG}->{HANDLERS}->{$event->{'Event'}}) {
                                 $self->{CONFIG}->{HANDLERS}->{$event->{'Event'}}->($self, $event);
                         } elsif (exists $self->{CONFIG}->{HANDLERS}->{'default'}) {
@@ -1097,11 +1098,11 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         'on_timeout' is called when a keep-alive has timed out, not when a normal action has. It is non-'fatal'.
         The subroutine will be called with a copy of our AMI object and a message.
 
-        'OriginateHack' defaults to 0 (off). This essentially enables 'call' events and says 'discard all events
+        'OriginateHack' defaults to 1 (on). This essentially enables 'call' events and says 'discard all events
         unless the user has explicitly enabled events' (prevents a memory leak). It does its best not to mess up
         anything you have already set. Without this, if you use 'Async' with an 'Originate' the action will timeout
         or never callback. You don't need this if you are already doing work with events, simply add 'call' events
-        to your eventmask.
+        to your eventmask. If you are having odd event problems try disabling this.
 
 =head2 Disabling Warnings
 
