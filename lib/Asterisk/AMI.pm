@@ -397,7 +397,7 @@ sub _handle_actions {
                 #Event responses 
                 if (exists $packet->{'Event'}) {
                         #EventCompleted Event?
-                        if ($packet->{'Event'} =~ /[cC]omplete/ox) {
+                        if (lc($packet->{'Event'}) =~ /complete/ox) {
                                 $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
                         } else {
                                 #DBGetResponse and Originate Async Exceptions
@@ -415,7 +415,7 @@ sub _handle_actions {
                                 #Rewrite these tests
                                 #Originate Async Exception is the first test
                                 if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} 
-                                        && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /[fF]ollow/ox)) {
+                                        && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /follow/ox)) {
                                         $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
                                 }
                         } 
