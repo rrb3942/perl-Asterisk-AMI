@@ -703,11 +703,55 @@ Creates new a Asterisk::AMI::Common object which takes the arguments as key-valu
 
 This module inherits all options from the AMI module.
 
+=head2 Manager Version and Privilege Requirements
+
+Every method below indicates the minimum Manager version and Write (write= in manager.conf) privilige/permission
+level required for it to properly execute. This section gives a brief overview of how to read these and what some
+of them mean.
+
+=head3 Manager Version
+
+In Asterisk 1.6 the Manager version changed to 1.1 from 1.0 in Asterisk 1.4. We use this as an indication of what commands are supported
+on the manager connection. We are a little bit lazy here and just assume a manager version of 1.1+ indicates an Asterisk
+version of 1.8+. This means some of these methods that require 1.1+ may fail on some early 1.6.x versions of Asterisk.
+
+Examples -
+        Requires Manager version 1.0 (Asterisk 1.4) or higher:
+
+                Manager Version: 1.0+
+
+        Requires Manager version 1.1 (Asterisk 1.8) or higher:
+
+                Manager Version: 1.1+
+
+=head3 Privlege/Permission Level
+
+Asterisk requires specific write privilege levels to run certain commands. Some methods below use cli commands to emulate
+support for new manager commands on older versions of Asterisk and thus have different privilege requirements.
+
+Examples - 
+        Requries 'call' permissions (write=call in manager.conf) on all versions:
+
+                Privilege: (call)
+
+        Requries 'call' or 'reporting' permissions (write=call in manager.conf) on all versions:
+
+                Privilege: (call, reporting)
+
+        Requires 'call' permissions on Manager version 1.1+ and 'command' permissions on 1.0:
+
+                Privilege: 1.0 (command), 1.1+ (call)
+
+        Requires 'call' or 'reporting' permissions on Manager version 1.1+ and 'command' permissions on 1.0:
+
+                Privilege: 1.0 (command), 1.1+ (call, reporting)
+
 =head2 Methods
 
 attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
 
-        Requires Asterisk 1.8+.
+        Asterisk 1.8+.
+        Privilege Level: 
 
         Performs an attended transfer on CHANNEL to EXTEN@CONTEXT. Returns 1 on success, 0 on failure, or undef on
         error or timeout. TIMEOUT is optional
