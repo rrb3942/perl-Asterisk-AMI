@@ -16,17 +16,6 @@ use Carp qw/carp/;
 #Duh
 use version; our $VERSION = qv(0.3.0);
 
-#Used for storing events while reading command responses Events are stored as hashes in the array Example 
-#$self->{EVETNBUFFER}->{'Event'} = Something
-
-#Buffer for holding action responses and data
-# Structure: $self->{RESPONSEBUFFER}->{'ActionID'}->{'Response'}        = (Success|Failure|Follows|Goodbye|Pong|Etc..)        
-# //Reponse Status
-#                             {'Message'} = Message //Message in the response {'EVENTS'} = [%hash1, %hash2, ..]  //Arry 
-#                             of Hashes of parsed events and data for this actionID {'PARSED'} = { Hashkey => value, 
-#                             ...} {'COMPLETED'} = 0 or 1 //If the command is completed {'GOOD'} = 0 or 1 //if this 
-#                             responses is good, no error, can only be 1 if also COMPLETED
-
 #Create a new object and return it; If required options are missing, returns undef
 sub new {
         my ($class, %values) = @_;
@@ -92,7 +81,8 @@ sub _configure {
                                 ON_CONNECT_ERR => 'CODE',
                                 ON_ERROR => 'CODE',
                                 ON_DISCONNECT => 'CODE',
-                                ON_TIMEOUT => 'CODE'
+                                ON_TIMEOUT => 'CODE',
+                                ID => ''
                                 );
 
         #Config Validation + Setting
@@ -961,6 +951,11 @@ sub loop {
         return AnyEvent->loop;
 }
 
+sub id {
+        my ($self) = @_;
+
+        return  $self->{CONFIG}->{'ID'};
+}
 #Bye bye
 sub DESTROY {
         my ($self) = @_;
@@ -1040,25 +1035,26 @@ If the version of Net:SSLeay included in CentOS/Redhat does not work try install
 Creates a new AMI object which takes the arguments as key-value pairs.
 
         Key-Value Pairs accepted:
-        PeerAddr        Remote host address        <hostname>
-        PeerPort        Remote host port        <service>
-        Events Enable/Disable Events 'on'|'off'
-        Username        Username to access the AMI
-        Secret Secret used to connect to AMI
-        AuthType        Authentication type to use for login        'plaintext'|'MD5'
-        UseSSL Enables/Disables SSL for the connection 0|1
-        BufferSize        Maximum size of buffer, in number of actions
-        Timeout Default timeout of all actions in seconds
-        Handlers        Hash reference of Handlers for events        { 'EVENT' => \&somesub };
-        Keepalive        Interval (in seconds) to periodically send 'Ping' actions to asterisk
-        TCP_Keepalive        Enables/Disables SO_KEEPALIVE option on the socket        0|1
-        Blocking        Enable/Disable blocking connects        0|1
-        on_connect        A subroutine to run after we connect
-        on_connect_err        A subroutine to call if we have an error while connecting
-        on_error        A subroutine to call when an error occurs on the socket
-        on_disconnect        A subroutine to call when the remote end disconnects
-        on_timeout        A subroutine to call if our Keepalive times out
-        OriginateHack        Changes settings to allow Async Originates to work 0|1
+        PeerAddr                Remote host address        <hostname>
+        PeerPort                Remote host port        <service>
+        Events                  Enable/Disable Events 'on'|'off'
+        Username                Username to access the AMI
+        Secret                  Secret used to connect to AMI
+        AuthType                Authentication type to use for login        'plaintext'|'MD5'
+        UseSSL                  Enables/Disables SSL for the connection 0|1
+        BufferSize              Maximum size of buffer, in number of actions
+        Timeout                 Default timeout of all actions in seconds
+        Handlers                Hash reference of Handlers for events        { 'EVENT' => \&somesub };
+        Keepalive               Interval (in seconds) to periodically send 'Ping' actions to asterisk
+        TCP_Keepalive           Enables/Disables SO_KEEPALIVE option on the socket        0|1
+        Blocking                Enable/Disable blocking connects        0|1
+        ID                      Allows associating an identifier with this AMI object
+        on_connect              A subroutine to run after we connect
+        on_connect_err          A subroutine to call if we have an error while connecting
+        on_error                A subroutine to call when an error occurs on the socket
+        on_disconnect           A subroutine to call when the remote end disconnects
+        on_timeout              A subroutine to call if our Keepalive times out
+        OriginateHack           Changes settings to allow Async Originates to work 0|1
 
         'PeerAddr' defaults to 127.0.0.1.
         'PeerPort' defaults to 5038.
@@ -1083,6 +1079,8 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         do not run an event loop.
         'Blocking' has a default of 1 (block on connecting). A value of 0 will cause us to queue our connection
         and login for when an event loop is started. If set to non blocking we will always return a valid object.
+        'ID' is undef by default, and can accept any string value. This is used to associate an identifier with this
+        object. Useful for applications that may maintain multiple manager connections at once.        
 
         'on_connect' is a subroutine to call when we have successfully connected and logged into the asterisk manager.
         it will be passed our AMI object.
@@ -1566,6 +1564,10 @@ destroy ()
 loop ()
 
         Starts an eventloop via AnyEvent.
+
+id () 
+
+        Returns the ID set in the constuctor or undef if no ID was set.
 
 =head1 See Also
 

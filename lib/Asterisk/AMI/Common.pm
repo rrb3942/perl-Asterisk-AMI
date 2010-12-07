@@ -14,7 +14,6 @@ sub new {
 }
 
 sub attended_transfer {
-
         my ($self, $channel, $exten, $context, $timeout) = @_;
 
         return $self->simple_action({   Action  => 'Atxfer',
@@ -35,7 +34,6 @@ sub bridge {
 
 #Returns a hash
 sub commands {
-
         my ($self, $timeout) = @_;
 
         my $action = $self->action({ Action => 'ListCommands' }, $timeout);
@@ -48,7 +46,6 @@ sub commands {
 }
 
 sub db_get {
-
         my ($self, $family, $key, $timeout) = @_;
 
         my $action = $self->action({    Action => 'DBGet',
@@ -64,7 +61,6 @@ sub db_get {
 }
 
 sub db_put {
-
         my ($self, $family, $key, $value, $timeout) = @_;
 
         return $self->simple_action({   Action  => 'DBPut',
@@ -74,7 +70,6 @@ sub db_put {
 }
 
 sub db_show {
-
         my ($self, $timeout) = @_;
 
         my $action = $self->action({    Action => 'Command',
@@ -86,7 +81,6 @@ sub db_show {
 }
 
 sub db_del {
-
         my ($self, $family, $key, $timeout) = @_;
 
         my $ver = $self->amiver();
@@ -104,7 +98,6 @@ sub db_del {
 }
 
 sub db_deltree {
-
         my ($self, $family, $key, $timeout) = @_;
 
         my $ver = $self->amiver();
@@ -133,7 +126,6 @@ sub db_deltree {
 }
 
 sub get_var {
-
         my ($self, $channel, $variable, $timeout) = @_;
 
         my $action = $self->action({    Action => 'GetVar',
@@ -148,7 +140,6 @@ sub get_var {
 }
 
 sub set_var {
-
         my ($self, $channel, $varname, $value, $timeout) = @_;
 
         return $self->simple_action({   Action => 'Setvar',
@@ -158,7 +149,6 @@ sub set_var {
 }
 
 sub hangup {
-
         my ($self, $channel, $timeout) = @_;
 
         return $self->simple_action({   Action => 'Hangup',
@@ -166,7 +156,6 @@ sub hangup {
 }
 
 sub exten_state {
-
         my ($self, $exten, $context, $timeout) = @_;
 
         my $action = $self->action({    Action  => 'ExtensionState',
@@ -193,7 +182,6 @@ sub park {
 }
 
 sub parked_calls {
-
         my ($self, $timeout) = @_;
 
         my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
@@ -204,7 +192,6 @@ sub parked_calls {
 }
 
 sub sip_peers {
-
         my ($self, $timeout) = @_;
 
         my $action = $self->action({ Action => 'Sippeers' }, $timeout);
@@ -215,7 +202,6 @@ sub sip_peers {
 }
 
 sub sip_peer {
-
         my ($self, $peername, $timeout) = @_;
 
         my $action = $self->action({    Action => 'SIPshowpeer',
@@ -237,7 +223,6 @@ sub sip_notify {
 }
 
 sub mailboxcount {
-
         my ($self, $exten, $context, $timeout) = @_;
 
         my $action = $self->action({    Action => 'MailboxCount',
@@ -251,7 +236,6 @@ sub mailboxcount {
 }
 
 sub mailboxstatus {
-
         my ($self, $exten, $context, $timeout) = @_;
 
         my $action = $self->action({    Action => 'MailboxStatus',
@@ -266,7 +250,6 @@ sub mailboxstatus {
 }
 
 sub chan_timeout {
-
         my ($self, $channel, $chantimeout, $timeout) = @_;
 
         return $self->simple_action({   Action => 'AbsoluteTimeout',
@@ -275,7 +258,6 @@ sub chan_timeout {
 }
 
 sub queues {
-        
         my ($self, $timeout) = @_;
 
         my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
@@ -286,7 +268,6 @@ sub queues {
 }
 
 sub queue_status {
-        
         my ($self, $queue, $timeout) = @_;
 
         my $action = $self->action({    Action => 'QueueStatus',
@@ -299,7 +280,6 @@ sub queue_status {
 }
 
 sub queue_member_pause {
-
         my ($self, $queue, $member, $timeout) = @_;
 
         return $self->simple_action({   Action => 'QueuePause',
@@ -309,7 +289,6 @@ sub queue_member_pause {
 }
 
 sub queue_member_unpause {
-
         my ($self, $queue, $member, $timeout) = @_;
 
         return $self->simple_action({   Action => 'QueuePause',
@@ -319,7 +298,6 @@ sub queue_member_unpause {
 }
 
 sub queue_add {
-
         my ($self, $queue, $member, $timeout) = @_;
 
         return $self->simple_action({   Action => 'QueueAdd',
@@ -328,7 +306,6 @@ sub queue_add {
 }
 
 sub queue_remove {
-
         my ($self, $queue, $member, $timeout) = @_;
 
         return $self->simple_action({   Action => 'QueueRemove',
@@ -337,7 +314,6 @@ sub queue_remove {
 }
 
 sub play_dtmf {
-
         my ($self, $channel, $digit, $timeout) = @_;
 
         return $self->simple_action({   Action => 'PlayDTMF',
@@ -346,7 +322,6 @@ sub play_dtmf {
 }
 
 sub play_digits {
-
         my ($self, $channel, $digits, $timeout) = @_;
 
         my $return = 1;
@@ -360,7 +335,6 @@ sub play_digits {
 }
 
 sub channels {
-        
         my ($self, $timeout) = @_;
 
         my $action = $self->action({Action => 'Status'},$timeout);
@@ -371,7 +345,6 @@ sub channels {
 }
 
 sub chan_status {
-
         my ($self, $channel, $timeout) = @_;
 
         my $action = $self->action({    Action  => 'Status',
@@ -383,7 +356,6 @@ sub chan_status {
 }
 
 sub transfer {
-
         my ($self, $channel, $exten, $context, $timeout) = @_;
 
         return $self->simple_action({   Action => 'Redirect',
