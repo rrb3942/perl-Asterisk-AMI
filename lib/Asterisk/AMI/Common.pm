@@ -750,20 +750,24 @@ Examples -
 
 attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
 
-        Asterisk 1.8+.
-        Privilege Level: 
+        Manager Version: 1.1+
+        Privilege Level: (call)
 
         Performs an attended transfer on CHANNEL to EXTEN@CONTEXT. Returns 1 on success, 0 on failure, or undef on
         error or timeout. TIMEOUT is optional
 
 bridge ( CHANNEL1, CHANNEL2 [, TIMEOUT ] )
 
-        Requires Asterisk 1.8+.
+        Manager Version: 1.1+
+        Privilege Level: (call)
 
         Bridges CHANNEL1 and CHANNEL2. Returns 1 on success, 0 on failure, or undef on error or timeout.
         TIMEOUT is optional.
 
 commands ( [ TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (none)
 
         Returns a hash reference of commands available through the AMI. TIMEOUT is optional
 
@@ -771,6 +775,9 @@ commands ( [ TIMEOUT ] )
                                    {'Priv'}        Contains list of required privileges.
 
 db_show ( [ TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (command)
 
         Returns a hash reference containing the contents of the Asterisk database, or undef on error or timeout.
         TIMEOUT is optional.
@@ -780,17 +787,24 @@ db_show ( [ TIMEOUT ] )
 
 db_get ( FAMILY, KEY [, TIMEOUT ])
 
+        Manager Version: 1.0+
+        Privilege Level: (system, reporting)
+
         Returns the value of the Asterisk database entry specified by the FAMILY and KEY pair, or undef if
         does not exist or an error occurred. TIMEOUT is optional.
 
 db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
+
+        Manager Version: 1.0+
+        Privilege Level: (system)
 
         Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success, 0 if it
         failed or undef on error or timeout. TIMEOUT is optional.
 
 db_del ( FAMILY, KEY [, TIMEOUT ])
 
-        Requires Asterisk 1.8+.
+        Manager Version: 1.1+
+        Privilege Level: (system)
 
         Support for Asterisk 1.4 is provided through CLI commands.        
 
@@ -799,7 +813,8 @@ db_del ( FAMILY, KEY [, TIMEOUT ])
 
 db_deltree ( FAMILY [, KEY, TIMEOUT ])
 
-        Requires Asterisk 1.8+.
+        Manager Version: 1.1+
+        Privilege Level: (system)
 
         Support for Asterisk 1.4 is provided through CLI commands.        
 
@@ -808,18 +823,30 @@ db_deltree ( FAMILY [, KEY, TIMEOUT ])
 
 get_var ( CHANNEL, VARIABLE [, TIMEOUT ])
 
+        Manager Version: 1.0+
+        Privilege Level: (call, reporting)
+
         Returns the value of VARIABLE for CHANNEL, or undef on error or timeout. TIMEOUT is optional.
 
 set_var ( CHANNEL, VARIABLE, VALUE [, TIMEOUT ])
+
+        Manager Version: 1.0+
+        Privilege Level: (call)
 
         Sets VARIABLE to VALUE for CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
 hangup ( CHANNEL [, TIMEOUT ])
 
+        Manager Version: 1.0+
+        Privilege Level: (system, call)
+
         Hangs up CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
+
+        Manager Version: 1.0+
+        Privilege Level: (call, reporting)
 
         Returns the state of the EXTEN in CONTEXT, or undef on error or timeout. TIMEOUT is optional
 
@@ -834,6 +861,9 @@ exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
 
 park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Parks CHANNEL and announces park information to CHANNEL2. CHANNEL2 is also the channel the call will return to if
         it times out. 
         PARKTIME is optional and can be used to control how long a person is parked for. TIMEOUT is optional.
@@ -841,6 +871,9 @@ park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
         Returns 1 if the call was parked, or 0 if it failed, or undef on error and timeout.
 
 parked_calls ( [ TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (none)
 
         Returns a hash reference containing parking lots and their members, or undef if an error/timeout or if no calls
         were parked. TIMEOUT is optional.
@@ -853,6 +886,9 @@ parked_calls ( [ TIMEOUT ] )
                                {'CallerIDName'}
 
 sip_peers ( [ TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (system, reporting)
 
         Returns a hash reference containing all SIP peers, or undef on error or timeout. TIMEOUT is optional.
 
@@ -870,6 +906,9 @@ sip_peers ( [ TIMEOUT ] )
                               {'RealtimeDevice'}
 
 sip_peer ( PEERNAME [, TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (system, reporting)
 
         Returns a hash reference containing the information for PEERNAME, or undef on error or timeout.
         TIMEOUT is optional.
@@ -909,7 +948,10 @@ sip_peer ( PEERNAME [, TIMEOUT ] )
                   {'CodecOrder'}
                   {'SecretExist'}
 
-sip_notify ( PEER, EVENT [, TIMEOUT ]) 
+sip_notify ( PEER, EVENT [, TIMEOUT ])
+
+        Manager Version: 1.1+
+        Privilege Level: (system)
 
         Sends a SIP NOTIFY to PEER with EVENT. Returns 1 on success 0 on failure or undef on error or timeout.
 
@@ -918,6 +960,9 @@ sip_notify ( PEER, EVENT [, TIMEOUT ])
         $astman->sip_notify('Polycom1', 'check-sync');
 
 mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (call, reporting)
 
         Returns an hash reference containing the message counts for the mailbox EXTENSION@CONTEXT, or undef on error or
         timeout. TIMEOUT is optional.
@@ -930,14 +975,23 @@ mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
 
 mailboxstatus ( EXTENSION, CONTEXT [, TIMEOUT ] )
         
+        Manager Version: 1.0+
+        Privilege Level: (call, reporting)
+
         Returns the status of the mailbox or undef on error or timeout. TIMEOUT is optional
 
 chan_timeout ( CHANNEL, CHANNELTIMEOUT [, TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (call, system)
 
         Sets CHANNEL to timeout in CHANNELTIMEOUT seconds. Returns 1 on success, 0 on failure, or undef on error or timeout.
         TIMEOUT is optional.
 
 queues ( [ TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (none)
 
         Returns a hash reference containing all queues, queue members, and people currently waiting in the queue,
         or undef on error or timeout. TIMEOUT is optional
@@ -966,6 +1020,9 @@ queues ( [ TIMEOUT ] )
 
 queue_status ( QUEUE [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (none)
+
         Returns a hash reference containing the queue status, members, and people currently waiting in the queue,
         or undef on error or timeout. TIMEOUT is optional.
 
@@ -993,25 +1050,40 @@ queue_status ( QUEUE [, TIMEOUT ] )
 
 queue_member_pause ( QUEUE, MEMBER [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (agent)
+
         Pauses MEMBER in QUEUE.
         Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 queue_member_unpause ( QUEUE, MEMBER [, TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (agent)
 
         Unpauses MEMBER in QUEUE.
         Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (agent)
+
         Adds MEMBER to QUEUE. Returns 1 if the MEMBER was added, or 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
 queue_remove ( QUEUE, MEMEBER [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (agent)
+
         Removes MEMBER from QUEUE. Returns 1 if the MEMBER was removed, 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
 play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (call)
 
         Plays the dtmf DIGIT on CHANNEL. Returns 1 if the DIGIT was queued on the channel, or 0 if it failed, or
         undef on error or timeout.
@@ -1019,10 +1091,16 @@ play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
 
 play_digits ( CHANNEL, DIGITS [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Plays the dtmf DIGITS on CHANNEL. DIGITS should be passed as an array reference. Returns 1 if all DIGITS
         were queued on the channel, or 0 if an any queuing failed. TIMEOUT is optional.
 
 channels ( [ TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: (system, call, reporting)
 
         Returns a hash reference containing all channels with their information, or undef on error or timeout.
         TIMEOUT is optional.
@@ -1044,6 +1122,9 @@ channels ( [ TIMEOUT ] )
 
 chan_status ( CHANNEL [, TIMEOUT ] )
         
+        Manager Version: 1.0+
+        Privilege Level: (system, call, reporting)
+
         Returns a hash reference containing the status of the channel, or undef on error or timeout.
         TIMEOUT is optional.
 
@@ -1064,12 +1145,16 @@ chan_status ( CHANNEL [, TIMEOUT ] )
 
 transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transferred, 0 if it failed, 
         or undef on error or timeout. TIMEOUT is optional.
 
 meetme_list ( [ TIMEOUT ] )
 
-        Full support requires Asterisk 1.8+.
+        Manager Version: 1.0+
+        Privilege Level: 1.0 (command), 1.1+ (reporting)
 
         Partial support is provided on Asterisk 1.4 via cli commands. When using with asteirsk 1.4 the following
         keys are missing: Role, MarkedUser
@@ -1088,8 +1173,9 @@ meetme_list ( [ TIMEOUT ] )
                                                {'Admin'}
 
 meetme_members ( ROOMNUM [, TIMEOUT ] )
-        
-        Full support requires Asterisk 1.8+.
+
+        Manager Version: 1.0+
+        Privilege Level: 1.0 (command), 1.1+ (reporting)
 
         Partial support is provided on Asterisk 1.4 via cli commands. When using with asteirsk 1.4 the following
         keys are missing: Role, MarkedUser
@@ -1109,15 +1195,24 @@ meetme_members ( ROOMNUM [, TIMEOUT ] )
 
 meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Mutes USERNUM in CONFERENCE. Returns 1 if the user was muted, 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
 meetme_unmute ( CONFERENCE, USERNUM [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Un-mutes USERNUM in CONFERENCE. Returns 1 if the user was un-muted, or 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
 mute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
+
+        Manager Version: 1.1+
+        Privilege Level: (system)
 
         Mutes audio on CHANNEL. DIRECTION is optiona and can be 'in' for inbound audio only, 'out' for outbound audio
         only or 'all' to for both directions. If not supplied it defaults to 'all'. Returns 1 on success, 0 if it failed,
@@ -1125,16 +1220,25 @@ mute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
 
 unmute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
 
+        Manager Version: 1.1+
+        Privilege Level: (system)
+
         UnMutes audio on CHANNEL. DIRECTION is optiona and can be 'in' for inbound audio only, 'out' for outbound audio
         only or 'all' to for both directions. If not supplied it defaults to 'all'. Returns 1 on success, 0 if it failed,
         or undef on error or timeout. TIMEOUT is optional.
 
 monitor ( CHANNEL, FILE [, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Begins recording CHANNEL to FILE. Uses the 'wav' format and also mixes both directions into a single file. 
         Returns 1 if the channel was set to record, or 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
 monitor_stop ( CHANNEL [, TIMEOUT ])
+
+        Manager Version: 1.0+
+        Privilege Level: (call)
 
         Stops recording CHANNEL. Returns 1 if recording on the channel was stopped, 0 if it failed, or undef on error
         or timeout.
@@ -1142,11 +1246,17 @@ monitor_stop ( CHANNEL [, TIMEOUT ])
 
 monitor_pause ( CHANNEL [, TIMEOUT ])
 
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Pauses recording on CHANNEL. Returns 1 if recording on the channel was paused, 0 if it failed, or undef on error
         or timeout.
         TIMEOUT is optional.
 
 monitor_unpause ( CHANNEL [, TIMEOUT ])
+
+        Manager Version: 1.0+
+        Privilege Level: (call)
 
         Un-pauses recording on CHANNEL. Returns 1 if recording on the channel was un-paused, 0 if it failed, or undef on error
         or timeout.
@@ -1154,13 +1264,17 @@ monitor_unpause ( CHANNEL [, TIMEOUT ])
 
 monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
         
+        Manager Version: 1.0+
+        Privilege Level: (call)
+
         Changes the monitor file for CHANNEL to FILE. Returns 1 if the file was change, 0 if it failed, or undef on error
         or timeout.
         TIMEOUT is optional.
 
 mixmonitor_mute ( CHANNEL [, DIRECTION, TIMEOUT] )
 
-        Requires Asterisk 1.8+
+        Manager Version: 1.1+
+        Privilege Level: (none)
 
         Mutes audio on CHANNEL. DIRECTION is optiona and can be 'read' for inbound audio only, 'write' for outbound audio
         only or 'both' to for both directions. If not supplied it defaults to 'both'. Returns 1 on success, 0 if it failed,
@@ -1168,7 +1282,8 @@ mixmonitor_mute ( CHANNEL [, DIRECTION, TIMEOUT] )
 
 mixmonitor_unmute ( CHANNEL [, DIRECTION, TIMEOUT] )
 
-        Requires Asterisk 1.8+
+        Manager Version: 1.1+
+        Privilege Level: (none)
 
         UnMutes audio on CHANNEL. DIRECTION is optiona and can be 'read' for inbound audio only, 'write' for outbound audio
         only or 'both' to for both directions. If not supplied it defaults to 'both'. Returns 1 on success, 0 if it failed,
@@ -1176,14 +1291,16 @@ mixmonitor_unmute ( CHANNEL [, DIRECTION, TIMEOUT] )
 
 text ( CHANNEL, MESSAGE [, TIMEOUT ] )
 
-        Requires Asterisk 1.8+.
+        Manager Version: 1.1+
+        Privilege Level: (call)
 
         Sends MESSAGE as a text on CHANNEL. Returns 1 on success, 0 on failure, or undef on error or timeout.
         TIMEOUT is optional.
 
 voicemail_list ( [ TIMEOUT ] )
 
-        Requires Asterisk 1.8+.
+        Manager Version: 1.1+
+        Privilege Level: (call, reporting)
 
         Returns a hash reference of all mailboxes on the system, or undef if an error occurred.
         TIMEOUT is optional.
@@ -1215,7 +1332,8 @@ voicemail_list ( [ TIMEOUT ] )
 
 module_check ( MODULE [, TIMEOUT ] )
 
-        Full support requires Asterisk 1.8+.
+        Manager Version: 1.0+
+        Privilege Level: 1.0 (command), 1.1+ (system)
 
         Partial support is provided on Asterisk 1.4 via cli commands.
 
@@ -1225,7 +1343,8 @@ module_check ( MODULE [, TIMEOUT ] )
 
 module_load, module_reload, module_unload ( MODULE [, TIMEOUT ] )
 
-        Requires Asterisk 1.8+.
+        Manager Version: 1.1+
+        Privilege Level: (system)
 
         Attempts to load/reload/unload MODULE. Returns 1 on success, 0 on failure, or undef on error or timeout.
         MODULE is the name of the module with its extension or an asterisk subsystem. To load 'app_meetme.so' you would use 'app_meetme.so'.
@@ -1243,6 +1362,9 @@ module_load, module_reload, module_unload ( MODULE [, TIMEOUT ] )
 
 originate ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
 
+        Manager Version: 1.0+
+        Privilege Level: 1.0 (call), 1.1+ (originate)
+
         Attempts to dial CHANNEL and then drops it into EXTEN@CONTEXT in the dialplan. Optionally a CALLERID can be provided.
         CTIMEOUT is optional and determines how long the call will dial/ring for in seconds. TIMEOUT is optional.
 
@@ -1254,6 +1376,9 @@ originate ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
         WARNING: This method can block for a very long time (CTIMEOUT + TIMEOUT).
 
 originate_async ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
+
+        Manager Version: 1.0+
+        Privilege Level: 1.0 (call), 1.1+ (originate)
 
         Attempts to dial CHANNEL and then drops it into EXTEN@CONTEXT in the dialplan asynchronously. Optionally a CALLERID can be provided.
         CTIMEOUT is optional and determines how long the call will dial/ring for in seconds. TIMEOUT is optional and only affects how long we will
