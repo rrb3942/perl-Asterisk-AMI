@@ -388,6 +388,11 @@ sub meetme_list {
                                 #Hash to return to callback
                                 my %meetmes;
 
+                                #Bailout on no conferences
+                                unless ($count) { 
+                                        $callback->($self, \%meetmes, $userdata);
+                                }
+
                                 #Callback to handle each meetme room request
                                 my $mmcb = sub {
                                         my ($ami, $meetme, $confnum) = @_;
@@ -395,8 +400,7 @@ sub meetme_list {
                                         #Looks like we timed out?
                                         return unless ($count);
 
-                                        #If any fail nuke the count and do the callback
-                                        unless ($meetme->{'GOOD'}) {
+                                        unless ($meetme) {
                                                 undef $count;
                                                 $callback->($ami, undef, $userdata);
                                         }
