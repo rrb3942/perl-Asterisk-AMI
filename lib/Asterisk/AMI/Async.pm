@@ -74,7 +74,7 @@ sub attended_transfer {
                                         Channel => $channel,
                                         Exten   => $exten,
                                         Context => $context,
-                                        Priority => 1 }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Priority => 1 }, $callback, $timeout, $userdata);
 }
 
 sub bridge {
@@ -83,7 +83,7 @@ sub bridge {
         return $self->send_action({     Action  => 'Bridge',
                                         Channel1 => $chan1,
                                         Channel2 => $chan2,
-                                        Tone    => 'Yes' }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Tone    => 'Yes' }, $callback, $timeout, $userdata);
 }
 
 #Returns a hash
@@ -107,7 +107,7 @@ sub db_put {
         return $self->send_action({     Action  => 'DBPut',
                                         Family  => $family,
                                         Key     => $key,
-                                        Val     => $value }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Val     => $value }, $callback, $timeout, $userdata);
 }
 
 sub db_show {
@@ -125,10 +125,10 @@ sub db_del {
         if (defined($ver) && $ver >= 1.1) {
                 return $self->send_action({     Action => 'DBDel',
                                                 Family => $family,
-                                                Key => $key }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                                Key => $key }, $callback, $timeout, $userdata);
         } else {
                 return $self->send_action({     Action => 'Command',
-                                                Command => 'database del ' . $family . ' ' . $key }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                                Command => 'database del ' . $family . ' ' . $key }, $callback, $timeout, $userdata);
         }
 
         return;
@@ -146,7 +146,7 @@ sub db_deltree {
 
                 $action{'Key'} = $key if (defined $key);
 
-                return $self->send_action(\%action, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                return $self->send_action(\%action, $callback, $timeout, $userdata);
         } else {
                 
                 my $cmd = 'database deltree ' . $family;
@@ -156,7 +156,7 @@ sub db_deltree {
                 }
 
                 return $self->send_action({     Action => 'Command',
-                                                Command => $cmd }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                                Command => $cmd }, $callback, $timeout, $userdata);
         }
 
         return;
@@ -176,14 +176,14 @@ sub set_var {
         return $self->send_action({     Action => 'Setvar',
                                         Channel => $channel,
                                         Variable => $varname,
-                                        Value => $value }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Value => $value }, $callback, $timeout, $userdata);
 }
 
 sub hangup {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'Hangup',
-                                        Channel => $channel }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub exten_state {
@@ -203,7 +203,7 @@ sub park {
 
         $action{'Timeout'} = $parktime if (defined $parktime);
 
-        return $self->send_action(\%action, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+        return $self->send_action(\%action, $callback, $timeout, $userdata);
 }
 
 sub parked_calls {
@@ -230,7 +230,7 @@ sub sip_notify {
 
         return $self->send_action({     Action => 'SIPnotify',
                                         Channel => 'SIP/' . $peer,
-                                        Variable => 'Event=' . $event }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Variable => 'Event=' . $event }, $callback, $timeout, $userdata);
 }
 
 sub mailboxcount {
@@ -252,7 +252,7 @@ sub chan_timeout {
 
         return $self->send_action({     Action => 'AbsoluteTimeout',
                                         Channel => $channel,
-                                        Timeout => $chantimeout }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Timeout => $chantimeout }, $callback, $timeout, $userdata);
 }
 
 sub queues {
@@ -274,7 +274,7 @@ sub queue_member_pause {
         return $self->send_action({     Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => 1 }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Paused => 1 }, $callback, $timeout, $userdata);
 }
 
 sub queue_member_unpause {
@@ -283,7 +283,7 @@ sub queue_member_unpause {
         return $self->send_action({     Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => 0 }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Paused => 0 }, $callback, $timeout, $userdata);
 }
 
 sub queue_add {
@@ -291,7 +291,7 @@ sub queue_add {
 
         return $self->send_action({     Action => 'QueueAdd',
                                         Queue => $queue,
-                                        Interface => $member }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Interface => $member }, $callback, $timeout, $userdata);
 }
 
 sub queue_remove {
@@ -299,7 +299,7 @@ sub queue_remove {
 
         return $self->send_action({     Action => 'QueueRemove',
                                         Queue => $queue,
-                                        Interface => $member }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Interface => $member }, $callback, $timeout, $userdata);
 }
 
 sub play_dtmf {
@@ -307,7 +307,7 @@ sub play_dtmf {
 
         return $self->send_action({     Action => 'PlayDTMF',
                                         Channel => $channel,
-                                        Digit => $digit }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Digit => $digit }, $callback, $timeout, $userdata);
 }
 
 sub play_digits {
@@ -361,7 +361,7 @@ sub transfer {
                                         Channel => $channel,
                                         Exten => $exten,
                                         Context => $context,
-                                        Priority => 1 }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Priority => 1 }, $callback, $timeout, $userdata);
 
 }
 
@@ -453,7 +453,7 @@ sub meetme_mute {
 
         return $self->send_action({     Action => 'MeetmeMute',
                                         Meetme => $conf,
-                                        Usernum => $user }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Usernum => $user }, $callback, $timeout, $userdata);
 }
 
 sub meetme_unmute {
@@ -461,7 +461,7 @@ sub meetme_unmute {
 
         return $self->send_action({     Action => 'MeetmeUnmute',
                                         Meetme => $conf,
-                                        Usernum => $user }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Usernum => $user }, $callback, $timeout, $userdata);
 }
 
 sub mute_chan {
@@ -472,7 +472,7 @@ sub mute_chan {
         return $self->send_action({     Action => 'MuteAudio',
                                         Channel => $chan,
                                         Direction => $dir,
-                                        State => 'on' }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        State => 'on' }, $callback, $timeout, $userdata);
 }
 
 sub unmute_chan {
@@ -483,7 +483,7 @@ sub unmute_chan {
         return $self->send_action({     Action => 'MuteAudio',
                                         Channel => $chan,
                                         Direction => $dir,
-                                        State => 'off' }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        State => 'off' }, $callback, $timeout, $userdata);
 }
 
 sub monitor {
@@ -493,28 +493,28 @@ sub monitor {
                                         Channel => $channel,
                                         File => $file,
                                         Format => 'wav',
-                                        Mix => '1' }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Mix => '1' }, $callback, $timeout, $userdata);
 }
 
 sub monitor_stop {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'StopMonitor',
-                                        Channel => $channel }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub monitor_pause {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'PauseMonitor',
-                                        Channel => $channel }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub monitor_unpause {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'UnpauseMonitor',
-                                        Channel => $channel }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub monitor_change {
@@ -522,7 +522,7 @@ sub monitor_change {
 
         return $self->send_action({     Action => 'ChangeMonitor',
                                         Channel => $channel,
-                                        File => $file }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        File => $file }, $callback, $timeout, $userdata);
 }
 
 sub mixmonitor_mute {
@@ -533,7 +533,7 @@ sub mixmonitor_mute {
         return $self->send_action({     Action => 'MixMonitorMute',
                                         Direction => $dir,
                                         Channel => $channel,
-                                        State => 1 }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        State => 1 }, $callback, $timeout, $userdata);
 }
 
 sub mixmonitor_unmute {
@@ -544,7 +544,7 @@ sub mixmonitor_unmute {
         return $self->send_action({     Action => 'MixMonitorMute',
                                         Direction => $dir,
                                         Channel => $channel,
-                                        State => 0 }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        State => 0 }, $callback, $timeout, $userdata);
 }
 
 sub text {
@@ -552,7 +552,7 @@ sub text {
 
         return $self->send_action({     Action => 'SendText',
                                         Channel => $chan,
-                                        Message => $message }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Message => $message }, $callback, $timeout, $userdata);
 }
 
 sub voicemail_list {
@@ -568,7 +568,7 @@ sub module_check {
 
         if (defined $ver && $ver >= 1.1) {
                 return $self->send_action({     Action => 'ModuleCheck',
-                                                Module => $module }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                                Module => $module }, $callback, $timeout, $userdata);
         } else {
                 return $self->send_action({     Action => 'Command',
                                                 Command => 'module show like ' . $module }, _shared_cb($callback, \&Asterisk::AMI::Shared::check_module_check_1_4), $timeout, $userdata);
@@ -582,7 +582,7 @@ sub module_load {
 
         return $self->send_action({     Action => 'ModuleLoad',
                                         LoadType => 'load',
-                                        Module => $module }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Module => $module }, $callback, $timeout, $userdata);
 }
 
 sub module_reload {
@@ -590,7 +590,7 @@ sub module_reload {
 
         return $self->send_action({     Action => 'ModuleLoad',
                                         LoadType => 'reload',
-                                        Module => $module }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Module => $module }, $callback, $timeout, $userdata);
 }
 
 sub module_unload {
@@ -598,7 +598,7 @@ sub module_unload {
 
         return $self->send_action({     Action => 'ModuleLoad',
                                         LoadType => 'unload',
-                                        Module => $module }, _walk_cb($callback, 'GOOD'), $timeout, $userdata);
+                                        Module => $module }, $callback, $timeout, $userdata);
 }
 
 sub originate_async {
