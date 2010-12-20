@@ -29,6 +29,10 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Asterisk::AMI::Async additional options - AutoDiscard? Default CB? Builtins? WarnOnBad? DieOnBad?
 
+        - Asterisk::AMI::Async additional options - AutoDiscard? Default CB? Builtins? WarnOnBad? DieOnBad? - Done in Asterisk::AMI
+
+        - Huge Doc changes, breakout config options into groups. Make less 'Scary'
+
 0.2.5
         - Fix RT#65782 Consume all memory on dropped connection.
 0.2.4

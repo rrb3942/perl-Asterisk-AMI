@@ -44,6 +44,48 @@ sub anyevent_read_type {
         }
 }
 
+#Pre-defined default callback
+sub _warn_on_bad {
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                return 1 if $resp->{'GOOD'};
+
+                my $warn = 'Action ' . $resp->{'ActionID'} . ' failed ';
+
+                if ($resp->{'COMPLETED'}) {
+                        $warn .= 'with the following error message: ' . $resp->{'Message'};
+                } else {
+                        $warn .= 'due to timeout';
+                }
+
+                warn $warn;
+
+                return;
+        }
+}
+
+#Pre-defined default callback
+sub _die_on_bad {
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                return 1 if $resp->{'GOOD'};
+
+                my $warn = 'Action ' . $resp->{'ActionID'} . ' failed ';
+
+                if ($resp->{'COMPLETED'}) {
+                        $warn .= 'with the following error message: ' . $resp->{'Message'};
+                } else {
+                        $warn .= 'due to timeout';
+                }
+
+                die $warn;
+
+                return;
+        }
+}
+
 #Sets variables for this object Also checks for minimum settings Returns 1 if everything was set, 0 if options were 
 #missing
 sub _configure {
@@ -592,6 +634,8 @@ sub send_action {
         #Set default timeout if needed
         $timeout = $self->{CONFIG}->{TIMEOUT} unless (defined $timeout);
 
+        $callback = $self->{CONFIG}->{DEFAULT_CB} unless (defined $callback);
+
         #Setup callback
         if (defined $callback) {
                 $self->{CALLBACKS}->{$id} = sub {
@@ -608,6 +652,8 @@ sub send_action {
                 if ($timeout) {
                         $self->{TIMERS}->{$id} = AE::timer $timeout, 0, $self->{CALLBACKS}->{$id};
                 }
+        } elsif ($self->{CONFIG}->{AUTODISCARD}) {
+                delete $self->{EXPECTED}->{$id};
         }
 
         return $id;
