@@ -3,6 +3,8 @@ Revision history for Perl extension Asterisk::AMI.
 0.3
         - Support for old Callback and Timeout syntax has been removed.
 
+        - 'PARSED' key in response has been replaced with 'BODY'
+
         - Removed method queue_member_toggle
 
         - Changed queue_member_pause to no longer accept a pause value and instead just pauses the member.
@@ -19,6 +21,8 @@ Revision history for Perl extension Asterisk::AMI.
 
         - The 'OriginateHack' is now on by default which also meas call events are enabled by default
 
+        - Pre-populate ActionID in the response so that it exists in the event of a timeout with no response at all.
+
         NOT DONE
 
         - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but can be used in an event based application.
@@ -26,6 +30,7 @@ Revision history for Perl extension Asterisk::AMI.
         - (Auto failback?) for MD5 auth?
 
         - Look at the broken pipe issue
+        - Better handling when Blocking => 1 or 0 for various things, disconnects,
 
         - Asterisk::AMI::Async additional options - AutoDiscard? Default CB? Builtins? WarnOnBad? DieOnBad?
 

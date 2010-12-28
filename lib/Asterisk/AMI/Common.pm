@@ -133,7 +133,7 @@ sub get_var {
                                         Variable => $variable }, $timeout);
 
         if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Value'};
+                return $action->{'BODY'}->{'Value'};
         }
 
         return;
@@ -163,7 +163,7 @@ sub exten_state {
                                         Context => $context }, $timeout);
 
         if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Status'};
+                return $action->{'BODY'}->{'Status'};
         }
 
         return;
@@ -208,7 +208,7 @@ sub sip_peer {
                                         Peer => $peername }, $timeout);
 
         if ($action->{'GOOD'}) {
-                return $action->{'PARSED'};
+                return $action->{'BODY'};
         }
 
         return;
@@ -229,7 +229,7 @@ sub mailboxcount {
                                         Mailbox => $exten . '@' . $context }, $timeout);
 
         if ($action->{'GOOD'}) {
-                return $action->{'PARSED'};
+                return $action->{'BODY'};
         }
 
         return;
@@ -243,7 +243,7 @@ sub mailboxstatus {
 
 
         if ($action->{'GOOD'}) {
-                return $action->{'PARSED'}->{'Waiting'};
+                return $action->{'BODY'}->{'Waiting'};
         }
 
         return;

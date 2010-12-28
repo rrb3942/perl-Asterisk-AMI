@@ -8,7 +8,7 @@ use warnings;
 
 use AnyEvent;
 use AnyEvent::Handle;
-use AnyEvent::Socket;
+#use AnyEvent::Socket;
 use Digest::MD5;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
@@ -32,7 +32,6 @@ sub new {
 
 #Used by anyevent to load our read type
 sub anyevent_read_type {
-
         my ($hdl, $cb) = @_;
 
         return sub {
@@ -124,7 +123,9 @@ sub _configure {
                                 ON_ERROR => 'CODE',
                                 ON_DISCONNECT => 'CODE',
                                 ON_TIMEOUT => 'CODE',
-                                ID => ''
+                                ID => '',
+                                AUTODISCARD => 'bool',
+                                DEFAULT_CB => 'CODE'
                                 );
 
         #Config Validation + Setting
@@ -140,20 +141,32 @@ sub _configure {
                         next;
                 }
 
+                #Get reftype
+                my $type = ref($val);
+
                 #Check for correct reference types
-                if (ref($val) ne $config_options{$opt}) {
+                if ($type ne $config_options{$opt}) {
 
                         #If they are ref types then fail
                         if ($config_options{$opt} eq 'CODE') {
-                                        carp "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
-                                        return;
+                                #Default_CB special options
+                                if ($opt eq 'DEFAULT_CB') {
+                                        if (lc($val) eq 'warnonbad') {
+                                                $self->{CONFIG}->{$opt} = _warn_on_bad();
+                                                next;
+                                        } elsif (lc($val) eq 'dieonbad') {
+                                                $self->{CONFIG}->{$opt} = _die_on_bad();
+                                                next;
+                                        }
+                                }
+
+                                carp "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
+                                return;
                         } elsif ($config_options{$opt} eq 'HASH') {
                                         carp "Constructor option \'$key\' requires a hash reference" if warnings::enabled('Asterisk::AMI');
                                         return;
-                        }
-
                         #Boolean values
-                        if ($config_options{$opt} eq 'bool') {
+                        } elsif ($config_options{$opt} eq 'bool') {
                                 if ($val =~ /[^\d]/x || ($val != 0 && $val != 1)) {
                                         carp "Constructor option \'$key\' requires a boolean value (0 or 1)" if warnings::enabled('Asterisk::AMI');
                                         return;
@@ -242,7 +255,6 @@ sub _configure {
 
 #Handles connection failures (includes login failure);
 sub _on_connect_err {
-
         my ($self, $message) = @_;
 
         warnings::warnif('Asterisk::AMI', "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
@@ -266,7 +278,6 @@ sub _on_connect_err {
 
 #Handles other errors on the socket
 sub _on_error {
-
         my ($self, $message) = @_;
 
         warnings::warnif('Asterisk::AMI', "Received Error on socket - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
@@ -286,7 +297,6 @@ sub _on_error {
 
 #Handles the remote end disconnecting
 sub _on_disconnect {
-
         my ($self) = @_;
 
         my $message = "Remote end disconnected - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
@@ -328,7 +338,6 @@ sub _on_timeout {
 
 #Things to do after our initial connect
 sub _on_connect {
-
         my ($self, $hdl, $line) = @_;
 
         if ($line =~ /^Asterisk\ Call\ Manager\/([0-9]\.[0-9])$/ox) {
@@ -379,6 +388,8 @@ sub _connect {
         return;
 }
 
+#Accepts one of more packet from the buffer
+#Splits it into multiple packets and into key-value pairs
 sub _handle_packet {
         my ($self, $hdl, $buffer) = @_;
 
@@ -426,6 +437,7 @@ sub _handle_actions {
 
                 #Discard Unknown ActionIDs
                 return unless (exists $self->{EXPECTED}->{$actionid});
+
                 #Event responses 
                 if (exists $packet->{'Event'}) {
                         #EventCompleted Event?
@@ -454,10 +466,12 @@ sub _handle_actions {
 
                         #Copy the response into the buffer
                         foreach (keys %{$packet}) {
+                                #Top Level
                                 if ($_ =~ /^(?:Response|Message|ActionID|Privilege|CMD|COMPLETED)$/ox) {
                                         $self->{RESPONSEBUFFER}->{$actionid}->{$_} = $packet->{$_};
+                                #Body/Parsed
                                 } else {
-                                        $self->{RESPONSEBUFFER}->{$actionid}->{'PARSED'}->{$_} = $packet->{$_};
+                                        $self->{RESPONSEBUFFER}->{$actionid}->{'BODY'}->{$_} = $packet->{$_};
                                 }
                         }
                 }
@@ -612,8 +626,9 @@ sub send_action {
 
         my $action;
 
-        #Build our AMI command
+        #Build our AMI command, bah this sucks do better
         ($action, $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'}) = _build_action($actionhash, $id);
+        delete $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'} unless ($self->{RESPONSEBUFFER}->{$id}->{'ASYNC'});
 
         #If logged in send action
         if ($self->{LOGGEDIN} || lc($actionhash->{'Action'}) =~ /login|challenge/x) {
@@ -624,6 +639,7 @@ sub send_action {
         }
 
         #Initialize default status of response
+        $self->{RESPONSEBUFFER}->{$id}->{'ActionID'} = $id;
         $self->{RESPONSEBUFFER}->{$id}->{'COMPLETED'} = 0;
         $self->{RESPONSEBUFFER}->{$id}->{'GOOD'} = 0;
         $self->{EXPECTED}->{$id} = undef;
@@ -772,7 +788,7 @@ sub _login {
         return;
 }
 
-#Checks loging responses, prints errors
+#Checks login responses, prints errors
 sub _logged_in {
         my ($self, $login) = @_;
 
@@ -818,7 +834,7 @@ sub _login_block {
 
                 if ($chresp->{'GOOD'}) {
 
-                        $action->{'Key'} = $self->_md5_resp($chresp->{'PARSED'}->{'Challenge'}, $self->{CONFIG}->{SECRET});
+                        $action->{'Key'} = $self->_md5_resp($chresp->{'BODY'}->{'Challenge'}, $self->{CONFIG}->{SECRET});
                         $action->{'AuthType'} = $self->{CONFIG}->{AUTHTYPE};
 
                         #Login
@@ -859,7 +875,7 @@ sub _login_noblock {
                                 if ($_[1]->{'GOOD'}) {
                                         my $md5 = Digest::MD5->new();
 
-                                        $md5->add($_[1]->{'PARSED'}->{'Challenge'});
+                                        $md5->add($_[1]->{'BODY'}->{'Challenge'});
                                         $md5->add($self->{CONFIG}->{SECRET});
 
                                         $md5 = $md5->hexdigest;
@@ -981,6 +997,40 @@ sub _clear_cbs {
         return 1;
 }
 
+
+#Runs the AnyEvent loop
+sub loop {
+        return AnyEvent->loop;
+}
+
+#Return user defined ID
+sub id {
+        my ($self) = @_;
+
+        return  $self->{CONFIG}->{'ID'};
+}
+
+#Blocking logoff 
+sub _blocking_logoff {
+        my ($self) = @_;
+        my $timeout;
+
+        $timeout = 5 unless ($self->{'CONFIG'}->{'TIMEOUT'});
+
+        $self->action({ Action => 'Logoff' }, $timeout);
+        undef $self->{LOGGEDIN};
+}
+
+sub _nonblocking_logoff {
+        my ($self) = @_;
+        my $timeout;
+
+        $timeout = 5 unless ($self->{'CONFIG'}->{'TIMEOUT'});
+
+        $self->action({ Action => 'Logoff' }, $timeout);
+        undef $self->{LOGGEDIN};
+}
+
 #Cleans up
 sub destroy {
         my ($self) = @_;
@@ -992,24 +1042,18 @@ sub destroy {
         return 1;
 }
 
-#Runs the AnyEvent loop
-sub loop {
-        return AnyEvent->loop;
-}
-
-sub id {
-        my ($self) = @_;
-
-        return  $self->{CONFIG}->{'ID'};
-}
 #Bye bye
 sub DESTROY {
         my ($self) = @_;
 
-        #Logoff if we are not in error
+        #Logoff
         if (!$self->{SOCKERR} && $self->{LOGGEDIN}) {
-                $self->send_action({ Action => 'Logoff' });
-                undef $self->{LOGGEDIN};
+                if ($self->{'CONFIG'}->{'BLOCKING'}) {
+                        $self->_blocking_logoff();
+                } 
+                #else { 
+                #       $self->_nonblocking_logoff();
+                #}
         }
 
         #Destroy our handle first to cause it to flush
@@ -1448,7 +1492,7 @@ To retrieve in a callback:
                    {'ActionID'} ActionID of this Response.
                    {'Message'} Message line of the response.
                    {'EVENTS'} Array reference containing Event Objects associated with this actionid.
-                   {'PARSED'} Hash reference of lines we could parse into key->value pairs.
+                   {'BODY'} Hash reference of lines we could parse into key->value pairs.
                    {'CMD'} Contains command output from 'Action: Command's. It is an array reference.
                    {'COMPLETED'} 1 if completed, 0 if not (timeout)
                    {'GOOD'} 1 if good, 0 if bad. Good means no errors and COMPLETED.

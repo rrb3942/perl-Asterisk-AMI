@@ -191,7 +191,7 @@ sub exten_state {
 
         return $self->send_action({     Action  => 'ExtensionState',
                                         Exten   => $exten,
-                                        Context => $context }, _walk_cb($callback, 'PARSED', 'Status'), $timeout, $userdata);
+                                        Context => $context }, _walk_cb($callback, 'BODY', 'Status'), $timeout, $userdata);
 }
 
 sub park {
@@ -222,7 +222,7 @@ sub sip_peer {
         my ($self, $peername, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'SIPshowpeer',
-                                        Peer => $peername }, _walk_cb($callback, 'PARSED'), $timeout, $userdata);
+                                        Peer => $peername }, _walk_cb($callback, 'BODY'), $timeout, $userdata);
 }
 
 sub sip_notify {
@@ -237,14 +237,14 @@ sub mailboxcount {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'MailboxCount',
-                                        Mailbox => $exten . '@' . $context }, _walk_cb($callback, 'PARSED'), $timeout, $userdata);
+                                        Mailbox => $exten . '@' . $context }, _walk_cb($callback, 'BODY'), $timeout, $userdata);
 }
 
 sub mailboxstatus {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'MailboxStatus',
-                                        Mailbox => $exten . '@' . $context }, _walk_cb($callback, 'PARSED', 'Waiting'), $timeout, $userdata);
+                                        Mailbox => $exten . '@' . $context }, _walk_cb($callback, 'BODY', 'Waiting'), $timeout, $userdata);
 }
 
 sub chan_timeout {
