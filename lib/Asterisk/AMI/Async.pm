@@ -20,6 +20,14 @@ sub new {
         return $class->SUPER::new(%options);
 }
 
+#Allow for slimmed syntax
+# $astman->fast_action({Action => Ping}, $userdata);
+sub fast_action {
+        my ($ami, $action, $userdata) = @_;
+
+        return $ami->send_action($action, undef, undef, $userdata);
+}
+
 #Walks a response and returns the requested nested element
 sub _walk_resp {
         my ($resp, @steps) = @_;
