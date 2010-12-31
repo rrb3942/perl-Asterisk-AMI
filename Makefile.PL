@@ -9,7 +9,6 @@ my %makefile = (
     PREREQ_PM         => { "parent" => 0,
 			   "version" => 0,
 			   "AnyEvent" => "5.2",
-			   "AnyEvent::Socket" => 0,
 			   "AnyEvent::Handle" => 0,
 			   "Digest::MD5" => 0,
 			   "Scalar::Util" => 0,

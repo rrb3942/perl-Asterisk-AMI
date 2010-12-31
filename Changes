@@ -5,6 +5,8 @@ Revision history for Perl extension Asterisk::AMI.
 
         - 'PARSED' key in response has been replaced with 'BODY'
 
+        - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but it is safe for use in an event based application.
+
         - Removed method queue_member_toggle
 
         - Changed queue_member_pause to no longer accept a pause value and instead just pauses the member.
@@ -17,6 +19,10 @@ Revision history for Perl extension Asterisk::AMI.
         - Abstracted some of the logic in Asterisk::AMI::Common to a seperate module so that it may be shared with
         Asterisk::AMI::Async.
 
+        - New constructor option AutoDiscard. When enabled (set to 1) it will discard responses for any action sent that did not register a callback
+
+        - New constructor option Default_CB allows for setting a default callback subroutine for all actions.
+
         - Default Authentication method changed to MD5 instead of plaintext.
 
         - The 'OriginateHack' is now on by default which also meas call events are enabled by default
@@ -25,12 +31,7 @@ Revision history for Perl extension Asterisk::AMI.
 
         NOT DONE
 
-        - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but can be used in an event based application.
-
-        - (Auto failback?) for MD5 auth?
-
         - Look at the broken pipe issue
-        - Better handling when Blocking => 1 or 0 for various things, disconnects,
 
         - Asterisk::AMI::Async additional options - AutoDiscard? Default CB? Builtins? WarnOnBad? DieOnBad?
 
@@ -38,6 +39,9 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Huge Doc changes, breakout config options into groups. Make less 'Scary'
 
+        - Better handling when Blocking => 1 or 0 for various things, disconnects,
+
+        - Huge Doc changes, breakout config options into groups. Make less 'Scary'
 0.2.5
         - Fix RT#65782 Consume all memory on dropped connection.
 0.2.4

@@ -14,7 +14,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.3.0);
+use version; our $VERSION = qv(0.2.4_01);
 
 #Create a new object and return it; If required options are missing, returns undef
 sub new {
@@ -1085,7 +1085,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.3.0
+0.2.4_01
 
 =head1 SYNOPSIS
 
