@@ -44,7 +44,7 @@ sub anyevent_read_type {
 }
 
 #Pre-defined default callback
-sub _warn_on_bad {
+sub warn_on_bad {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
@@ -65,7 +65,7 @@ sub _warn_on_bad {
 }
 
 #Pre-defined default callback
-sub _die_on_bad {
+sub die_on_bad {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
@@ -149,17 +149,6 @@ sub _configure {
 
                         #If they are ref types then fail
                         if ($config_options{$opt} eq 'CODE') {
-                                #Default_CB special options
-                                if ($opt eq 'DEFAULT_CB') {
-                                        if (lc($val) eq 'warnonbad') {
-                                                $self->{CONFIG}->{$opt} = _warn_on_bad();
-                                                next;
-                                        } elsif (lc($val) eq 'dieonbad') {
-                                                $self->{CONFIG}->{$opt} = _die_on_bad();
-                                                next;
-                                        }
-                                }
-
                                 carp "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
                                 return;
                         } elsif ($config_options{$opt} eq 'HASH') {
@@ -1124,53 +1113,48 @@ If the version of Net:SSLeay included in CentOS/Redhat does not work try install
 
 Creates a new AMI object which takes the arguments as key-value pairs.
 
-        Key-Value Pairs accepted:
-        PeerAddr                Remote host address        <hostname>
-        PeerPort                Remote host port        <service>
-        Events                  Enable/Disable Events 'on'|'off'
+        Basic Options:
+        PeerAddr                Remote host address (default 127.0.0.1)        <hostname>
+        PeerPort                Remote host port (default 5038, or 5039 with ssl)        <service>
+        Events                  Enable/Disable Events (default 'off')   'off'|'on'|'system,call,log,verbose,command,agent,user,reporting'
         Username                Username to access the AMI
         Secret                  Secret used to connect to AMI
-        AuthType                Authentication type to use for login        'plaintext'|'MD5'
-        UseSSL                  Enables/Disables SSL for the connection 0|1
-        BufferSize              Maximum size of buffer, in number of actions
-        Timeout                 Default timeout of all actions in seconds
-        Handlers                Hash reference of Handlers for events        { 'EVENT' => \&somesub };
-        Keepalive               Interval (in seconds) to periodically send 'Ping' actions to asterisk
-        TCP_Keepalive           Enables/Disables SO_KEEPALIVE option on the socket        0|1
-        Blocking                Enable/Disable blocking connects        0|1
+        AuthType                Authentication type to use for login (default 'MD5')   'MD5'|'plaintext'
+        UseSSL                  Enables/Disables SSL for the connection (default 0, requires Net::SSLeay)  0|1
+        Timeout                 Default timeout for all actions in seconds (default 0, no timeout)
+
+        Advance Options:
         ID                      Allows associating an identifier with this AMI object
-        on_connect              A subroutine to run after we connect
-        on_connect_err          A subroutine to call if we have an error while connecting
+        BufferSize              Maximum size of buffer, in number of actions (default 30000)
+        TCP_Keepalive           Enables/Disables SO_KEEPALIVE option on the socket (default 0)      0|1
+        OriginateHack           Changes settings to allow Async Originates to work (default 1)      0|1
+
+        Event-loop integration options :
+        Blocking                Enable/Disable blocking connects (default 1)        0|1
+        Handlers                Hash reference of Handlers for events        { 'Dial' => \&somesub };
+        Keepalive               Interval (in seconds) to periodically send 'Ping' actions to asterisk
+        
+        Advance Event-loop integration options :
+        AutoDiscard             Discard responses for actions sent without a callback (default 0)       0|1
+        Default_CB              A subroutine to set as the default callback to use for actions.
+        on_connect              A subroutine to run after we succesfully connect and login
+        on_connect_err          A subroutine to call if we have an error while connecting or during login
         on_error                A subroutine to call when an error occurs on the socket
         on_disconnect           A subroutine to call when the remote end disconnects
         on_timeout              A subroutine to call if our Keepalive times out
-        OriginateHack           Changes settings to allow Async Originates to work 0|1
+        
 
-        'PeerAddr' defaults to 127.0.0.1.
-        'PeerPort' defaults to 5038.
-        'Events' default is 'off'. May be anything that the AMI will accept as a part of the 'Events' parameter for the
-        login action.
-        'Username' has no default and must be supplied.
-        'Secret' has no default and must be supplied.
-        'AuthType' sets the authentication type to use for login. Default is 'MD5'.  Use 'MD5' for MD5 challenge
-        authentication or 'plaintext' for a plaintext login.
-        'UseSSL' defaults to 0 (no ssl). When SSL is enabled the default PeerPort changes to 5039.
-        'BufferSize' has a default of 30000. It also acts as our max actionid before we reset the counter.
-        'Timeout' has a default of 0, which means no timeout on blocking.
-        'Handlers' accepts a hash reference setting a callback handler for the specified event. EVENT should match
-        the contents of the {'Event'} key of the event object will be. The handler should be a subroutine reference that
-        will be passed the a copy of the AMI object and the event object. The 'default' keyword can be used to set
+        Additional Notes:
+
+        'BufferSize' also acts as our max actionid before we reset the counter.
+
+        'Handlers' accepts a hash reference setting a callback handler for the specified events. They hash keys should match
+        the contents of the {'Event'} key of the event object. The handler should be a subroutine reference that
+        will be passed a copy of the AMI object and the event object. The 'default' keyword can be used to set
         a default event handler. If handlers are installed we do not buffer events and instead immediately dispatch them.
         If no handler is specified for an event type and a 'default' was not set the event is discarded.
-        'Keepalive' only works when running with an event loop. Used with on_timeout, this can be used to detect if
-        asterisk has become un-responsive.
-        'TCP_Keepalive' default is disabled. Activates the tcp keep-alive at the socket layer. This does not require
-        an event-loop and is lightweight. Useful for applications that use long-lived connections to Asterisk but
-        do not run an event loop.
-        'Blocking' has a default of 1 (block on connecting). A value of 0 will cause us to queue our connection
-        and login for when an event loop is started. If set to non blocking we will always return a valid object.
-        'ID' is undef by default, and can accept any string value. This is used to associate an identifier with this
-        object. Useful for applications that may maintain multiple manager connections at once.        
+
+        'Default_CB' can be used with the built in warn_on_bad, and die_on_bad. Example usage { Default_CB => Asterisk::AMI::warn_on_bad }.
 
         'on_connect' is a subroutine to call when we have successfully connected and logged into the asterisk manager.
         it will be passed our AMI object.
@@ -1632,7 +1616,16 @@ amiver ()
 
         Returns the version of the Asterisk Manager Interface we are connected to. Undef until the connection is made
         (important if you have Blocking => 0).
-        
+
+warn_on_bad ()
+
+        Returns a subroutine reference suitable to use with the Default_CB constructor option. The returned subroutine
+        generate a warning when an action has failed.
+
+die_on_bad ()
+
+        Returns a subroutine reference suitable to use with the Default_CB constructor option. The returned subroutine
+        will cause the program to die if an action has failed..
 
 connected ( [ TIMEOUT ] )
 
