@@ -8,7 +8,6 @@ use warnings;
 
 use AnyEvent;
 use AnyEvent::Handle;
-#use AnyEvent::Socket;
 use Digest::MD5;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
@@ -43,7 +42,7 @@ sub anyevent_read_type {
         }
 }
 
-#Pre-defined default callback
+#Pre-defined callback
 sub warn_on_bad {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
@@ -64,7 +63,7 @@ sub warn_on_bad {
         }
 }
 
-#Pre-defined default callback
+#Pre-defined callback
 sub die_on_bad {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
@@ -351,7 +350,7 @@ sub _connect {
         weaken($self);
 
         #Build a hash of our anyevent::handle options
-        my %hdl = (     connect => [$self->{CONFIG}->{PEERADDR} => $self->{CONFIG}->{PEERPORT}],
+        my %hdl = (     connect => [$self->{CONFIG}->{PEERADDR}, $self->{CONFIG}->{PEERPORT}],
                         on_connect_err => sub { $self->_on_connect_err($_[1]); },
                         on_error => sub { $self->_on_error($_[2]) },
                         on_eof => sub { $self->_on_disconnect; },
@@ -1129,15 +1128,15 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         TCP_Keepalive           Enables/Disables SO_KEEPALIVE option on the socket (default 0)      0|1
         OriginateHack           Changes settings to allow Async Originates to work (default 1)      0|1
 
-        Event-loop integration options :
+        Event-loop integration options:
         Blocking                Enable/Disable blocking connects (default 1)        0|1
         Handlers                Hash reference of Handlers for events        { 'Dial' => \&somesub };
         Keepalive               Interval (in seconds) to periodically send 'Ping' actions to asterisk
         
-        Advance Event-loop integration options :
+        Advance Event-loop integration options:
         AutoDiscard             Discard responses for actions sent without a callback (default 0)       0|1
         Default_CB              A subroutine to set as the default callback to use for actions.
-        on_connect              A subroutine to run after we succesfully connect and login
+        on_connect              A subroutine to call after we succesfully connect and login
         on_connect_err          A subroutine to call if we have an error while connecting or during login
         on_error                A subroutine to call when an error occurs on the socket
         on_disconnect           A subroutine to call when the remote end disconnects
@@ -1619,13 +1618,13 @@ amiver ()
 
 warn_on_bad ()
 
-        Returns a subroutine reference suitable to use with the Default_CB constructor option. The returned subroutine
-        generate a warning when an action has failed.
+        Returns a subroutine reference suitable to use with the Default_CB constructor option or as a callback for an
+        action. The returned subroutine generate a warning when an action has failed.
 
 die_on_bad ()
 
-        Returns a subroutine reference suitable to use with the Default_CB constructor option. The returned subroutine
-        will cause the program to die if an action has failed..
+        Returns a subroutine reference suitable to use with the Default_CB constructor option or as a callback for an
+        action. The returned subroutine will cause the program to die if an action has failed.
 
 connected ( [ TIMEOUT ] )
 
