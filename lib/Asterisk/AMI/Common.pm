@@ -42,7 +42,6 @@ sub commands {
         return unless ($action->{'GOOD'});
 
         return Asterisk::AMI::Shared::format_commands($action);
-
 }
 
 sub db_get {
@@ -663,6 +662,8 @@ Asterisk::AMI::Common - Extends Asterisk::AMI to provide simple access to common
         my $db = $astman->db_get();
 
 =head1 DESCRIPTION
+
+WARNING: This module is not safe for use in an event-loop or event-based application.
 
 This module extends the AMI module to provide easier access to common actions and commands available
 through the AMI.
