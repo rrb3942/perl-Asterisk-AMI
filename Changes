@@ -1,3 +1,4 @@
+
 Revision history for Perl extension Asterisk::AMI.
 =======
 0.3
@@ -42,6 +43,12 @@ Revision history for Perl extension Asterisk::AMI.
         - Better handling when Blocking => 1 or 0 for various things, disconnects,
 
         - Huge Doc changes, breakout config options into groups. Make less 'Scary'
+
+        - Async - Autodiscard default, Default_cb = warn_on_bad, fast_ variants for some 
+
+        - more Async - dbget, get_var, should return varname,val and chan, exten_state should return exten + val, sip_peer should have peername + val,
+
+        - more Async - mailbox status, mailbox + val, queue_status queuenum + val, meetme_members
 0.2.5
         - Fix RT#65782 Consume all memory on dropped connection.
 0.2.4

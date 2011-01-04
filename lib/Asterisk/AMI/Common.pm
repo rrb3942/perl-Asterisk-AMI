@@ -1363,7 +1363,7 @@ originate_async ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
 
 =head1 See Also
 
-Asterisk::AMI
+Asterisk::AMI, Asterisk::AMI::Async
 
 =head1 AUTHOR
 
