@@ -703,11 +703,11 @@ Asterisk requires specific write privilege levels to run certain commands. Some 
 support for new manager commands on older versions of Asterisk and thus have different privilege requirements.
 
 Examples - 
-        Requries 'call' permissions (write=call in manager.conf) on all versions:
+        Requires 'call' permissions (write=call in manager.conf) on all versions:
 
                 Privilege: (call)
 
-        Requries 'call' or 'reporting' permissions (write=call in manager.conf) on all versions:
+        Requires 'call' or 'reporting' permissions (write=call in manager.conf) on all versions:
 
                 Privilege: (call, reporting)
 

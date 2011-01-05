@@ -10,22 +10,32 @@ use version; our $VERSION = qv(0.2.4_01);
 sub new {
         my ($class, %options) = @_;
 
-        #Set Blocking = 0, We are Async arent we?
-        #Is it already set? Always honor user settings above others
-        my $userset = grep { lc($_) eq 'blocking' } keys %options;
+        #Copy with all UC options so we can check for what is set
+        my %upper;
 
-        #Not set
-        $options{'Blocking'} = 0 unless ($userset);
+        while (my ($key, $val) = each %options) {
+                $upper{uc($key)} = $val;
+        }
 
-        return $class->SUPER::new(%options);
+        #Set some new defaults
+        $upper{'BLOCKING'} = 0 unless (exists $upper{'BLOCKING'});
+        $upper{'AUTODISCARD'} = 1 unless (exists $upper{'AUTODISCARD'});
+        $upper{'DEFAULT_CB'} = $class->warn_on_bad() unless (exists $upper{'DEFAULT_CB'});
+
+        return $class->SUPER::new(%upper);
 }
 
-#Allow for slimmed syntax
+#Allow for slimmed syntax and utilizing defaults
 # $astman->fast_action({Action => Ping}, $userdata);
 sub fast_action {
-        my ($ami, $action, $userdata) = @_;
+        my ($ami, $action, $arg1, $arg2) = @_;
 
-        return $ami->send_action($action, undef, undef, $userdata);
+        #Will the user ever want to just pass a coderef (and no callback) as userdata?
+        if (ref($arg1) eq 'CODE') {
+                return $ami->send_action($action, $arg1, undef, $arg2);
+        }
+
+        return $ami->send_action($action, undef, undef, $arg1);
 }
 
 #Walks a response and returns the requested nested element
@@ -94,7 +104,6 @@ sub bridge {
                                         Tone    => 'Yes' }, $callback, $timeout, $userdata);
 }
 
-#Returns a hash
 sub commands {
         my ($self, $callback, $timeout, $userdata) = @_;
 
@@ -433,7 +442,8 @@ sub meetme_list {
                         };
 
                 #Get our list of meetmes
-                return $self->send_action({ Action => 'Command', Command => 'meetme' }, _shared_cb($cb, \&Asterisk::AMI::Shared::parse_meetme_list_1_4), $timeout, $userdata);
+                return $self->send_action({ Action => 'Command', Command => 'meetme' },
+                                _shared_cb($cb, \&Asterisk::AMI::Shared::parse_meetme_list_1_4), $timeout, $userdata);
 
         }
 }
@@ -446,11 +456,15 @@ sub meetme_members {
         #1.8+
         if (defined($amiver) && $amiver >= 1.1) {
                 return $self->send_action({     Action => 'MeetmeList',
-                                                Conference => $conf }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members), $timeout, $userdata);
+                                                Conference => $conf },
+                                                _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members),
+                                                $timeout, $userdata);
         #1.4 Compat
         } else {
                 return $self->send_action({     Action => 'Command',
-                                                Command => 'meetme list ' . $conf . ' concise' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members_1_4), $timeout, $userdata);
+                                                Command => 'meetme list ' . $conf . ' concise' },
+                                                _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members_1_4),
+                                                $timeout, $userdata);
         }
         
         return;
@@ -566,7 +580,9 @@ sub text {
 sub voicemail_list {
         my ($self, $callback, $timeout, $userdata) = @_;
 
-        return $self->send_action({ Action => 'VoicemailUsersList' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_voicemail_list), $timeout, $userdata);
+        return $self->send_action({ Action => 'VoicemailUsersList' },
+                                    _shared_cb($callback, \&Asterisk::AMI::Shared::format_voicemail_list),
+                                    $timeout, $userdata);
 }
 
 sub module_check {
@@ -579,7 +595,9 @@ sub module_check {
                                                 Module => $module }, $callback, $timeout, $userdata);
         } else {
                 return $self->send_action({     Action => 'Command',
-                                                Command => 'module show like ' . $module }, _shared_cb($callback, \&Asterisk::AMI::Shared::check_module_check_1_4), $timeout, $userdata);
+                                                Command => 'module show like ' . $module },
+                                                _shared_cb($callback, \&Asterisk::AMI::Shared::check_module_check_1_4),
+                                                $timeout, $userdata);
         }
 
         return;
@@ -674,6 +692,12 @@ Creates new a Asterisk::AMI::Async object which takes the arguments as key-value
 
 This module inherits all options from the AMI module.
 
+The following default settings different from the base Asterisk::AMI settings:
+
+        Blocking - Default is changed to 0 (non-blocking)
+        AutoDiscard - Default is changed to 1 (enabled)
+        Default_CB - Default is to use the callback provided by the Asterisk::AMI::warn_on_bad method
+
 =head2 Manager Version and Privilege Requirements
 
 Every method below indicates the minimum Manager version and Write (write= in manager.conf) privilige/permission
@@ -701,11 +725,11 @@ Asterisk requires specific write privilege levels to run certain commands. Some 
 support for new manager commands on older versions of Asterisk and thus have different privilege requirements.
 
 Examples - 
-        Requries 'call' permissions (write=call in manager.conf) on all versions:
+        Requires 'call' permissions (write=call in manager.conf) on all versions:
 
                 Privilege: (call)
 
-        Requries 'call' or 'reporting' permissions (write=call in manager.conf) on all versions:
+        Requires 'call' or 'reporting' permissions (write=call in manager.conf) on all versions:
 
                 Privilege: (call, reporting)
 
@@ -719,7 +743,22 @@ Examples -
 
 =head2 Methods
 
-attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
+fast_action ( ACTION [ [ CALLBACK ], USERDATA ] )
+
+        Sends the action to asterisk, taking advantage of preset default callbacks and timeouts.
+
+        This method is equivalent to calling send_action with undef as the callback and timeout.
+
+        fast_action($someaction) is equivalent to send_action($someaction)
+        fast_action($someaction, $mystuff) is equivalent to send_action($someaction, undef, undef, $mystuff)
+        fast_action($someaction, $callback, $mystuff) is equivalent to send_action($someaction, $callback, undef, $mystuff)
+
+        Note: If the USERDATA you wish to supply is a code reference you will need to pass undef as the argument for
+        the callback.
+
+        ex. fast_action($someaction, undef, $mystuff)
+
+attended_transfer ( CHANNEL, EXTEN, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (call)
@@ -727,7 +766,7 @@ attended_transfer ( CHANNEL, EXTEN, CONTEXT [, TIMEOUT ] )
         Performs an attended transfer on CHANNEL to EXTEN@CONTEXT. Returns 1 on success, 0 on failure, or undef on
         error or timeout. TIMEOUT is optional
 
-bridge ( CHANNEL1, CHANNEL2 [, TIMEOUT ] )
+bridge ( CHANNEL1, CHANNEL2 [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (call)
@@ -876,7 +915,7 @@ sip_peers ( [ TIMEOUT ] )
                               {'Status'}
                               {'RealtimeDevice'}
 
-sip_peer ( PEERNAME [, TIMEOUT ] )
+sip_peer ( PEERNAME [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (system, reporting)
@@ -930,7 +969,7 @@ sip_notify ( PEER, EVENT [, TIMEOUT ])
 
         $astman->sip_notify('Polycom1', 'check-sync');
 
-mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
+mailboxcount ( EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call, reporting)
@@ -944,14 +983,14 @@ mailboxcount ( EXTENSION, CONTEXT [, TIMEOUT ] )
                   {'NewMessages'}
                   {'OldMessages'}
 
-mailboxstatus ( EXTENSION, CONTEXT [, TIMEOUT ] )
+mailboxstatus ( EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
         
         Manager Version: 1.0+
         Privilege Level: (call, reporting)
 
         Returns the status of the mailbox or undef on error or timeout. TIMEOUT is optional
 
-chan_timeout ( CHANNEL, CHANNELTIMEOUT [, TIMEOUT ] )
+chan_timeout ( CHANNEL, CHANNELTIMEOUT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call, system)
@@ -989,7 +1028,7 @@ queues ( [ TIMEOUT ] )
                                                     {'CallerIDName'}
                                                     {'Wait'}
 
-queue_status ( QUEUE [, TIMEOUT ] )
+queue_status ( QUEUE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (none)
@@ -1019,7 +1058,7 @@ queue_status ( QUEUE [, TIMEOUT ] )
                                            {'CallerIDName'}
                                            {'Wait'}
 
-queue_member_pause ( QUEUE, MEMBER [, TIMEOUT ] )
+queue_member_pause ( QUEUE, MEMBER [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (agent)
@@ -1027,7 +1066,7 @@ queue_member_pause ( QUEUE, MEMBER [, TIMEOUT ] )
         Pauses MEMBER in QUEUE.
         Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
-queue_member_unpause ( QUEUE, MEMBER [, TIMEOUT ] )
+queue_member_unpause ( QUEUE, MEMBER [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (agent)
@@ -1035,7 +1074,7 @@ queue_member_unpause ( QUEUE, MEMBER [, TIMEOUT ] )
         Unpauses MEMBER in QUEUE.
         Returns 1 if the PAUSEVALUE was set, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
-queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
+queue_add ( QUEUE, MEMEBER [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (agent)
@@ -1043,7 +1082,7 @@ queue_add ( QUEUE, MEMEBER [, TIMEOUT ] )
         Adds MEMBER to QUEUE. Returns 1 if the MEMBER was added, or 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
-queue_remove ( QUEUE, MEMEBER [, TIMEOUT ] )
+queue_remove ( QUEUE, MEMEBER [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (agent)
@@ -1051,7 +1090,7 @@ queue_remove ( QUEUE, MEMEBER [, TIMEOUT ] )
         Removes MEMBER from QUEUE. Returns 1 if the MEMBER was removed, 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
-play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
+play_dtmf ( CHANNEL, DIGIT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1060,7 +1099,7 @@ play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
         undef on error or timeout.
         TIMEOUT is optional.
 
-play_digits ( CHANNEL, DIGITS [, TIMEOUT ] )
+play_digits ( CHANNEL, DIGITS [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1091,7 +1130,7 @@ channels ( [ TIMEOUT ] )
                              {'Link'}
                              {'Uniqueid'}
 
-chan_status ( CHANNEL [, TIMEOUT ] )
+chan_status ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
         
         Manager Version: 1.0+
         Privilege Level: (system, call, reporting)
@@ -1114,7 +1153,7 @@ chan_status ( CHANNEL [, TIMEOUT ] )
                   {'Link'}
                   {'Uniqueid'}
 
-transfer ( CHANNEL, EXTENSION, CONTEXT [, TIMEOUT ] )
+transfer ( CHANNEL, EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1143,7 +1182,7 @@ meetme_list ( [ TIMEOUT ] )
                                                {'CallerIDNum'}
                                                {'Admin'}
 
-meetme_members ( ROOMNUM [, TIMEOUT ] )
+meetme_members ( ROOMNUM [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: 1.0 (command), 1.1+ (reporting)
@@ -1164,7 +1203,7 @@ meetme_members ( ROOMNUM [, TIMEOUT ] )
                                     {'CallerIDNum'}
                                     {'Admin'}
 
-meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
+meetme_mute ( CONFERENCE, USERNUM [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1172,7 +1211,7 @@ meetme_mute ( CONFERENCE, USERNUM [, TIMEOUT ] )
         Mutes USERNUM in CONFERENCE. Returns 1 if the user was muted, 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
-meetme_unmute ( CONFERENCE, USERNUM [, TIMEOUT ] )
+meetme_unmute ( CONFERENCE, USERNUM [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1198,7 +1237,7 @@ unmute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
         only or 'all' to for both directions. If not supplied it defaults to 'all'. Returns 1 on success, 0 if it failed,
         or undef on error or timeout. TIMEOUT is optional.
 
-monitor ( CHANNEL, FILE [, TIMEOUT ] )
+monitor ( CHANNEL, FILE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1233,7 +1272,7 @@ monitor_unpause ( CHANNEL [, TIMEOUT ])
         or timeout.
         TIMEOUT is optional.
 
-monitor_change ( CHANNEL, FILE [, TIMEOUT ] )
+monitor_change ( CHANNEL, FILE [, CALLBACK, TIMEOUT, USERDATA ] )
         
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1260,7 +1299,7 @@ mixmonitor_unmute ( CHANNEL [, DIRECTION, TIMEOUT] )
         only or 'both' to for both directions. If not supplied it defaults to 'both'. Returns 1 on success, 0 if it failed,
         or undef on error or timeout. TIMEOUT is optional.
 
-text ( CHANNEL, MESSAGE [, TIMEOUT ] )
+text ( CHANNEL, MESSAGE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (call)
@@ -1301,7 +1340,7 @@ voicemail_list ( [ TIMEOUT ] )
                                         {'VolumeGain'}
                                         {'Dialout'}
 
-module_check ( MODULE [, TIMEOUT ] )
+module_check ( MODULE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: 1.0 (command), 1.1+ (system)
@@ -1312,7 +1351,7 @@ module_check ( MODULE [, TIMEOUT ] )
         MODULE is the name of the module minus its extension. To check for 'app_meetme.so' you would only use 'app_meetme'.
         TIMEOUT is optional.
 
-module_load, module_reload, module_unload ( MODULE [, TIMEOUT ] )
+module_load, module_reload, module_unload ( MODULE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (system)
