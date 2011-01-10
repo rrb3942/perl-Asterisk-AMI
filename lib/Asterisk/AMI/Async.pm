@@ -110,12 +110,28 @@ sub commands {
         return $self->send_action({ Action => 'ListCommands' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_commands), $timeout, $userdata);
 }
 
+sub _db_get_cb {
+        my ($callback, $family, $key) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my %dbgot = (   Family => $family,
+                                Key => $key,
+                                GOOD => $resp->{'GOOD'},
+                                Value => $resp->{'EVENTS'}->[0]->{'Val'}
+                        );
+
+                $callback->($ami, \%dbgot, $userdata);
+        };
+}
+
 sub db_get {
         my ($self, $family, $key, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'DBGet',
                                         Family => $family,
-                                        Key => $key }, _walk_cb($callback, 'EVENTS', 0, 'Val'), $timeout, $userdata);
+                                        Key => $key }, _db_get_cb($callback, $family, $key), $timeout, $userdata);
 }
 
 sub db_put {
@@ -179,12 +195,28 @@ sub db_deltree {
         return;
 }
 
+sub _get_var_cb {
+        my ($callback, $channel, $variable) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my %vargot = (  Channel => $channel,
+                                Variable => $variable,
+                                GOOD => $resp->{'GOOD'},
+                                Value => $resp->{'Value'}
+                        );
+
+                $callback->($ami, \%vargot, $userdata);
+        };
+}
+
 sub get_var {
         my ($self, $channel, $variable, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'GetVar',
                                         Channel => $channel,
-                                        Variable => $variable }, _parse_key_cb($callback, 'Value'), $timeout, $userdata);
+                                        Variable => $variable }, _get_var_cb($callback, $channel, $variable), $timeout, $userdata);
 }
 
 sub set_var {
@@ -203,12 +235,28 @@ sub hangup {
                                         Channel => $channel }, $callback, $timeout, $userdata);
 }
 
+sub _exten_state_cb {
+        my ($callback, $exten, $context) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my %extstate = ( Exten => $exten,
+                                 Context => $context,
+                                 GOOD => $resp->{'GOOD'},
+                                 Status => $resp->{'BODY'}->{'Status'}
+                );
+
+                $callback->($ami, \%extstate, $userdata);
+        };
+}
+
 sub exten_state {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action  => 'ExtensionState',
                                         Exten   => $exten,
-                                        Context => $context }, _walk_cb($callback, 'BODY', 'Status'), $timeout, $userdata);
+                                        Context => $context }, _exten_stat_cb($callback, $exten, $context), $timeout, $userdata);
 }
 
 sub park {
