@@ -283,11 +283,26 @@ sub sip_peers {
         return $self->send_action({ Action => 'Sippeers' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_sip_peers), $timeout, $userdata);
 }
 
+sub _sip_peer_cb {
+        my ($callback, $peername) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $peer = $resp->{'BODY'};
+
+                $peer->{'GOOD'} = $resp->{'GOOD'};
+                $peer->{'PeerName'} = $peername;
+
+                $callback->($ami, $peer, $userdata);
+        };
+}
+
 sub sip_peer {
         my ($self, $peername, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'SIPshowpeer',
-                                        Peer => $peername }, _walk_cb($callback, 'BODY'), $timeout, $userdata);
+                                        Peer => $peername }, _sip_peer_cb($callback, $peername), $timeout, $userdata);
 }
 
 sub sip_notify {
@@ -298,18 +313,48 @@ sub sip_notify {
                                         Variable => 'Event=' . $event }, $callback, $timeout, $userdata);
 }
 
+sub _mailboxcount_cb {
+        my ($callback, $exten, $context) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $mailbox = $resp->{'BODY'};
+                $mailbox->{'GOOD'} = $resp->{'GOOD'};
+                $mailbox->{'Exten'} = $exten;
+                $mailbox->{'Context'} = $context;
+
+                $callback->($ami, $mailbox, $userdata);
+        }
+}
+
 sub mailboxcount {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'MailboxCount',
-                                        Mailbox => $exten . '@' . $context }, _walk_cb($callback, 'BODY'), $timeout, $userdata);
+                                        Mailbox => $exten . '@' . $context }, _mailboxcount_cb($callback, $exten, $context), $timeout, $userdata);
+}
+
+sub _mailboxstatus_cb {
+        my ($callback, $exten, $context) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $mailbox = $resp->{'BODY'};
+                $mailbox->{'GOOD'} = $resp->{'GOOD'};
+                $mailbox->{'Exten'} = $exten;
+                $mailbox->{'Context'} = $context;
+
+                $callback->($ami, $mailbox, $userdata);
+        }
 }
 
 sub mailboxstatus {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'MailboxStatus',
-                                        Mailbox => $exten . '@' . $context }, _walk_cb($callback, 'BODY', 'Waiting'), $timeout, $userdata);
+                                        Mailbox => $exten . '@' . $context }, _mailboxstatus_cb($callback, $exten, $context), $timeout, $userdata);
 }
 
 sub chan_timeout {
@@ -675,7 +720,23 @@ sub module_unload {
                                         Module => $module }, $callback, $timeout, $userdata);
 }
 
-sub originate_async {
+sub _originate_cb {
+        my ($callback, $chan, $context, $exten) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $orig = $resp->{'EVENTS'}->[0];
+                $orig->{'GOOD'} = $resp->{'GOOD'};
+
+                $orig->{'Channel'} = $chan unless (defined $orig->{'Channel'});
+                $orig->{'Context'} = $context unless (defined $orig->{'Context'});
+                $orig->{'Exten'} = $exten unless (defined $orig->{'Exten'});
+
+        };
+}
+
+sub originate {
         my ($self, $chan, $context, $exten, $callerid, $ctime, $callback, $timeout, $userdata) = @_;
 
         my %action = (  Action => 'Originate',
@@ -696,7 +757,7 @@ sub originate_async {
                 }
         }
 
-        return $self->send_action(\%action, _walk_cb($callback, 'EVENTS', 0), $timeout, $userdata);
+        return $self->send_action(\%action, _originate_cb($callback, $chan, $context, $exten), $timeout, $userdata);
 }
 
 1;
