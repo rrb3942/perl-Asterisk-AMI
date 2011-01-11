@@ -39,42 +39,6 @@ sub fast_action {
         return $ami->send_action($action, undef, undef, $arg1);
 }
 
-#Walks a response and returns the requested nested element
-sub _walk_resp {
-        my ($resp, @steps) = @_;
-
-        #early bailout on a bad response
-        return unless $resp->{'GOOD'};
-
-        my $walk = $resp;
-
-        foreach my $step (@steps) {
-                my $ref = ref($walk);
-
-                if ($ref eq 'ARRAY') {
-                        $walk = $walk->[$step];
-                } elsif ($ref eq 'HASH') {
-                        $walk = $walk->{$step};
-                #unexepected, bailout and fail to make it obvious
-                } else {
-                        return;
-                }
-        }
-
-        return $walk;
-}
-
-sub _walk_cb {
-        my ($callback, @steps) = @_;
-
-        return sub {
-                        my ($ami, $response, $userdata) = @_;
-
-                        $callback->($ami, _walk_resp($response, @steps), $userdata);
-                        
-                }
-}
-
 sub _shared_cb {
         my ($callback, $shared) = @_;
 
@@ -890,7 +854,7 @@ db_show ( [ TIMEOUT ] )
         Values in the hash reference are stored as below:
         $hashref->{FAMILY}->{KEY}
 
-db_get ( FAMILY, KEY [, TIMEOUT ])
+db_get ( FAMILY, KEY [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (system, reporting)
@@ -898,7 +862,7 @@ db_get ( FAMILY, KEY [, TIMEOUT ])
         Returns the value of the Asterisk database entry specified by the FAMILY and KEY pair, or undef if
         does not exist or an error occurred. TIMEOUT is optional.
 
-db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
+db_put ( FAMILY, KEY, VALUE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (system)
@@ -906,7 +870,7 @@ db_put ( FAMILY, KEY, VALUE [, TIMEOUT ])
         Inserts VALUE for the Asterisk database entry specified by the FAMILY and KEY pair. Returns 1 on success, 0 if it
         failed or undef on error or timeout. TIMEOUT is optional.
 
-db_del ( FAMILY, KEY [, TIMEOUT ])
+db_del ( FAMILY, KEY [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (system)
@@ -916,7 +880,7 @@ db_del ( FAMILY, KEY [, TIMEOUT ])
         Deletes the Asterisk database for FAMILY/KEY. Returns 1 on success, 0 if it failed
         or undef on error or timeout. TIMEOUT is optional.
 
-db_deltree ( FAMILY [, KEY, TIMEOUT ])
+db_deltree ( FAMILY [, KEY, TIMEOUT ] )
 
         Manager Version: 1.1+
         Privilege Level: (system)
@@ -926,14 +890,14 @@ db_deltree ( FAMILY [, KEY, TIMEOUT ])
         Deletes the entire Asterisk database tree found under FAMILY/KEY. KEY is optional. Returns 1 on success, 0 if it failed
         or undef on error or timeout. TIMEOUT is optional.
 
-get_var ( CHANNEL, VARIABLE [, TIMEOUT ])
+get_var ( CHANNEL, VARIABLE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call, reporting)
 
         Returns the value of VARIABLE for CHANNEL, or undef on error or timeout. TIMEOUT is optional.
 
-set_var ( CHANNEL, VARIABLE, VALUE [, TIMEOUT ])
+set_var ( CHANNEL, VARIABLE, VALUE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -941,14 +905,14 @@ set_var ( CHANNEL, VARIABLE, VALUE [, TIMEOUT ])
         Sets VARIABLE to VALUE for CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
-hangup ( CHANNEL [, TIMEOUT ])
+hangup ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (system, call)
 
         Hangs up CHANNEL. Returns 1 on success, 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
-exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
+exten_state ( EXTEN, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call, reporting)
@@ -964,7 +928,7 @@ exten_state ( EXTEN, CONTEXT [, TIMEOUT ])
         8 = Ringing
         16 = On Hold
 
-park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
+park ( CHANNEL, CHANNEL2 [, PARKTIME, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -975,7 +939,7 @@ park ( CHANNEL, CHANNEL2 [, PARKTIME, TIMEOUT ] )
 
         Returns 1 if the call was parked, or 0 if it failed, or undef on error and timeout.
 
-parked_calls ( [ TIMEOUT ] )
+parked_calls ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (none)
@@ -990,7 +954,7 @@ parked_calls ( [ TIMEOUT ] )
                                {'CallerID'}
                                {'CallerIDName'}
 
-sip_peers ( [ TIMEOUT ] )
+sip_peers ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (system, reporting)
@@ -1053,7 +1017,7 @@ sip_peer ( PEERNAME [, CALLBACK, TIMEOUT, USERDATA ] )
                   {'CodecOrder'}
                   {'SecretExist'}
 
-sip_notify ( PEER, EVENT [, TIMEOUT ])
+sip_notify ( PEER, EVENT [, CALLBACK, TIMEOUT, USERDATA ])
 
         Manager Version: 1.1+
         Privilege Level: (system)
@@ -1093,7 +1057,7 @@ chan_timeout ( CHANNEL, CHANNELTIMEOUT [, CALLBACK, TIMEOUT, USERDATA ] )
         Sets CHANNEL to timeout in CHANNELTIMEOUT seconds. Returns 1 on success, 0 on failure, or undef on error or timeout.
         TIMEOUT is optional.
 
-queues ( [ TIMEOUT ] )
+queues ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (none)
@@ -1194,7 +1158,7 @@ play_dtmf ( CHANNEL, DIGIT [, CALLBACK, TIMEOUT, USERDATA ] )
         undef on error or timeout.
         TIMEOUT is optional.
 
-channels ( [ TIMEOUT ] )
+channels ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (system, call, reporting)
@@ -1248,7 +1212,7 @@ transfer ( CHANNEL, EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
         Transfers CHANNEL to EXTENSION at CONTEXT. Returns 1 if the channel was transferred, 0 if it failed, 
         or undef on error or timeout. TIMEOUT is optional.
 
-meetme_list ( [ TIMEOUT ] )
+meetme_list ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: 1.0 (command), 1.1+ (reporting)
@@ -1306,7 +1270,7 @@ meetme_unmute ( CONFERENCE, USERNUM [, CALLBACK, TIMEOUT, USERDATA ] )
         Un-mutes USERNUM in CONFERENCE. Returns 1 if the user was un-muted, or 0 if it failed, or undef on error or timeout.
         TIMEOUT is optional.
 
-mute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
+mute_chan ( CHANNEL [, DIRECTION, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (system)
@@ -1315,7 +1279,7 @@ mute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
         only or 'all' to for both directions. If not supplied it defaults to 'all'. Returns 1 on success, 0 if it failed,
         or undef on error or timeout. TIMEOUT is optional.
 
-unmute_chan ( CHANNEL [, DIRECTION, TIMEOUT ] )
+unmute_chan ( CHANNEL [, DIRECTION, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (system)
@@ -1332,7 +1296,7 @@ monitor ( CHANNEL, FILE [, CALLBACK, TIMEOUT, USERDATA ] )
         Begins recording CHANNEL to FILE. Uses the 'wav' format and also mixes both directions into a single file. 
         Returns 1 if the channel was set to record, or 0 if it failed, or undef on error or timeout. TIMEOUT is optional.
 
-monitor_stop ( CHANNEL [, TIMEOUT ])
+monitor_stop ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1341,7 +1305,7 @@ monitor_stop ( CHANNEL [, TIMEOUT ])
         or timeout.
         TIMEOUT is optional.
 
-monitor_pause ( CHANNEL [, TIMEOUT ])
+monitor_pause ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1350,7 +1314,7 @@ monitor_pause ( CHANNEL [, TIMEOUT ])
         or timeout.
         TIMEOUT is optional.
 
-monitor_unpause ( CHANNEL [, TIMEOUT ])
+monitor_unpause ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: (call)
@@ -1368,7 +1332,7 @@ monitor_change ( CHANNEL, FILE [, CALLBACK, TIMEOUT, USERDATA ] )
         or timeout.
         TIMEOUT is optional.
 
-mixmonitor_mute ( CHANNEL [, DIRECTION, TIMEOUT] )
+mixmonitor_mute ( CHANNEL [, DIRECTION, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (none)
@@ -1377,7 +1341,7 @@ mixmonitor_mute ( CHANNEL [, DIRECTION, TIMEOUT] )
         only or 'both' to for both directions. If not supplied it defaults to 'both'. Returns 1 on success, 0 if it failed,
         or undef on error or timeout. TIMEOUT is optional.
 
-mixmonitor_unmute ( CHANNEL [, DIRECTION, TIMEOUT] )
+mixmonitor_unmute ( CHANNEL [, DIRECTION, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (none)
@@ -1394,7 +1358,7 @@ text ( CHANNEL, MESSAGE [, CALLBACK, TIMEOUT, USERDATA ] )
         Sends MESSAGE as a text on CHANNEL. Returns 1 on success, 0 on failure, or undef on error or timeout.
         TIMEOUT is optional.
 
-voicemail_list ( [ TIMEOUT ] )
+voicemail_list ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.1+
         Privilege Level: (call, reporting)
@@ -1457,7 +1421,7 @@ module_load, module_reload, module_unload ( MODULE [, CALLBACK, TIMEOUT, USERDAT
                 rtp
                 http
 
-originate ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
+originate ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, CALLBACK, TIMEOUT, USERDATA ] )
 
         Manager Version: 1.0+
         Privilege Level: 1.0 (call), 1.1+ (originate)
@@ -1469,21 +1433,6 @@ originate ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
         command will timeout after 35 seconds.
 
         Returns 1 on success 0 on failure, or undef on error or timeout.
-
-        WARNING: This method can block for a very long time (CTIMEOUT + TIMEOUT).
-
-originate_async ( CHANNEL, CONTEXT, EXTEN [, CALLERID, CTIMEOUT, TIMEOUT ] )
-
-        Manager Version: 1.0+
-        Privilege Level: 1.0 (call), 1.1+ (originate)
-
-        Attempts to dial CHANNEL and then drops it into EXTEN@CONTEXT in the dialplan asynchronously. Optionally a CALLERID can be provided.
-        CTIMEOUT is optional and determines how long the call will dial/ring for in seconds. TIMEOUT is optional and only affects how long we will
-        wait for the initial response from Asterisk indicating if the call has been queued.
-
-        Returns 1 if the call was successfully queued, 0 on failure, or undef on error or timeout.
-
-        WARNING: A successfully queued call does not mean the call completed or even originated.
 
 =head1 See Also
 
