@@ -320,19 +320,6 @@ sub play_dtmf {
                                         Digit => $digit }, $timeout);
 }
 
-sub play_digits {
-        my ($self, $channel, $digits, $timeout) = @_;
-
-        my $return = 1;
-        my $err = 0;
-
-        my @actions = map { $self->action({ Action => 'PlayDTMF',
-                                                 Channel => $channel,
-                                                 Digit => $_}, $timeout) } @{$digits};
-
-        return Asterisk::AMI::Shared::check_play_digits(\@actions);
-}
-
 sub channels {
         my ($self, $timeout) = @_;
 
@@ -1061,14 +1048,6 @@ play_dtmf ( CHANNEL, DIGIT [, TIMEOUT ] )
         Plays the dtmf DIGIT on CHANNEL. Returns 1 if the DIGIT was queued on the channel, or 0 if it failed, or
         undef on error or timeout.
         TIMEOUT is optional.
-
-play_digits ( CHANNEL, DIGITS [, TIMEOUT ] )
-
-        Manager Version: 1.0+
-        Privilege Level: (call)
-
-        Plays the dtmf DIGITS on CHANNEL. DIGITS should be passed as an array reference. Returns 1 if all DIGITS
-        were queued on the channel, or 0 if an any queuing failed. TIMEOUT is optional.
 
 channels ( [ TIMEOUT ] )
 

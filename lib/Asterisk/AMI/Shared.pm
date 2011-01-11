@@ -173,17 +173,6 @@ sub format_queue_status {
         return \%queueobj;
 }
 
-sub check_play_digits {
-
-        my ($responses) = @_;
-
-        foreach my $response (@{$responses}) {
-                return unless ($response->{GOOD});
-        }
-
-        return 1;
-}
-
 sub format_channels {
         
         my ($response) = @_;
