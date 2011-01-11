@@ -27,6 +27,7 @@ sub new {
 
 #Allow for slimmed syntax and utilizing defaults
 # $astman->fast_action({Action => Ping}, $userdata);
+#maybe name smart_action?
 sub fast_action {
         my ($ami, $action, $arg1, $arg2) = @_;
 
@@ -412,43 +413,28 @@ sub queue_remove {
                                         Interface => $member }, $callback, $timeout, $userdata);
 }
 
+sub _play_dtmf_cb {
+        my ($callback, $channel, $digit) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my %queued = (  Channel => $channel,
+                                Digit => $digit,
+                                Message => $resp->{'Message'},
+                                GOOD => $resp->{'GOOD'}
+                );
+
+                $callback->($ami, \%queued, $userdata);
+        };
+}
+
 sub play_dtmf {
         my ($self, $channel, $digit, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'PlayDTMF',
                                         Channel => $channel,
-                                        Digit => $digit }, $callback, $timeout, $userdata);
-}
-
-sub play_digits {
-        my ($self, $channel, $digits, $callback, $timeout, $userdata) = @_;
-
-        my $return = 1;
-        my $err = 0;
-
-        my $count = scalar @{$digits};
-        my @resps;
-
-        my $cb = sub {
-                my ($ami, $resp) = @_;
-                return unless ($count);
-
-                push @resps, $resp;
-
-                $count--;
-
-                unless ($count) {
-                        $callback->($ami, Asterisk::AMI::Shared::check_play_digits(\@resps), $userdata);
-                }
-        };
-
-        foreach my $digit (@{$digits}) {
-                return unless $self->send_action({      Action => 'PlayDTMF',
-                                                        Channel => $channel,
-                                                        Digit => $_}, $cb, $timeout);
-        }
-
-        return 1;
+                                        Digit => $digit }, _play_dtmf_cb($callback, $channel, $digit), $timeout, $userdata);
 }
 
 sub channels {
@@ -1207,14 +1193,6 @@ play_dtmf ( CHANNEL, DIGIT [, CALLBACK, TIMEOUT, USERDATA ] )
         Plays the dtmf DIGIT on CHANNEL. Returns 1 if the DIGIT was queued on the channel, or 0 if it failed, or
         undef on error or timeout.
         TIMEOUT is optional.
-
-play_digits ( CHANNEL, DIGITS [, CALLBACK, TIMEOUT, USERDATA ] )
-
-        Manager Version: 1.0+
-        Privilege Level: (call)
-
-        Plays the dtmf DIGITS on CHANNEL. DIGITS should be passed as an array reference. Returns 1 if all DIGITS
-        were queued on the channel, or 0 if an any queuing failed. TIMEOUT is optional.
 
 channels ( [ TIMEOUT ] )
 
