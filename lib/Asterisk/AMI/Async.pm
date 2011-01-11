@@ -628,6 +628,20 @@ sub voicemail_list {
                                     $timeout, $userdata);
 }
 
+sub _module_cb {
+        my ($callback, $module) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my %mod = (     Module => $module,
+                                GOOD => $resp->{'GOOD'}
+                        );
+
+                $callback->($ami, \%mod, $userdata);
+        };
+}
+
 sub module_check {
         my ($self, $module, $callback, $timeout, $userdata) = @_;
 
@@ -639,7 +653,7 @@ sub module_check {
         } else {
                 return $self->send_action({     Action => 'Command',
                                                 Command => 'module show like ' . $module },
-                                                _shared_cb($callback, \&Asterisk::AMI::Shared::check_module_check_1_4),
+                                                _shared_cb(_module_cb($callback, $module), \&Asterisk::AMI::Shared::check_module_check_1_4),
                                                 $timeout, $userdata);
         }
 
@@ -651,7 +665,7 @@ sub module_load {
 
         return $self->send_action({     Action => 'ModuleLoad',
                                         LoadType => 'load',
-                                        Module => $module }, $callback, $timeout, $userdata);
+                                        Module => $module }, _module_cb($callback, $module), $timeout, $userdata);
 }
 
 sub module_reload {
@@ -659,7 +673,7 @@ sub module_reload {
 
         return $self->send_action({     Action => 'ModuleLoad',
                                         LoadType => 'reload',
-                                        Module => $module }, $callback, $timeout, $userdata);
+                                        Module => $module }, _module_cb($callback, $module), $timeout, $userdata);
 }
 
 sub module_unload {
@@ -667,7 +681,7 @@ sub module_unload {
 
         return $self->send_action({     Action => 'ModuleLoad',
                                         LoadType => 'unload',
-                                        Module => $module }, $callback, $timeout, $userdata);
+                                        Module => $module }, _module_cb($callback, $module), $timeout, $userdata);
 }
 
 sub _originate_cb {

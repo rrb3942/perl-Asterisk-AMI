@@ -10,6 +10,8 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Removed method queue_member_toggle
 
+        - Removed method play_digits
+
         - Changed queue_member_pause to no longer accept a pause value and instead just pauses the member.
 
         - Added method queue_member_unpause to unpause a queue member.
