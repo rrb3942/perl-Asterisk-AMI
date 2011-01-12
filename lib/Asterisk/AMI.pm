@@ -632,6 +632,9 @@ sub send_action {
         $self->{RESPONSEBUFFER}->{$id}->{'GOOD'} = 0;
         $self->{EXPECTED}->{$id} = undef;
 
+        #Store a copy of initial request
+        $self->{RESPONSEBUFFER}->{$id}->{'ACTION'} = $actionhash;
+
         #Weaken ref of use in anonsub
         weaken($self);
 

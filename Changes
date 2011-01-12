@@ -1,3 +1,4 @@
+TODO (0.4?): AJAM Support (Utilizing AnyEvent::HTTP) (Abstract transport layer for this?)
 
 Revision history for Perl extension Asterisk::AMI.
 =======
@@ -31,6 +32,9 @@ Revision history for Perl extension Asterisk::AMI.
         - The 'OriginateHack' is now on by default which also meas call events are enabled by default
 
         - Pre-populate ActionID in the response so that it exists in the event of a timeout with no response at all.
+
+        - Original user Action is now stored in {'ACTION'} of the response object. This can be useful when attempting to diagnose
+        a failing action.
 
         NOT DONE
 
