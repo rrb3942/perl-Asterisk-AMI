@@ -661,6 +661,7 @@ sub send_action {
                 }
         } elsif ($self->{CONFIG}->{AUTODISCARD}) {
                 delete $self->{EXPECTED}->{$id};
+                delete $self->{RESPONSEBUFFER}->{$id};
         }
 
         return $id;
