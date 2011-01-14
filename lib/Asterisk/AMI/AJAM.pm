@@ -14,7 +14,7 @@ use Carp qw/carp/;
 #Duh
 use version; our $VERSION = qv(0.2.4_01);
 
-#Create a new object and return it; If required options are missing, returns undef
+#Create a new object and return it;
 sub new {
         my ($class, %values) = @_;
 
@@ -34,7 +34,7 @@ sub _configure {
         my ($self, %config) = @_;
 
         while (my ($key, $value) = each %config) {
-                $self->{uc($key)} = $value;
+                $self->{lc($key)} = $value;
         }
 
         weaken $self;
@@ -48,10 +48,10 @@ sub _configure {
 sub _on_connect_err {
         my ($self, $message) = @_;
 
-        if (exists $self->{ON_CONNECT_ERR}) {
-                $self->{ON_CONNECT_ERR}->($self, $message);
-        } elsif (exists $self->{ON_ERROR}) {
-                $self->{ON_ERROR}->($self, $message);
+        if (exists $self->{on_connect_err}) {
+                $self->{on_connect_err}->($self, $message);
+        } elsif (exists $self->{on_error}) {
+                $self->{on_error}->($self, $message);
         }
 
         $self->destroy();
@@ -65,7 +65,7 @@ sub _on_connect_err {
 sub _on_error {
         my ($self, $message) = @_;
 
-        $self->{ON_ERROR}->($self, $message) if (exists $self->{CONFIG}->{ON_ERROR});
+        $self->{on_error}->($self, $message) if (exists $self->{on_error});
         
         $self->destroy();
 
@@ -98,16 +98,26 @@ sub _get_ami_ver {
         }
 }
 
+#Handles HTTP Response and passes the data off to the parser
 sub _http_read {
         my ($self, $data, $headers) = @_;
 
         #If AMIVER does not exist examine headers to determine our version
         $self->_get_ami_ver($headers) unless (exists $self->{AMIVER});
 
+        #2XX Responses are ok, anything else we don't really know how to handle
         if ($headers->{'Status'} > 199 && $headers->{'Status'} < 300) {
-                $self->{PUSH_READ}->($data);
+                $self->{on_packets}->($data);
         } else {
-                #Map http codes to errors?
+                #Place ourselves in an error condition
+                $self->{SOCKERR} = 1;
+
+                #Internal AnyEvent::HTTP Errors
+                if ($headers->{'Status'} > 549 && $headers->{'Status'} < 600) {
+                        $self->_on_error($headers->{'Reason'});
+                } else {
+                        $self->_on_error("Received unhandled response of type $headers->{'Status'} when accessing $self->{url}");
+                }
         } 
 }
 
@@ -121,23 +131,22 @@ sub push_write {
                 #Handle multiple values
                 if (ref($value) eq 'ARRAY') {
                         foreach my $var (@{$value}) {
-                                $action .= uri_escape_utf8($key . '=' . $var) . '&';
+                                $action .= uri_escape_utf8($key) . '=' . uri_escape_utf8($var) . '&';
                         }
                 } else {
-                        $action .= uri_escape_utf8($key . '=' . $value) . '&';
+                        $action .= uri_escape_utf8($key) . '=' . uri_escape_utf8($value) . '&';
                 }
         }
 
         #store the request guard so that we can cancel_request
-        $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_post($self->{'URL'}, $action, $self->{HTTP_READ});
+        $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_post($self->{url}, $action, $self->{HTTP_READ});
 
         return 1;
 }
 
 #Cancels a current http request
-sub cancel_request {
+sub request_cancel {
         my ($self, $id) = @_;
-
         delete $self->{OUTSTANDING}->{$id};
 }
 
@@ -156,11 +165,6 @@ sub DESTROY {
         my ($self) = @_;
         #Cancel all requests
         delete $self->{OUTSTANDING};
-}
-#Check whether there was an error on the socket
-sub error {
-        my ($self) = @_;
-        return $self->{SOCKERR};
 }
 
 1;
