@@ -247,20 +247,28 @@ sub _connect {
         #Weaken ref for use in anonysub
         weaken($self);
 
-        #Build a hash of our anyevent::handle options
-        my %hdl = (     connect => [$self->{CONFIG}->{PEERADDR}, $self->{CONFIG}->{PEERPORT}],
-                        on_connect_err => sub { $self->_on_connect_err($_[1]); },
+        #Setup callbacks for the handle
+        my %hdl = (     on_connect_err => sub { $self->_on_connect_err($_[1]); },
                         on_error => sub { $self->_on_error($_[2]) },
                         on_eof => sub { $self->_on_disconnect; },
                         on_packets => sub { $self->_handle_packets(@_); });
 
-        #TLS stuff
-        $hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
-        #TCP Keepalive
-        $hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
-
         #Make connection/create handle
-        $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
+        if ($self->{CONFIG}->{AJAM}) {
+                $hdl{url} = $self->{CONFIG}->{PEERADDR};
+
+                $self->{handle} = Asterisk::AMI::AJAM->new(%hdl);
+        } else {
+                #Connect address
+                $hdl{connect} = [$self->{CONFIG}->{PEERADDR}, $self->{CONFIG}->{PEERPORT}];
+
+                #TLS stuff
+                $hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
+                #TCP Keepalive
+                $hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
+
+                $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
+        }
 
         #Return login status if blocking
         return $self->_login if ($self->{CONFIG}->{BLOCKING});
@@ -286,6 +294,7 @@ sub _handle_packets {
                 my %parsed;
 
                 foreach my $line (split /\015\012/ox, $packet) {
+                        next unless ($line);
                         #Is this our command output?
                         if ($line =~ s/--END\ COMMAND--$//ox) {
                                 $parsed{'COMPLETED'} = 1;

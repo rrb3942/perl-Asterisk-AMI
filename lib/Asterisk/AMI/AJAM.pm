@@ -40,7 +40,7 @@ sub _configure {
         weaken $self;
 
         $self->{HTTP_READ} = sub { $self->_http_read(@_) };
-
+        $self->{COOKIES} = {};
         return 1;
 }
 
@@ -77,10 +77,12 @@ sub _on_error {
 sub _get_ami_ver {
         my ($self, $headers) = @_;
 
+        return unless (defined $headers->{'server'});
+
         #Initialize the key to indicate we atleast tried to find the version
         $self->{AMIVER} = undef;
 
-        if ( $headers->{'server'} =~ /Asterisk\/(\d)\.(\d)\..*/ ) {
+        if ($headers->{'server'} =~ /Asterisk\/(\d)\.(\d)\..*/ ) {
                 if ($1 >= 1)  {
                         if ($2 > 4) {
                                 $self->{AMIVER} = 1.1;
@@ -89,12 +91,12 @@ sub _get_ami_ver {
                         }
                 } else {
                         warnings::warnif('Asterisk::AMI',
-                                "Unknown Asterisk Version from $self->{'URL'}");
+                                "Unknown Asterisk Version from $self->{url}");
 
                 }
         } else {
                 warnings::warnif('Asterisk::AMI',
-                                "Unknown Server Type from $self->{'URL'}");
+                                "Unknown Server Type from $self->{url}");
         }
 }
 
@@ -107,7 +109,7 @@ sub _http_read {
 
         #2XX Responses are ok, anything else we don't really know how to handle
         if ($headers->{'Status'} > 199 && $headers->{'Status'} < 300) {
-                $self->{on_packets}->($data);
+                $self->{on_packets}->($self, $data);
         } else {
                 #Place ourselves in an error condition
                 $self->{SOCKERR} = 1;
@@ -124,7 +126,7 @@ sub _http_read {
 sub push_write {
         my ($self, $actionhash) = @_;
 
-        my $action;;
+        my $action;
 
         #Create an action out of a hash
         while (my ($key, $value) = each(%{$actionhash})) {
@@ -138,8 +140,11 @@ sub push_write {
                 }
         }
 
+        #Removes trailing &
+        chop $action;
+
         #store the request guard so that we can cancel_request
-        $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_post($self->{url}, $action, $self->{HTTP_READ});
+        $self->{OUTSTANDING}->{$actionhash->{'ActionID'}} = http_post $self->{url}, $action, cookie_jar => $self->{COOKIES}, $self->{HTTP_READ};
 
         return 1;
 }

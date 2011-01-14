@@ -40,7 +40,8 @@ sub anyevent_read_type {
 sub _on_connect {
         my ($self, $host, $port, $retry) = @_;
         weaken($self);
-        $self->push_read( line => sub { $self->_get_ami_ver(@_); } );
+
+        $self->push_read( line => \&_get_ami_ver );
 }
 
 #Things to do after our initial connect
