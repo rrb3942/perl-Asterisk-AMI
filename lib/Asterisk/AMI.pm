@@ -100,7 +100,8 @@ sub _configure {
                                 EVENTS => 'off',
                                 BUFFERSIZE => 30000,
                                 BLOCKING => 1,
-                                ORIGINATEHACK => 1
+                                ORIGINATEHACK => 1,
+                                TIMEOUT => 300
                         );
 
         #Config Validation + Setting
@@ -121,6 +122,11 @@ sub _configure {
         #Change default port if using ssl
         if ($self->{CONFIG}->{USESSL}) {
                 $defaults{PEERPORT} = 5039;
+        }
+
+        #Change defaults if AJAM used
+        if ($self->{CONFIG}->{AJAM}) {
+                $defaults{KEEPALIVE} = 5;
         }
 
         #Assign defaults for any missing options
@@ -276,6 +282,13 @@ sub _connect {
         #Queue our login
         $self->_login;
 
+        #Start waiting for events
+        if ($self->{CONFIG}->{AJAM} && $self->{CONFIG}->{EVENTS} ne 'off') {
+                $self->{waitevent} = sub { $self->send_action({ Action => 'WaitEvent' }, $self->{waitevent}, 0)};
+                $self->send_action({ Action => 'WaitEvent' }, $self->{waitevent}, 0);
+        }
+        
+
         #If we have a handle, SUCCESS!
         return 1 if (defined $self->{handle});
 
@@ -354,7 +367,8 @@ sub _handle_actions {
                                 #Rewrite these tests
                                 #Originate Async Exception is the first test
                                 if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} 
-                                        && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /follow/ox)) {
+                                        && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /follow/ox 
+                                                || $packet->{'Message'} ne 'Waiting for Event completed' )) {
                                         $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
                                 }
                         } 
@@ -431,6 +445,12 @@ sub _wait_response {
                 delete $self->{RESPONSEBUFFER}->{$id};
                 delete $self->{TIMERS}->{$id};
                 delete $self->{EXPECTED}->{$id};
+
+                #If ajam is enabled make sure the http request is ended
+                if ($self->{CONFIG}->{AJAM}) {
+                        $self->{handle}->request_cancel($id);
+                }
+
                 return $resp;
         }
 
@@ -443,6 +463,12 @@ sub _wait_response {
                 delete $self->{RESPONSEBUFFER}->{$id};
                 delete $self->{TIMERS}->{$id};
                 delete $self->{EXPECTED}->{$id};
+
+                #If ajam is enabled make sure the http request is ended
+                if ($self->{CONFIG}->{AJAM}) {
+                        $self->{handle}->request_cancel($id);
+                }
+
                 $process->($response);
         };
 
@@ -553,6 +579,12 @@ sub send_action {
                         delete $self->{TIMERS}->{$id};
                         delete $self->{EXPECTED}->{$id};
                         delete $self->{PRELOGIN}->{$id};
+
+                        #If ajam is enabled make sure the http request is ended
+                        if ($self->{CONFIG}->{AJAM}) {
+                                $self->{handle}->request_cancel($id);
+                        }
+
                         $callback->($self, $response, $store);
                 };
 
@@ -871,9 +903,11 @@ sub _send_keepalive {
                         };
                  };
 
-        my $timeout = $self->{CONFIG}->{TIMEOUT} || 5;
+        my $timeout = $self->{CONFIG}->{TIMEOUT} || 300;
+
+        my $return = $self->send_action({ Action => 'Ping' }, $cb, $timeout);
         
-        return $self->send_action({ Action => 'Ping' }, $cb, $timeout);
+        return $return;
 }
 
 #Calls all callbacks as if they had timed out
@@ -908,7 +942,7 @@ sub _blocking_logoff {
         my ($self) = @_;
         my $timeout;
 
-        $timeout = 5 unless ($self->{'CONFIG'}->{'TIMEOUT'});
+        $timeout = 300 unless ($self->{'CONFIG'}->{'TIMEOUT'});
 
         $self->action({ Action => 'Logoff' }, $timeout);
         undef $self->{LOGGEDIN};
@@ -918,7 +952,7 @@ sub _nonblocking_logoff {
         my ($self) = @_;
         my $timeout;
 
-        $timeout = 5 unless ($self->{'CONFIG'}->{'TIMEOUT'});
+        $timeout = 300 unless ($self->{'CONFIG'}->{'TIMEOUT'});
 
         $self->action({ Action => 'Logoff' }, $timeout);
         undef $self->{LOGGEDIN};
