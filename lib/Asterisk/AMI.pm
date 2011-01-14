@@ -7,7 +7,8 @@ use strict;
 use warnings;
 
 use AnyEvent;
-use AnyEvent::Handle;
+use Asterisk::AMI::Manager;
+use Asterisk::AMI::AJAM;
 use Digest::MD5;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
@@ -324,24 +325,6 @@ sub _on_timeout {
         return;
 }
 
-#Things to do after our initial connect
-sub _on_connect {
-        my ($self, $hdl, $line) = @_;
-
-        if ($line =~ /^Asterisk\ Call\ Manager\/([0-9]\.[0-9])$/ox) {
-                $self->{AMIVER} = $1;
-        } else {
-                warnings::warnif('Asterisk::AMI', "Unknown Protocol/AMI Version from $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
-        }
-
-        #Weak reference for us in anonysub
-        weaken($self);
-
-        $self->{handle}->push_read( 'Asterisk::AMI' => sub { $self->_handle_packet(@_); } );
-
-        return 1;
-}
-
 #Connects to the AMI Returns 1 on success, 0 on failure
 sub _connect {
         my ($self) = @_;
@@ -354,7 +337,7 @@ sub _connect {
                         on_connect_err => sub { $self->_on_connect_err($_[1]); },
                         on_error => sub { $self->_on_error($_[2]) },
                         on_eof => sub { $self->_on_disconnect; },
-                        on_connect => sub { $self->{handle}->push_read( line => sub { $self->_on_connect(@_); } ); });
+                        on_packets => sub { $self->_handle_packets(@_); });
 
         #TLS stuff
         $hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
@@ -362,7 +345,7 @@ sub _connect {
         $hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
 
         #Make connection/create handle
-        $self->{handle} = AnyEvent::Handle->new(%hdl);
+        $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
 
         #Return login status if blocking
         return $self->_login if ($self->{CONFIG}->{BLOCKING});
@@ -378,7 +361,7 @@ sub _connect {
 
 #Accepts one of more packet from the buffer
 #Splits it into multiple packets and into key-value pairs
-sub _handle_packet {
+sub _handle_packets {
         my ($self, $hdl, $buffer) = @_;
 
         my @actions;
@@ -555,10 +538,12 @@ sub _wait_response {
         return $process->recv;
 }
 
-sub _build_action {
+#Checks for user ActionID, adds ActionID to hash, checks for Async Originate
+#Returns hash suitable for using in our push_write
+sub _proc_action {
         my ($actionhash, $id) = @_;
 
-        my $action;
+        my %action;
         my $async;
 
         #Create an action out of a hash
@@ -575,20 +560,12 @@ sub _build_action {
                         next;
                 }
 
-                #Handle multiple values
-                if (ref($value) eq 'ARRAY') {
-                        foreach my $var (@{$value}) {
-                                $action .= $key . ': ' . $var . "\015\012";
-                        }
-                } else {
-                        $action .= $key . ': ' . $value . "\015\012";
-                }
+                $action{$key} = $value;
         }
 
-        #Append ActionID and End Command
-        $action .= 'ActionID: ' . $id . "\015\012\015\012";
+        $action{'ActionID'} = $id;
 
-        return ($action, $async);
+        return (\%action, $async);
 }
 
 #Sends an action to the AMI Accepts an Array Returns the actionid of the action
@@ -612,10 +589,13 @@ sub send_action {
         delete $self->{RESPONSEBUFFER}->{$id};
         delete $self->{CALLBACKS}->{$id};
 
+        #Store a copy of initial request
+        $self->{RESPONSEBUFFER}->{$id}->{'ACTION'} = $actionhash;
+
         my $action;
 
         #Build our AMI command, bah this sucks do better
-        ($action, $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'}) = _build_action($actionhash, $id);
+        ($action, $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'}) = _proc_action($actionhash, $id);
         delete $self->{RESPONSEBUFFER}->{$id}->{'ASYNC'} unless ($self->{RESPONSEBUFFER}->{$id}->{'ASYNC'});
 
         #If logged in send action
@@ -631,9 +611,6 @@ sub send_action {
         $self->{RESPONSEBUFFER}->{$id}->{'COMPLETED'} = 0;
         $self->{RESPONSEBUFFER}->{$id}->{'GOOD'} = 0;
         $self->{EXPECTED}->{$id} = undef;
-
-        #Store a copy of initial request
-        $self->{RESPONSEBUFFER}->{$id}->{'ACTION'} = $actionhash;
 
         #Weaken ref of use in anonsub
         weaken($self);
@@ -939,7 +916,7 @@ sub get_event {
 #Returns server AMI version
 sub amiver {
         my ($self) = @_;
-        return $self->{AMIVER};
+        return $self->{handle}->amiver;
 }
 
 #Checks the connection, returns 1 if the connection is good

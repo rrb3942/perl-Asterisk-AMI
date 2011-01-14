@@ -18,10 +18,8 @@ use version; our $VERSION = qv(0.2.4_01);
 sub new {
         my ($class, %options) = @_;
 
-        weaken($class);
-
         #On initial connect grab AMI version
-        $options{on_connect} = sub { $class->push_read( line => sub { $class->_on_connect(@_); } ); };
+        $options{on_connect} = \&_on_connect;
 
         return $class->SUPER::new(%options);
 }
@@ -39,14 +37,20 @@ sub anyevent_read_type {
         }
 }
 
-#Things to do after our initial connect
 sub _on_connect {
-        my ($self, $hdl, $line) = @_;
+        my ($self, $host, $port, $retry) = @_;
+        weaken($self);
+        $self->push_read( line => sub { $self->_get_ami_ver(@_); } );
+}
+
+#Things to do after our initial connect
+sub _get_ami_ver {
+        my ($self, $line) = @_;
 
         if ($line =~ /^Asterisk\ Call\ Manager\/([0-9]\.[0-9])$/ox) {
                 $self->{AMIVER} = $1;
         } else {
-                warnings::warnif('Asterisk::AMI', "Unknown Protocol/AMI Version from $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+                warnings::warnif('Asterisk::AMI', "Unknown Protocol/AMI Version from $self->{peername}:$self->{connect}->[1]");
         }
 
         #Weak reference for us in anonysub
