@@ -103,94 +103,9 @@ sub _configure {
                                 ORIGINATEHACK => 1
                         );
 
-        #Create list of all options and acceptable values
-        my %config_options = (  ORIGINATEHACK => 'bool',
-                                USESSL => 'bool',
-                                PEERADDR => '',
-                                PEERPORT => 'num',
-                                USERNAME => '',
-                                SECRET => '',
-                                EVENTS => '',
-                                TIMEOUT => 'num',
-                                KEEPALIVE => 'num',
-                                TCP_KEEPALIVE => 'bool',
-                                BUFFERSIZE => 'num',
-                                HANDLERS => 'HASH',
-                                BLOCKING => 'bool',
-                                AUTHTYPE => 'md5|plaintext',        
-                                ON_CONNECT => 'CODE',
-                                ON_CONNECT_ERR => 'CODE',
-                                ON_ERROR => 'CODE',
-                                ON_DISCONNECT => 'CODE',
-                                ON_TIMEOUT => 'CODE',
-                                ID => '',
-                                AUTODISCARD => 'bool',
-                                DEFAULT_CB => 'CODE'
-                                );
-
         #Config Validation + Setting
         while (my ($key, $val) = each(%config)) {
                 my $opt = uc($key);
-
-                #Unknown keys
-                if (!exists $config_options{$opt}) {
-                        carp "Unknown constructor option: $key" if warnings::enabled('Asterisk::AMI');
-                        next;
-                #Undef values
-                } elsif (!defined $val) {
-                        next;
-                }
-
-                #Get reftype
-                my $type = ref($val);
-
-                #Check for correct reference types
-                if ($type ne $config_options{$opt}) {
-
-                        #If they are ref types then fail
-                        if ($config_options{$opt} eq 'CODE') {
-                                carp "Constructor option \'$key\' requires an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
-                                return;
-                        } elsif ($config_options{$opt} eq 'HASH') {
-                                        carp "Constructor option \'$key\' requires a hash reference" if warnings::enabled('Asterisk::AMI');
-                                        return;
-                        #Boolean values
-                        } elsif ($config_options{$opt} eq 'bool') {
-                                if ($val =~ /[^\d]/x || ($val != 0 && $val != 1)) {
-                                        carp "Constructor option \'$key\' requires a boolean value (0 or 1)" if warnings::enabled('Asterisk::AMI');
-                                        return;
-                                }
-                        #Numeric values
-                        } elsif ($config_options{$opt} eq 'num') {
-                                if ($val =~ /[^\d]/x) {
-                                        carp "Constructor option \'$key\' requires a numeric value" if warnings::enabled('Asterisk::AMI');
-                                        return;
-                                }
-                        #Hard coded list of options
-                        } else {
-                                my $lval = lc($val);
-
-                                my @match = grep { $lval eq $_ } split /\|/x,$config_options{$opt};
-
-                                if (!@match) {
-                                        carp "Constructor option \'$key\' requires one of the following options: $config_options{$opt}" if warnings::enabled('Asterisk::AMI');
-                                        return;
-                                } else {
-                                        #lowercase it for consistency
-                                        $val = $lval;
-                                }
-                        }
-
-                #Ensure all handlers are sub refs
-                } elsif ($opt eq 'HANDLERS') {
-                        while (my ($event, $handler) = each %{$val}) {
-                                if (ref($handler) ne 'CODE') {
-                                        carp "Handler for event type \'$event\' must be an anonymous subroutine or a subroutine reference" if warnings::enabled('Asterisk::AMI');
-                                        return;
-                                }
-                        }
-                }
-
                 $self->{CONFIG}->{$opt} = $val;
         }
 
