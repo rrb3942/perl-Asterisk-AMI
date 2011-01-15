@@ -262,7 +262,7 @@ sub _connect {
         #Make connection/create handle
         if ($self->{CONFIG}->{AJAM}) {
                 $hdl{url} = $self->{CONFIG}->{PEERADDR};
-
+                $hdl{use_get} = $self->{CONFIG}->{USE_GET};
                 $self->{handle} = Asterisk::AMI::AJAM->new(%hdl);
         } else {
                 #Connect address
@@ -1059,7 +1059,7 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         Secret                  Secret used to connect to AMI
         AuthType                Authentication type to use for login (default 'MD5')   'MD5'|'plaintext'
         UseSSL                  Enables/Disables SSL for the connection (default 0, requires Net::SSLeay)  0|1
-        Timeout                 Default timeout for all actions in seconds (default 0, no timeout)
+        Timeout                 Default timeout for all actions in seconds (default 300, 0 = no timeout)
 
         Advance Options:
         ID                      Allows associating an identifier with this AMI object
@@ -1080,7 +1080,10 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         on_error                A subroutine to call when an error occurs on the socket
         on_disconnect           A subroutine to call when the remote end disconnects
         on_timeout              A subroutine to call if our Keepalive times out
-        
+
+        AJAM options:
+        AJAM                    Enables the use of AJAM instead of the normal manager tcp connection            0|1
+        Use_Get                 Forces the use of the HTTP GET method instead of HTTP POST for AJAM requests    0|1       
 
         Additional Notes:
 
@@ -1113,6 +1116,15 @@ Creates a new AMI object which takes the arguments as key-value pairs.
         anything you have already set. Without this, if you use 'Async' with an 'Originate' the action will timeout
         or never callback. You don't need this if you are already doing work with events, simply add 'call' events
         to your eventmask. If you are having odd event problems try disabling this.
+
+        AJAM Notes:
+
+        When using AJAM 'PeerAddr' should be the full URL (with port) to the AJAM rawman interface 
+        (e.g. 'http://127.0.0.1:8080/asterisk/rawman'). HTTPS is supported.
+
+        The default for 'KeepAlive' is set to 20 seconds to prevent authentication from expiring.
+
+        For more AJAM implementation details see Asterisk::AMI::AJAM.
 
 =head2 Disabling Warnings
 
@@ -1323,7 +1335,23 @@ combines send_action() and get_response(), and therefore returns a Response obje
         More Info:
         Check out the voip-info.org page for more information on the Originate action.
         http://www.voip-info.org/wiki/view/Asterisk+Manager+API+Action+Originate
-                                        
+
+=head3 AJAM Example
+
+        use Asterisk::AMI;
+        my $astman = Asterisk::AMI->new(PeerAddr => 'http://my.pbx.example:8080/asterisk/rawman',
+                                        AJAM => 1,
+                                        Username => 'admin',
+                                        Secret => 'supersecret'
+                                );
+        
+        die "Unable to connect to asterisk" unless ($astman);
+
+        my $action = $astman->({ Action => 'Command',
+                                 Command => 'sip show peers'
+                                });
+
+
 =head3 Callbacks
 
         You may also specify a subroutine to callback when using send_action as well as a timeout.
