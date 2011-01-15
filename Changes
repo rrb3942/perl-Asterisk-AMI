@@ -1,11 +1,14 @@
-TODO (0.4?): AJAM Support (Utilizing AnyEvent::HTTP) (Abstract transport layer for this?)
-
 Revision history for Perl extension Asterisk::AMI.
 =======
 0.3
+        - AJAM support added. 
+
         - Support for old Callback and Timeout syntax has been removed.
 
         - 'PARSED' key in response has been replaced with 'BODY'
+
+        - Original user Action is now stored in {'ACTION'} of the response object. This can be useful when attempting to diagnose
+        a failing action.
 
         - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but it is safe for use in an event based application.
 
@@ -33,8 +36,7 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Pre-populate ActionID in the response so that it exists in the event of a timeout with no response at all.
 
-        - Original user Action is now stored in {'ACTION'} of the response object. This can be useful when attempting to diagnose
-        a failing action.
+        - Default timeout changed to 300 seconds
 
         NOT DONE
 

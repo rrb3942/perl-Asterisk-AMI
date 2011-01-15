@@ -126,7 +126,7 @@ sub _configure {
 
         #Change defaults if AJAM used
         if ($self->{CONFIG}->{AJAM}) {
-                $defaults{KEEPALIVE} = 5;
+                $defaults{KEEPALIVE} = 20;
         }
 
         #Assign defaults for any missing options
