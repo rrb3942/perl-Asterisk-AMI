@@ -6,7 +6,6 @@ use warnings::register;
 use strict;
 use warnings;
 
-use Digest::MD5;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
@@ -99,3 +98,61 @@ sub error {
 1;
 
 __END__
+
+=head1 NAME
+
+Asterisk::AMI::Manager - Provides TCP IO layer to Asterisk::AMI
+
+=head1 VERSION
+
+0.2.4_01
+
+=head1 SYNOPSIS
+
+        You should never use this module directly. Instead you should use Asterisk::AMI.
+
+        use Asterisk::AMI;
+
+        my $astman = Asterisk::AMI->new(        PeerAddr => '127.0.0.1',
+                                                PeerPort => '5038',
+                                                Username => 'admin',
+                                                Secret  =>  'supersecret',
+                                                AJAM => 1
+                                );
+
+        die "Unable to connect to asterisk" unless ($astman);
+
+        my $db = $astman->action({ Action => 'Ping' });
+
+=head1 DESCRIPTION
+
+This module inherits from AnyEvent::Handle and provides extended functionaly for use with the Asterik Manager
+Interface.
+
+You should never use this module directly, but instead use Asterisk::AMI.
+
+=head1 See Also
+
+Asterisk::AMI, Asterisk::AMI::Common, Asterisk::AMI::Async
+
+=head1 AUTHOR
+
+Ryan Bullock (rrb3942@gmail.com)
+
+=head1 BUG REPORTING AND FEEBACK
+
+Please report any bugs or errors to our github issue tracker at http://github.com/rrb3942/perl-Asterisk-AMI/issues
+or the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=perl-Asterisk-AMI
+
+=head1 LICENSE
+
+Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+
+This module is free software.  You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
