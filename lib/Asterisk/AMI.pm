@@ -7,8 +7,6 @@ use strict;
 use warnings;
 
 use AnyEvent;
-use Asterisk::AMI::Manager;
-use Asterisk::AMI::AJAM;
 use Digest::MD5;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
@@ -261,19 +259,29 @@ sub _connect {
 
         #Make connection/create handle
         if ($self->{CONFIG}->{AJAM}) {
-                $hdl{url} = $self->{CONFIG}->{PEERADDR};
-                $hdl{use_get} = $self->{CONFIG}->{USE_GET};
-                $self->{handle} = Asterisk::AMI::AJAM->new(%hdl);
+                if (eval { require Asterisk::AMI::AJAM } ) {
+                        $hdl{url} = $self->{CONFIG}->{PEERADDR};
+                        $hdl{use_get} = $self->{CONFIG}->{USE_GET};
+                        $self->{handle} = Asterisk::AMI::AJAM->new(%hdl);
+                } else {
+                        warn "Could not load AJAM support, do you have AnyEvent::HTTP and URI::Escape installed?";
+                        return;
+                }
         } else {
-                #Connect address
-                $hdl{connect} = [$self->{CONFIG}->{PEERADDR}, $self->{CONFIG}->{PEERPORT}];
+                if ( eval { require Asterisk::AMI::Manager } ) {
+                        #Connect address
+                        $hdl{connect} = [$self->{CONFIG}->{PEERADDR}, $self->{CONFIG}->{PEERPORT}];
 
-                #TLS stuff
-                $hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
-                #TCP Keepalive
-                $hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
+                        #TLS stuff
+                        $hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
+                        #TCP Keepalive
+                        $hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
 
-                $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
+                        $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
+                } else {
+                        warn "Could not load standard Manager support, do you have AnyEvent::Handle installed?";
+                        return;
+                }
         }
 
         #Return login status if blocking
