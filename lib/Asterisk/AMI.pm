@@ -948,12 +948,7 @@ sub id {
 #Blocking logoff 
 sub _blocking_logoff {
         my ($self) = @_;
-        my $timeout;
 
-        $timeout = 300 unless ($self->{'CONFIG'}->{'TIMEOUT'});
-
-        $self->action({ Action => 'Logoff' }, $timeout);
-        undef $self->{LOGGEDIN};
 }
 
 sub _nonblocking_logoff {
@@ -982,19 +977,21 @@ sub DESTROY {
         my ($self) = @_;
 
         #Logoff
-        if (!$self->{SOCKERR} && $self->{LOGGEDIN}) {
+        if (!$self->{SOCKERR} && $self->{LOGGEDIN} && $self->{handle}) {
+                #Blocking logoff
                 if ($self->{'CONFIG'}->{'BLOCKING'}) {
-                        $self->_blocking_logoff();
-                } 
-                #else { 
-                #       $self->_nonblocking_logoff();
-                #}
+                        $self->action({ Action => 'Logoff' }, 5);
+                        $self->{handle}->destroy();
+                #When not blocking give asterisk time to actually logoff before we DC
+                } else {
+                        #Let the handle stick around on logoff
+                        #Hopefully fixes broken pipe issue
+                        $self->{handle}->linger_destroy({ Action => 'Logoff', ActionID => $self->{idseq}++ });
+                }
+
+                undef $self->{LOGGEDIN};
         }
 
-        #Destroy our handle first to cause it to flush
-        if ($self->{handle}) {
-                $self->{handle}->destroy();
-        }
 
         #Do our own flushing
         $self->_clear_cbs();

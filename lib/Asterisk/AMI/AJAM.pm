@@ -8,6 +8,7 @@ use warnings;
 
 use AnyEvent::HTTP;
 use URI::Escape;
+use AnyEvent;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
@@ -123,8 +124,9 @@ sub _http_read {
         } 
 }
 
-sub push_write {
-        my ($self, $actionhash) = @_;
+#Formats and escapes request for use in a HTTP GET or POST
+sub _build_action {
+        my ($actionhash) = @_;
 
         my $action;
 
@@ -143,13 +145,19 @@ sub push_write {
         #Removes trailing &
         chop $action;
 
+        return $action;
+}
+
+sub push_write {
+        my ($self, $action) = @_;
+
         if ($self->{use_get}) {
                 #store the request guard so that we can cancel_request
-                $self->{OUTSTANDING}->{$actionhash->{'ActionID'}} = http_get $self->{url}, $action,
+                $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_get $self->{url}, _build_action($action),
                                                                         cookie_jar => $self->{COOKIES}, $self->{HTTP_READ};
         } else {
                 #store the request guard so that we can cancel_request
-                $self->{OUTSTANDING}->{$actionhash->{'ActionID'}} = http_post $self->{url}, $action, 
+                $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_post $self->{url}, _build_action($action), 
                                                                         cookie_jar => $self->{COOKIES}, $self->{HTTP_READ};
         }
 
@@ -168,6 +176,35 @@ sub amiver {
         return $self->{AMIVER};
 }
 
+#Should only be passed a logoff action
+#Clean up any current outstanding requests
+#Create a circular reference to keep ourselves around for a few seconds to let the logoff finish
+sub linger_destroy {
+        my ($self, $logoff) = @_;
+
+        #Nuke current requests
+        delete $self->{OUTSTANDING};
+
+        #Don't care what we get back, just that we close up
+        my $circle = sub { $self->destroy };
+
+        #Store our request guards so if we hit our timeout they will get canceled
+        if ($self->{use_get}) {
+                $self->{linger_request} = http_get $self->{url}, _build_action($logoff),
+                                                                cookie_jar => $self->{COOKIES}, $circle;
+        } else {
+                $self->{linger_request} = http_post $self->{url}, _build_action($logoff), 
+                                                                cookie_jar => $self->{COOKIES}, $circle;
+        }
+
+        #Set a timer for the max time we will stick around
+        #Prevents us from lingering for long when the remote end is none-responsive
+        #This creates our circular reference (as do the request guards above)
+        $self->{linger_timer} = AE::timer 5, 0, $circle;
+
+        return 1;
+}
+
 sub destroy {
         my ($self) = @_;
         $self->DESTROY;
@@ -177,6 +214,12 @@ sub DESTROY {
         my ($self) = @_;
         #Cancel all requests
         delete $self->{OUTSTANDING};
+        #Make sure to get rid of the lingering stuff
+        delete $self->{linger_request};
+        delete $self->{linger_timer};
+
+        #poof
+        %$self = ();
 }
 
 1;

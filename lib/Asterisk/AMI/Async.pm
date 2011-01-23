@@ -635,10 +635,10 @@ sub _module_cb {
                 my ($ami, $resp, $userdata) = @_;
 
                 my %mod = (     Module => $module,
-                                GOOD => $resp->{'GOOD'}
+                                Loaded => $resp->{'GOOD'}
                         );
 
-                $callback->($ami, \%mod, $userdata);
+                $callback->($ami, \%mod, $userdata, $resp);
         };
 }
 
@@ -691,12 +691,12 @@ sub _originate_cb {
                 my ($ami, $resp, $userdata) = @_;
 
                 my $orig = $resp->{'EVENTS'}->[0];
-                $orig->{'GOOD'} = $resp->{'GOOD'};
 
                 $orig->{'Channel'} = $chan unless (defined $orig->{'Channel'});
                 $orig->{'Context'} = $context unless (defined $orig->{'Context'});
                 $orig->{'Exten'} = $exten unless (defined $orig->{'Exten'});
 
+                $callback->($ami, $orig, $userdate, $resp);
         };
 }
 

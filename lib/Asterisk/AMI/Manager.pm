@@ -9,6 +9,7 @@ use warnings;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
+use AnyEvent;
 use parent qw(AnyEvent::Handle);
 
 #Duh
@@ -83,6 +84,41 @@ sub push_write {
         $self->SUPER::push_write($action);
 }
 
+#Make sure we stick around before going poof
+#Should be passed logoff action
+#Should help with broken pipe errors
+sub linger_destroy {
+        my ($self, $logoff) = @_;
+
+        #Drain read buffer
+        $self->_drain_rbuf;
+
+        #Nuke read queue
+        delete $self->{_queue};
+
+        #Circular reference linger timer
+        $self->{linger_timer} = AE::timer 5, 0, sub { $self->destroy };
+
+        weaken($self);
+        #Prevent further error invocations;
+        $self->on_error(sub { $self->destroy });
+
+        #watch for last line after logoff
+        $self->push_read( line => sub {
+                                        #Last line
+                                        if ($self->{rbuf} =~ /fish/) {
+                                                #Call our destructor
+                                                $self->destroy;
+                                        }
+
+                                        return 1;
+                                 });
+
+        $self->on_error(sub { $self->destroy });
+
+        #Request logoff
+        $self->push_write($logoff);
+}
 
 sub amiver {
         my ($self) = @_;
@@ -95,6 +131,15 @@ sub error {
         return $self->{SOCKERR};
 }
 
+sub DESTROY {
+        my ($self) = @_;
+
+        #Remove linger timer
+        delete $self->{linger_timer};
+
+        $self->SUPER::DESTROY;
+
+}
 1;
 
 __END__
