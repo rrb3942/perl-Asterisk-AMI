@@ -37,6 +37,35 @@ sub anyevent_read_type {
         }
 }
 
+sub anyevent_write_type {
+
+        my ($hdl, $hashref) = @_;
+
+        my $action;
+
+        #Create an action out of a hash
+        while (my ($key, $value) = each(%{$hashref})) {
+                #Handle multiple values
+                if (ref($value) eq 'ARRAY') {
+                        foreach my $var (@{$value}) {
+                                $action .= $key . ': ' . $var . "\015\012";
+                        }
+                } else {
+                        $action .= $key . ': ' . $value . "\015\012";
+                }
+        }
+
+        $action .= "\015\012";
+
+        return $action;        
+}
+
+sub push_write {
+        my ($self, $action) = @_;
+
+        return $self->SUPER::push_write( 'Asterisk::AMI::Manager' => $action );
+}
+
 sub _on_connect {
         my ($self, $host, $port, $retry) = @_;
         weaken($self);
@@ -60,28 +89,6 @@ sub _get_ami_ver {
         $self->push_read( 'Asterisk::AMI::Manager' => $self->{on_packets} );
 
         return 1;
-}
-
-sub push_write {
-        my ($self, $actionhash) = @_;
-
-        my $action;
-
-        #Create an action out of a hash
-        while (my ($key, $value) = each(%{$actionhash})) {
-                #Handle multiple values
-                if (ref($value) eq 'ARRAY') {
-                        foreach my $var (@{$value}) {
-                                $action .= $key . ': ' . $var . "\015\012";
-                        }
-                } else {
-                        $action .= $key . ': ' . $value . "\015\012";
-                }
-        }
-
-        $action .= "\015\012";
-
-        $self->SUPER::push_write($action);
 }
 
 #Make sure we stick around before going poof

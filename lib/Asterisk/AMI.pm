@@ -165,7 +165,12 @@ sub _configure {
 sub _on_connect_err {
         my ($self, $message) = @_;
 
-        warnings::warnif('Asterisk::AMI', "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        if ($self->{CONFIG}->{AJAM}) {
+                warnings::warnif('Asterisk::AMI', "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}");
+        } else {
+                warnings::warnif('Asterisk::AMI', "Failed to connect to asterisk - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        }
+
         warnings::warnif('Asterisk::AMI', "Error Message: $message");
 
         #Dispatch all callbacks as if they timed out
@@ -188,7 +193,12 @@ sub _on_connect_err {
 sub _on_error {
         my ($self, $message) = @_;
 
-        warnings::warnif('Asterisk::AMI', "Received Error on socket - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        if ($self->{CONFIG}->{AJAM}) {
+                warnings::warnif('Asterisk::AMI', "Received Error on socket - $self->{CONFIG}->{PEERADDR}");
+        } else {
+                warnings::warnif('Asterisk::AMI', "Received Error on socket - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        }
+
         warnings::warnif('Asterisk::AMI', "Error Message: $message");
         
         #Call all cbs as if they had timed out
@@ -207,8 +217,15 @@ sub _on_error {
 sub _on_disconnect {
         my ($self) = @_;
 
-        my $message = "Remote end disconnected - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
-        warnings::warnif('Asterisk::AMI', "Remote Asterisk Server ended connection - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        my $message;
+
+        if ($self->{CONFIG}->{AJAM}) {
+                $message = "Remote end disconnected - $self->{CONFIG}->{PEERADDR}";
+                warnings::warnif('Asterisk::AMI', "Remote Asterisk Server ended connection - $self->{CONFIG}->{PEERADDR}");
+        } else {
+                $message = "Remote end disconnected - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}";
+                warnings::warnif('Asterisk::AMI', "Remote Asterisk Server ended connection - $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
+        }
 
         #Call all callbacks as if they had timed out
         _
@@ -252,7 +269,7 @@ sub _connect {
         weaken($self);
 
         #Setup callbacks for the handle
-        my %hdl = (     on_connect_err => sub { $self->_on_connect_err($_[1]); },
+        my %hdl = (     on_connect_error => sub { $self->_on_connect_err($_[1]); },
                         on_error => sub { $self->_on_error($_[2]) },
                         on_eof => sub { $self->_on_disconnect; },
                         on_packets => sub { $self->_handle_packets(@_); });
@@ -298,7 +315,9 @@ sub _connect {
         
 
         #If we have a handle, SUCCESS!
-        return 1 if (defined $self->{handle});
+        if (defined $self->{handle}) {
+                return 1;
+        }
 
         return;
 }
@@ -991,7 +1010,6 @@ sub DESTROY {
 
                 undef $self->{LOGGEDIN};
         }
-
 
         #Do our own flushing
         $self->_clear_cbs();

@@ -26,7 +26,8 @@ Revision history for Perl extension Asterisk::AMI.
         - Abstracted some of the logic in Asterisk::AMI::Common to a seperate module so that it may be shared with
         Asterisk::AMI::Async.
 
-        - New constructor option AutoDiscard. When enabled (set to 1) it will discard responses for any action sent that did not register a callback
+        - New constructor option AutoDiscard. When enabled (set to 1) it will discard responses for any action sent that
+        did not register a callback
 
         - New constructor option Default_CB allows for setting a default callback subroutine for all actions.
 
@@ -40,15 +41,15 @@ Revision history for Perl extension Asterisk::AMI.
 
         NOT DONE
 
-        - Look at the broken pipe issue
-
-        - Asterisk::AMI::Async additional options - AutoDiscard? Default CB? Builtins? WarnOnBad? DieOnBad?
-
-        - Asterisk::AMI::Async additional options - AutoDiscard? Default CB? Builtins? WarnOnBad? DieOnBad? - Done in Asterisk::AMI
+        - Look at the broken pipe issue (Done, needs testing)
 
         - Huge Doc changes, breakout config options into groups. Make less 'Scary'
 
         - Better handling when Blocking => 1 or 0 for various things, disconnects,
+
+        - error handling broken in Asterisk::AMI::Mananger??? (why?, we dont overwrite any of this stuff for the parent)
+
+        - Better handling when Blocking => 1 or 0 for various things, disconnects. (Done, needs testing)
 
         - Huge Doc changes, breakout config options into groups. Make less 'Scary'
 

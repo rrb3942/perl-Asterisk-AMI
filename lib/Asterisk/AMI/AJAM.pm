@@ -45,28 +45,10 @@ sub _configure {
         return 1;
 }
 
-#Handles connection failures (includes login failure);
-sub _on_connect_err {
-        my ($self, $message) = @_;
-
-        if (exists $self->{on_connect_err}) {
-                $self->{on_connect_err}->($self, $message);
-        } elsif (exists $self->{on_error}) {
-                $self->{on_error}->($self, $message);
-        }
-
-        $self->destroy();
-
-        $self->{SOCKERR} = 1;
-
-        return;
-}
-
-#Handles other errors on the socket
 sub _on_error {
         my ($self, $message) = @_;
 
-        $self->{on_error}->($self, $message) if (exists $self->{on_error});
+        $self->{on_error}->($self, 1, $message) if ( exists $self->{on_error} );
         
         $self->destroy();
 
@@ -112,6 +94,7 @@ sub _http_read {
         if ($headers->{'Status'} > 199 && $headers->{'Status'} < 300) {
                 $self->{on_packets}->($self, $data);
         } else {
+
                 #Place ourselves in an error condition
                 $self->{SOCKERR} = 1;
 
