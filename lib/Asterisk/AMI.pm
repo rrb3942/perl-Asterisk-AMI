@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.4
+0.2.5
 
 =head1 SYNOPSIS
 
@@ -614,7 +614,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.2.4);
+use version; our $VERSION = qv(0.2.5);
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
@@ -824,9 +824,9 @@ sub _on_connect_err {
                 $self->{CONFIG}->{ON_ERROR}->($self, $message);
         }
 
-        $self->destroy();
-
         $self->{SOCKERR} = 1;
+
+        $self->destroy();
 
         return;
 }
@@ -844,9 +844,9 @@ sub _on_error {
 
         $self->{CONFIG}->{ON_ERROR}->($self, $message) if (exists $self->{CONFIG}->{ON_ERROR});
         
-        $self->destroy();
-
         $self->{SOCKERR} = 1;
+
+        $self->destroy();
 
         return;
 }
@@ -869,9 +869,9 @@ sub _on_disconnect {
                 $self->{CONFIG}->{ON_ERROR}->($self, $message);
         }
 
-        $self->destroy();
-
         $self->{SOCKERR} = 1;
+
+        $self->destroy();
 
         return;
 }
@@ -1600,8 +1600,8 @@ sub loop {
 sub DESTROY {
         my ($self) = @_;
 
-        #Logoff
-        if ($self->{LOGGEDIN}) {
+        #Logoff if we are not in error
+        if (!$self->{SOCKERR} && $self->{LOGGEDIN}) {
                 $self->send_action({ Action => 'Logoff' });
                 undef $self->{LOGGEDIN};
         }
