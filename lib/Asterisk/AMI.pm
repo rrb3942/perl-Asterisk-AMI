@@ -394,8 +394,8 @@ sub _handle_actions {
                                 #Rewrite these tests
                                 #Originate Async Exception is the first test
                                 if (!$self->{RESPONSEBUFFER}->{$actionid}->{'ASYNC'} 
-                                        && (!exists $packet->{'Message'} || $packet->{'Message'} !~ /follow/ox 
-                                                || $packet->{'Message'} ne 'Waiting for Event completed' )) {
+                                        && (!exists $packet->{'Message'} 
+						|| ($packet->{'Message'} !~ /follow/ox && $packet->{'Message'} ne 'Waiting for Event completed'))) {
                                         $self->{RESPONSEBUFFER}->{$actionid}->{'COMPLETED'} = 1;
                                 }
                         } 
