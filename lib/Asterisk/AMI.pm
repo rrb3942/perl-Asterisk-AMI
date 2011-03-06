@@ -28,61 +28,6 @@ sub new {
         return;
 }
 
-#Used by anyevent to load our read type
-sub anyevent_read_type {
-        my ($hdl, $cb) = @_;
-
-        return sub {
-                if ($hdl->{rbuf} =~ s/^(.+)(?:\015\012\015\012)//sox) {
-                        $cb->($hdl, $1);
-                }
-
-                return;
-        }
-}
-
-#Pre-defined callback
-sub warn_on_bad {
-        return sub {
-                my ($ami, $resp, $userdata) = @_;
-
-                return 1 if $resp->{'GOOD'};
-
-                my $warn = 'Action ' . $resp->{'ActionID'} . ' failed ';
-
-                if ($resp->{'COMPLETED'}) {
-                        $warn .= 'with the following error message: ' . $resp->{'Message'};
-                } else {
-                        $warn .= 'due to timeout';
-                }
-
-                warn $warn;
-
-                return;
-        }
-}
-
-#Pre-defined callback
-sub die_on_bad {
-        return sub {
-                my ($ami, $resp, $userdata) = @_;
-
-                return 1 if $resp->{'GOOD'};
-
-                my $warn = 'Action ' . $resp->{'ActionID'} . ' failed ';
-
-                if ($resp->{'COMPLETED'}) {
-                        $warn .= 'with the following error message: ' . $resp->{'Message'};
-                } else {
-                        $warn .= 'due to timeout';
-                }
-
-                die $warn;
-
-                return;
-        }
-}
-
 #Sets variables for this object Also checks for minimum settings Returns 1 if everything was set, 0 if options were 
 #missing
 sub _configure {
@@ -156,8 +101,10 @@ sub _configure {
         weaken($self);
 
         #Set keepalive
-        $self->{CONFIG}->{KEEPALIVE} = AE::timer($self->{CONFIG}->{KEEPALIVE}, $self->{CONFIG}->{KEEPALIVE}, sub { $self->_send_keepalive }) if ($self->{CONFIG}->{KEEPALIVE});
-        
+	if ($self->{CONFIG}->{KEEPALIVE}) {
+	        $self->{keepalive} = AE::timer($self->{CONFIG}->{KEEPALIVE}, $self->{CONFIG}->{KEEPALIVE}, sub { $self->_send_keepalive });
+        }
+
         return 1;
 }
 
@@ -292,7 +239,7 @@ sub _connect {
                         #TLS stuff
                         $hdl{'tls'} = 'connect' if ($self->{CONFIG}->{USESSL});
                         #TCP Keepalive
-                        $hdl{'keeplive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
+                        $hdl{'keepalive'} = 1 if ($self->{CONFIG}->{TCP_KEEPALIVE});
 
                         $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
                 } else {
@@ -307,10 +254,19 @@ sub _connect {
         #Queue our login
         $self->_login;
 
-        #Start waiting for events
+        #Start waiting for events for AJAM only
         if ($self->{CONFIG}->{AJAM} && $self->{CONFIG}->{EVENTS} ne 'off') {
-                $self->{waitevent} = sub { $self->send_action({ Action => 'WaitEvent' }, $self->{waitevent}, 0)};
-                $self->send_action({ Action => 'WaitEvent' }, $self->{waitevent}, 0);
+		my $timeout = 60;
+
+		if ($self->{CONFIG}->{TIMEOUT}) {
+			$timeout += $self->{CONFIG}->{TIMEOUT};
+		} else {
+			$timeout += 5;
+		}
+
+                $self->{waitevent} = sub { $self->send_action({ Action => 'WaitEvent', Timeout => 60 }, $self->{waitevent}, $timeout)};
+		$self->{waitevent}->();
+#                $self->send_action({ Action => 'WaitEvent' }, $self->{waitevent}, 0);
         }
         
 
