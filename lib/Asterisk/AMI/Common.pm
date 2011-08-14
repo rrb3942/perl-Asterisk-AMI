@@ -221,7 +221,7 @@ sub sip_notify {
                                         Variable => 'Event=' . $event }, $timeout);
 }
 
-sub mailboxcount {
+sub mailbox_count {
         my ($self, $exten, $context, $timeout) = @_;
 
         my $action = $self->action({    Action => 'MailboxCount',

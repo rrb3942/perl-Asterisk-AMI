@@ -12,6 +12,8 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but it is safe for use in an event based application.
 
+	- Renamed mailboxcount to mailbox_count to be consistent with other method names
+
         - Removed method queue_member_toggle
 
         - Removed method play_digits

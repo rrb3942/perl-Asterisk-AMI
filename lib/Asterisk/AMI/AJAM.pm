@@ -38,9 +38,9 @@ sub _configure {
                 $self->{lc($key)} = $value;
         }
 
-        weaken $self;
+        #weaken $self;
 
-        $self->{HTTP_READ} = sub { $self->_http_read(@_) };
+        #$self->{HTTP_READ} = sub { $self->_http_read(@_) };
         $self->{COOKIES} = {};
         return 1;
 }
@@ -134,14 +134,23 @@ sub _build_action {
 sub push_write {
         my ($self, $action) = @_;
 
+	my $id = $action->{'ActionID'};
+
+	#Make sure requests clean up after themselves;
+	weaken($self);
+	my $read = sub {
+		delete $self->{OUTSTANDING}->{$id};
+		$self->_http_read(@_);
+	};
+
         if ($self->{use_get}) {
                 #store the request guard so that we can cancel_request
-                $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_get $self->{url}, _build_action($action),
-                                                                        cookie_jar => $self->{COOKIES}, $self->{HTTP_READ};
+                $self->{OUTSTANDING}->{$id} = http_get $self->{url}, _build_action($action),
+                                                                        cookie_jar => $self->{COOKIES}, $read;
         } else {
                 #store the request guard so that we can cancel_request
-                $self->{OUTSTANDING}->{$action->{'ActionID'}} = http_post $self->{url}, _build_action($action), 
-                                                                        cookie_jar => $self->{COOKIES}, $self->{HTTP_READ};
+                $self->{OUTSTANDING}->{$id} = http_post $self->{url}, _build_action($action), 
+                                                                        cookie_jar => $self->{COOKIES}, $read;
         }
 
         return 1;

@@ -473,6 +473,8 @@ sub _wait_response {
 
 #Checks for user ActionID, adds ActionID to hash, checks for Async Originate
 #Returns hash suitable for using in our push_write
+#TODO: Move this back into send_action, doing so lets us better handle async stuff
+#This used to do more until we made our handle handle the hash refs directly
 sub _proc_action {
         my ($actionhash, $id) = @_;
 
@@ -1100,6 +1102,8 @@ Creates a new AMI object which takes the arguments as key-value pairs.
 
         When using AJAM 'PeerAddr' should be the full URL (with port) to the AJAM rawman interface 
         (e.g. 'http://127.0.0.1:8080/asterisk/rawman'). HTTPS is supported.
+
+	Older versions of Asterisk (e.g. 1.4) may not support HTTP posts.
 
         The default for 'KeepAlive' is set to 20 seconds to prevent authentication from expiring.
 

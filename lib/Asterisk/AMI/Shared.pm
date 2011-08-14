@@ -334,7 +334,7 @@ __END__
 
 =head1 NAME
 
-Asterisk::AMI::Shared - Provides some shared functions used by Asterisk::AMI::Common and Asterisk::AMI::Helper
+Asterisk::AMI::Shared - Provides some shared functions used by Asterisk::AMI::Common and Asterisk::AMI::Async
 
 =head1 VERSION
 
@@ -346,7 +346,7 @@ Asterisk::AMI::Shared - Provides some shared functions used by Asterisk::AMI::Co
 
 =head1 DESCRIPTION
 
-This module provides some shared functions used by bot Asterisk::AMI::Common and Asterisk::AMI::Helper
+This module provides some shared functions used by bot Asterisk::AMI::Common and Asterisk::AMI::Async
 
 =head2 Methods
 
