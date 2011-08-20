@@ -69,6 +69,7 @@ sub _configure {
 
         #Change defaults if AJAM used
         if ($self->{CONFIG}->{AJAM}) {
+		$defaults{PEERADDR} = 'http://127.0.0.1:8088/rawman';
                 $defaults{KEEPALIVE} = 20;
         }
 
@@ -1033,7 +1034,7 @@ If the version of Net:SSLeay included in CentOS/Redhat does not work try install
 Creates a new AMI object which takes the arguments as key-value pairs.
 
         Basic Options:
-        PeerAddr                Remote host address (default 127.0.0.1)        <hostname>
+        PeerAddr                Remote host address (default 127.0.0.1 or 'http://127.0.0.1:8088/rawman' for AJAM)        <hostname>
         PeerPort                Remote host port (default 5038, or 5039 with ssl)        <service>
         Events                  Enable/Disable Events (default 'off')   'off'|'on'|'system,call,log,verbose,command,agent,user,reporting'
         Username                Username to access the AMI

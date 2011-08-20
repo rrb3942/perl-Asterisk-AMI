@@ -47,13 +47,13 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Huge Doc changes, breakout config options into groups. Make less 'Scary'
 
-        - Better handling when Blocking => 1 or 0 for various things, disconnects,
+	- HTTP Auth for AJAM
+
+	- Update error messages with peeraddr:peerport to handle ajam
 
         - error handling broken in Asterisk::AMI::Mananger??? (why?, we dont overwrite any of this stuff for the parent)
 
         - Better handling when Blocking => 1 or 0 for various things, disconnects. (Done, needs testing)
-
-        - Huge Doc changes, breakout config options into groups. Make less 'Scary'
 
         - Async - Autodiscard default, Default_cb = warn_on_bad, fast_ variants for some 
 
