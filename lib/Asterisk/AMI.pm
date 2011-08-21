@@ -328,7 +328,7 @@ sub _handle_actions {
                 my $actionid = $packet->{ActionID};
 
                 #Discard Unknown ActionIDs
-                return unless (exists $self->{permit}->{$actionid});
+                next unless (exists $self->{permit}->{$actionid});
 
                 #Event responses 
                 if (exists $packet->{Event}) {
