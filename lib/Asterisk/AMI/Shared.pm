@@ -3,7 +3,7 @@ package Asterisk::AMI::Shared;
 use strict;
 use warnings;
 
-use version; our $VERSION = qv(0.2.4_01);
+use version; our $VERSION = qv(0.2.9_01);
 
 #Returns a hashref
 sub format_commands {

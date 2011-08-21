@@ -13,7 +13,7 @@ use AnyEvent;
 use parent qw(AnyEvent::Handle);
 
 #Duh
-use version; our $VERSION = qv(0.2.4_01);
+use version; our $VERSION = qv(0.2.9_01);
 
 sub new {
         my ($class, %options) = @_;

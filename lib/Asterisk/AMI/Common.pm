@@ -5,7 +5,7 @@ use warnings;
 use parent qw(Asterisk::AMI);
 use Asterisk::AMI::Shared;
 
-use version; our $VERSION = qv(0.2.4_01);
+use version; our $VERSION = qv(0.2.9_01);
 
 sub new {
         my ($class, %options) = @_;

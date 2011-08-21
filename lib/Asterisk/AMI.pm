@@ -12,7 +12,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.2.4_01);
+use version; our $VERSION = qv(0.2.9_01);
 
 #Create a new object and return it; If required options are missing, returns undef
 sub new {
