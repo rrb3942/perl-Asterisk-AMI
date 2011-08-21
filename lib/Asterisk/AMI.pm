@@ -240,7 +240,7 @@ sub _connect {
                         #TLS stuff
                         $hdl{tls} = 'connect' if ($self->{config}->{ssl});
                         #TCP Keepalive
-                        $hdl{keepalive} = 1 if ($self->{config}->{TCP_KEEPALIVE});
+                        $hdl{keepalive} = 1 if ($self->{config}->{tcp_keepalive});
 
                         $self->{handle} = Asterisk::AMI::Manager->new(%hdl);
                 } else {
