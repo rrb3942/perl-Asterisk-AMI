@@ -39,14 +39,77 @@ sub fast_action {
         return $ami->send_action($action, undef, undef, $arg1);
 }
 
-sub _shared_cb {
+#Pass on the 'goodness' value
+sub _basic_cb {
+        my ($callback) = @_;
+
+        return sub {
+                        my ($ami, $response, $userdata) = @_;
+
+			if ($response->{GOOD}) {
+	                        $callback->($ami, $response->{ActionID}, $response->{GOOD}, $userdata);
+			} else {
+				$callback->($ami, $response->{ActionID}, undef, $userdata);
+			}
+                }
+}
+
+#Checks original action for keys like 'Channel', 'Extension', and 'Context' and passes them 
+#On through the response object
+sub _generic_cb {
+        my ($callback) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $generic = $resp->{'BODY'};
+
+                $generic->{'GOOD'} = $resp->{'GOOD'};
+
+		foreach (keys %{$resp->{ACTION}}) {
+			if (/^(?:Exten|Context|Channel)/) {
+				$generic->{$_} = $resp->{ACTION}->{$_};
+			}
+		}
+
+                $callback->($ami, $resp->{ActionID},  $generic, $userdata);
+        }
+}
+
+#Checks original action for keys like 'Channel', 'Extension', and 'Context' and passes them 
+#On through the response object
+sub _generic_body_cb {
+        my ($callback) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $generic = $resp->{'BODY'};
+
+                $generic->{'GOOD'} = $resp->{'GOOD'};
+
+		foreach (keys %{$resp->{ACTION}}) {
+			if (/^(?:Exten|Context|Channel)/) {
+				$generic->{$_} = $resp->{ACTION}->{$_};
+			}
+		}
+
+                $callback->($ami, $resp->{ActionID},  $generic, $userdata);
+        }
+}
+
+#Supplies a callback that runs the response through a formatter before passing to the users callback
+sub _format_cb {
         my ($callback, $shared) = @_;
 
         return sub {
                         my ($ami, $response, $userdata) = @_;
 
-                        $callback->($ami, $shared->($response), $userdata);
-                        
+			if ($response->{GOOD}) {
+	                        $callback->($ami, $response->{ActionID}, $shared->($response), $userdata);
+			} else {
+				$callback->($ami, $response->{ActionID}, undef, $userdata);
+			}
                 }
 }
 
@@ -57,7 +120,7 @@ sub attended_transfer {
                                         Channel => $channel,
                                         Exten   => $exten,
                                         Context => $context,
-                                        Priority => 1 }, $callback, $timeout, $userdata);
+                                        Priority => 1 }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub bridge {
@@ -66,13 +129,13 @@ sub bridge {
         return $self->send_action({     Action  => 'Bridge',
                                         Channel1 => $chan1,
                                         Channel2 => $chan2,
-                                        Tone    => 'Yes' }, $callback, $timeout, $userdata);
+                                        Tone    => 'Yes' }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub commands {
         my ($self, $callback, $timeout, $userdata) = @_;
 
-        return $self->send_action({ Action => 'ListCommands' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_commands), $timeout, $userdata);
+        return $self->send_action({ Action => 'ListCommands' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_commands), $timeout, $userdata);
 }
 
 sub _db_get_cb {
@@ -105,14 +168,14 @@ sub db_put {
         return $self->send_action({     Action  => 'DBPut',
                                         Family  => $family,
                                         Key     => $key,
-                                        Val     => $value }, $callback, $timeout, $userdata);
+                                        Val     => $value }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub db_show {
         my ($self, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({    Action => 'Command',
-                                       Command => 'database show'}, _shared_cb($callback, \&Asterisk::AMI::Shared::format_db_show), $timeout, $userdata);
+                                       Command => 'database show'}, _format_cb($callback, \&Asterisk::AMI::Shared::format_db_show), $timeout, $userdata);
 }
 
 sub db_del {
@@ -123,10 +186,10 @@ sub db_del {
         if (defined($ver) && $ver >= 1.1) {
                 return $self->send_action({     Action => 'DBDel',
                                                 Family => $family,
-                                                Key => $key }, $callback, $timeout, $userdata);
+                                                Key => $key }, _basic_cb($callback), $timeout, $userdata);
         } else {
                 return $self->send_action({     Action => 'Command',
-                                                Command => 'database del ' . $family . ' ' . $key }, $callback, $timeout, $userdata);
+                                                Command => 'database del ' . $family . ' ' . $key }, _basic_cb($callback), $timeout, $userdata);
         }
 
         return;
@@ -144,7 +207,7 @@ sub db_deltree {
 
                 $action{'Key'} = $key if (defined $key);
 
-                return $self->send_action(\%action, $callback, $timeout, $userdata);
+                return $self->send_action(\%action, _basic_cb($callback), $timeout, $userdata);
         } else {
                 
                 my $cmd = 'database deltree ' . $family;
@@ -154,7 +217,7 @@ sub db_deltree {
                 }
 
                 return $self->send_action({     Action => 'Command',
-                                                Command => $cmd }, $callback, $timeout, $userdata);
+                                                Command => $cmd }, _basic_cb($callback), $timeout, $userdata);
         }
 
         return;
@@ -190,14 +253,14 @@ sub set_var {
         return $self->send_action({     Action => 'Setvar',
                                         Channel => $channel,
                                         Variable => $varname,
-                                        Value => $value }, $callback, $timeout, $userdata);
+                                        Value => $value }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub hangup {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'Hangup',
-                                        Channel => $channel }, $callback, $timeout, $userdata);
+                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub _exten_state_cb {
@@ -233,19 +296,19 @@ sub park {
 
         $action{'Timeout'} = $parktime if (defined $parktime);
 
-        return $self->send_action(\%action, $callback, $timeout, $userdata);
+        return $self->send_action(\%action, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub parked_calls {
         my ($self, $callback, $timeout, $userdata) = @_;
 
-        return $self->send_action({ Action => 'ParkedCalls' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_parked_calls), $timeout, $userdata);
+        return $self->send_action({ Action => 'ParkedCalls' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_parked_calls), $timeout, $userdata);
 }
 
 sub sip_peers {
         my ($self, $callback, $timeout, $userdata) = @_;
 
-        return $self->send_action({ Action => 'Sippeers' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_sip_peers), $timeout, $userdata);
+        return $self->send_action({ Action => 'Sippeers' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_sip_peers), $timeout, $userdata);
 }
 
 sub _sip_peer_cb {
@@ -275,7 +338,22 @@ sub sip_notify {
 
         return $self->send_action({     Action => 'SIPnotify',
                                         Channel => 'SIP/' . $peer,
-                                        Variable => 'Event=' . $event }, $callback, $timeout, $userdata);
+                                        Variable => 'Event=' . $event }, _basi_cb($callback), $timeout, $userdata);
+}
+
+sub _mailboxstatus_cb {
+        my ($callback, $exten, $context) = @_;
+
+        return sub {
+                my ($ami, $resp, $userdata) = @_;
+
+                my $mailbox = $resp->{'BODY'};
+                $mailbox->{'GOOD'} = $resp->{'GOOD'};
+                $mailbox->{'Exten'} = $exten;
+                $mailbox->{'Context'} = $context;
+
+                $callback->($ami, $resp->{ActionID},  $mailbox, $userdata);
+        }
 }
 
 sub _mailboxcount_cb {
@@ -300,21 +378,6 @@ sub mailboxcount {
                                         Mailbox => $exten . '@' . $context }, _mailboxcount_cb($callback, $exten, $context), $timeout, $userdata);
 }
 
-sub _mailboxstatus_cb {
-        my ($callback, $exten, $context) = @_;
-
-        return sub {
-                my ($ami, $resp, $userdata) = @_;
-
-                my $mailbox = $resp->{'BODY'};
-                $mailbox->{'GOOD'} = $resp->{'GOOD'};
-                $mailbox->{'Exten'} = $exten;
-                $mailbox->{'Context'} = $context;
-
-                $callback->($ami, $mailbox, $userdata);
-        }
-}
-
 sub mailboxstatus {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
@@ -322,25 +385,25 @@ sub mailboxstatus {
                                         Mailbox => $exten . '@' . $context }, _mailboxstatus_cb($callback, $exten, $context), $timeout, $userdata);
 }
 
-sub chan_timeout {
+sub set_chan_timeout {
         my ($self, $channel, $chantimeout, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'AbsoluteTimeout',
                                         Channel => $channel,
-                                        Timeout => $chantimeout }, $callback, $timeout, $userdata);
+                                        Timeout => $chantimeout }, _basi_cb($callback), $timeout, $userdata);
 }
 
 sub queues {
         my ($self, $callback, $timeout, $userdata) = @_;
 
-        return $self->send_action({ Action => 'QueueStatus' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_queues), $timeout, $userdata);
+        return $self->send_action({ Action => 'QueueStatus' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_queues), $timeout, $userdata);
 }
 
 sub queue_status {
         my ($self, $queue, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'QueueStatus',
-                                        Queue => $queue }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_queue_status), $timeout, $userdata);
+                                        Queue => $queue }, _format_cb($callback, \&Asterisk::AMI::Shared::format_queue_status), $timeout, $userdata);
 }
 
 sub queue_member_pause {
@@ -349,7 +412,7 @@ sub queue_member_pause {
         return $self->send_action({     Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => 1 }, $callback, $timeout, $userdata);
+                                        Paused => 1 }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub queue_member_unpause {
@@ -358,7 +421,7 @@ sub queue_member_unpause {
         return $self->send_action({     Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => 0 }, $callback, $timeout, $userdata);
+                                        Paused => 0 }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub queue_add {
@@ -366,7 +429,7 @@ sub queue_add {
 
         return $self->send_action({     Action => 'QueueAdd',
                                         Queue => $queue,
-                                        Interface => $member }, $callback, $timeout, $userdata);
+                                        Interface => $member }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub queue_remove {
@@ -374,7 +437,7 @@ sub queue_remove {
 
         return $self->send_action({     Action => 'QueueRemove',
                                         Queue => $queue,
-                                        Interface => $member }, $callback, $timeout, $userdata);
+                                        Interface => $member }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub _play_dtmf_cb {
@@ -404,14 +467,14 @@ sub play_dtmf {
 sub channels {
         my ($self, $callback, $timeout, $userdata) = @_;
 
-        return $self->send_action({ Action => 'Status' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_channels), $timeout, $userdata);
+        return $self->send_action({ Action => 'Status' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_channels), $timeout, $userdata);
 }
 
 sub chan_status {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action  => 'Status',
-                                        Channel => $channel}, _shared_cb($callback, \&Asterisk::AMI::Shared::format_chan_status), $timeout, $userdata);
+                                        Channel => $channel}, _format_cb($callback, \&Asterisk::AMI::Shared::format_chan_status), $timeout, $userdata);
 }
 
 sub transfer {
@@ -421,7 +484,7 @@ sub transfer {
                                         Channel => $channel,
                                         Exten => $exten,
                                         Context => $context,
-                                        Priority => 1 }, $callback, $timeout, $userdata);
+                                        Priority => 1 }, _basic_cb($callback), $timeout, $userdata);
 
 }
 
@@ -432,14 +495,14 @@ sub meetme_list {
 
         #1.8+
         if (defined($amiver) && $amiver >= 1.1) {
-                return $self->send_action({ Action => 'MeetmeList' }, _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_list), $timeout, $userdata);
+                return $self->send_action({ Action => 'MeetmeList' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_meetme_list), $timeout, $userdata);
         #Compat mode for 1.4
         } else {
                 #We need to collect the output for multiple manager commands to build our output
 
                 #Callback to fetch meetme members from list
                 my $cb = sub {
-                                my ($self, $meetmelist) = @_;
+                                my ($self, $actionid, $meetmelist) = @_;
 
                                 #Number of meetmes = number of outstanding actions
                                 #Use a count to ensure we wait for them all
@@ -462,7 +525,7 @@ sub meetme_list {
 
                                         unless ($meetme) {
                                                 undef $count;
-                                                $callback->($ami, undef, $userdata);
+                                                $callback->($ami, $actionid, undef, $userdata);
                                         }
 
                                         #Looks good, add to list
@@ -486,7 +549,7 @@ sub meetme_list {
 
                 #Get our list of meetmes
                 return $self->send_action({ Action => 'Command', Command => 'meetme' },
-                                _shared_cb($cb, \&Asterisk::AMI::Shared::parse_meetme_list_1_4), $timeout, $userdata);
+                                _format_cb($cb, \&Asterisk::AMI::Shared::parse_meetme_list_1_4), $timeout, $userdata);
 
         }
 }
@@ -500,13 +563,13 @@ sub meetme_members {
         if (defined($amiver) && $amiver >= 1.1) {
                 return $self->send_action({     Action => 'MeetmeList',
                                                 Conference => $conf },
-                                                _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members),
+                                                _format_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members),
                                                 $timeout, $userdata);
         #1.4 Compat
         } else {
                 return $self->send_action({     Action => 'Command',
                                                 Command => 'meetme list ' . $conf . ' concise' },
-                                                _shared_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members_1_4),
+                                                _format_cb($callback, \&Asterisk::AMI::Shared::format_meetme_members_1_4),
                                                 $timeout, $userdata);
         }
         
@@ -518,7 +581,7 @@ sub meetme_mute {
 
         return $self->send_action({     Action => 'MeetmeMute',
                                         Meetme => $conf,
-                                        Usernum => $user }, $callback, $timeout, $userdata);
+                                        Usernum => $user }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub meetme_unmute {
@@ -526,7 +589,7 @@ sub meetme_unmute {
 
         return $self->send_action({     Action => 'MeetmeUnmute',
                                         Meetme => $conf,
-                                        Usernum => $user }, $callback, $timeout, $userdata);
+                                        Usernum => $user }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub mute_chan {
@@ -537,7 +600,7 @@ sub mute_chan {
         return $self->send_action({     Action => 'MuteAudio',
                                         Channel => $chan,
                                         Direction => $dir,
-                                        State => 'on' }, $callback, $timeout, $userdata);
+                                        State => 'on' }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub unmute_chan {
@@ -548,7 +611,7 @@ sub unmute_chan {
         return $self->send_action({     Action => 'MuteAudio',
                                         Channel => $chan,
                                         Direction => $dir,
-                                        State => 'off' }, $callback, $timeout, $userdata);
+                                        State => 'off' }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub monitor {
@@ -558,28 +621,28 @@ sub monitor {
                                         Channel => $channel,
                                         File => $file,
                                         Format => 'wav',
-                                        Mix => '1' }, $callback, $timeout, $userdata);
+                                        Mix => '1' }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub monitor_stop {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'StopMonitor',
-                                        Channel => $channel }, $callback, $timeout, $userdata);
+                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub monitor_pause {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'PauseMonitor',
-                                        Channel => $channel }, $callback, $timeout, $userdata);
+                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub monitor_unpause {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'UnpauseMonitor',
-                                        Channel => $channel }, $callback, $timeout, $userdata);
+                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub monitor_change {
@@ -587,7 +650,7 @@ sub monitor_change {
 
         return $self->send_action({     Action => 'ChangeMonitor',
                                         Channel => $channel,
-                                        File => $file }, $callback, $timeout, $userdata);
+                                        File => $file }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub mixmonitor_mute {
@@ -598,7 +661,7 @@ sub mixmonitor_mute {
         return $self->send_action({     Action => 'MixMonitorMute',
                                         Direction => $dir,
                                         Channel => $channel,
-                                        State => 1 }, $callback, $timeout, $userdata);
+                                        State => 1 }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub mixmonitor_unmute {
@@ -609,7 +672,7 @@ sub mixmonitor_unmute {
         return $self->send_action({     Action => 'MixMonitorMute',
                                         Direction => $dir,
                                         Channel => $channel,
-                                        State => 0 }, $callback, $timeout, $userdata);
+                                        State => 0 }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub text {
@@ -617,14 +680,14 @@ sub text {
 
         return $self->send_action({     Action => 'SendText',
                                         Channel => $chan,
-                                        Message => $message }, $callback, $timeout, $userdata);
+                                        Message => $message }, _basic_cb($callback), $timeout, $userdata);
 }
 
 sub voicemail_list {
         my ($self, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({ Action => 'VoicemailUsersList' },
-                                    _shared_cb($callback, \&Asterisk::AMI::Shared::format_voicemail_list),
+                                    _format_cb($callback, \&Asterisk::AMI::Shared::format_voicemail_list),
                                     $timeout, $userdata);
 }
 
@@ -653,7 +716,7 @@ sub module_check {
         } else {
                 return $self->send_action({     Action => 'Command',
                                                 Command => 'module show like ' . $module },
-                                                _shared_cb(_module_cb($callback, $module), \&Asterisk::AMI::Shared::check_module_check_1_4),
+                                                _format_cb(_module_cb($callback, $module), \&Asterisk::AMI::Shared::check_module_check_1_4),
                                                 $timeout, $userdata);
         }
 
@@ -696,7 +759,7 @@ sub _originate_cb {
                 $orig->{'Context'} = $context unless (defined $orig->{'Context'});
                 $orig->{'Exten'} = $exten unless (defined $orig->{'Exten'});
 
-                $callback->($ami, $orig, $userdate, $resp);
+                $callback->($ami, $orig, $userdata, $resp);
         };
 }
 
@@ -765,7 +828,7 @@ Creates new a Asterisk::AMI::Async object which takes the arguments as key-value
 
 This module inherits all options from the AMI module.
 
-The following default settings different from the base Asterisk::AMI settings:
+The following default settings are different from the base Asterisk::AMI settings:
 
         Blocking - Default is changed to 0 (non-blocking)
         AutoDiscard - Default is changed to 1 (enabled)
