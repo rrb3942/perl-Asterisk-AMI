@@ -18,9 +18,9 @@ sub new {
         }
 
         #Set some new defaults
-        $upper{'BLOCKING'} = 0 unless (exists $upper{'BLOCKING'});
-        $upper{'AUTODISCARD'} = 1 unless (exists $upper{'AUTODISCARD'});
-        $upper{'DEFAULT_CB'} = $class->warn_on_bad() unless (exists $upper{'DEFAULT_CB'});
+        $upper{block} = 0 unless (exists $upper{block});
+        $upper{autodrop} = 1 unless (exists $upper{autodrop});
+        $upper{default_cb} = $class->warn_on_bad() unless (exists $upper{default_cb});
 
         return $class->SUPER::new(%upper);
 }
@@ -46,8 +46,8 @@ sub _basic_cb {
         return sub {
                         my ($ami, $response, $userdata) = @_;
 
-			if ($response->{GOOD}) {
-	                        $callback->($ami, $response->{ActionID}, $response->{GOOD}, $userdata);
+			if ($response->{Success}) {
+	                        $callback->($ami, $response->{ActionID}, $response->{Success}, $userdata);
 			} else {
 				$callback->($ami, $response->{ActionID}, undef, $userdata);
 			}
@@ -62,13 +62,13 @@ sub _generic_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $generic = $resp->{'BODY'};
+                my $generic = $resp->{Body};
 
-                $generic->{'GOOD'} = $resp->{'GOOD'};
+                $generic->{Success} = $resp->{Success};
 
-		foreach (keys %{$resp->{ACTION}}) {
+		foreach (keys %{$resp->{Request}}) {
 			if (/^(?:Exten|Context|Channel)/) {
-				$generic->{$_} = $resp->{ACTION}->{$_};
+				$generic->{$_} = $resp->{Request}->{$_};
 			}
 		}
 
@@ -84,13 +84,13 @@ sub _generic_body_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $generic = $resp->{'BODY'};
+                my $generic = $resp->{Body};
 
-                $generic->{'GOOD'} = $resp->{'GOOD'};
+                $generic->{Success} = $resp->{Success};
 
-		foreach (keys %{$resp->{ACTION}}) {
+		foreach (keys %{$resp->{Request}}) {
 			if (/^(?:Exten|Context|Channel)/) {
-				$generic->{$_} = $resp->{ACTION}->{$_};
+				$generic->{$_} = $resp->{Request}->{$_};
 			}
 		}
 
@@ -105,7 +105,7 @@ sub _format_cb {
         return sub {
                         my ($ami, $response, $userdata) = @_;
 
-			if ($response->{GOOD}) {
+			if ($response->{Success}) {
 	                        $callback->($ami, $response->{ActionID}, $shared->($response), $userdata);
 			} else {
 				$callback->($ami, $response->{ActionID}, undef, $userdata);
@@ -146,8 +146,8 @@ sub _db_get_cb {
 
                 my %dbgot = (   Family => $family,
                                 Key => $key,
-                                GOOD => $resp->{'GOOD'},
-                                Value => $resp->{'EVENTS'}->[0]->{'Val'}
+                                GOOD => $resp->{Success},
+                                Value => $resp->{Events}->[0]->{Val}
                         );
 
                 $callback->($ami, \%dbgot, $userdata);
@@ -175,7 +175,7 @@ sub db_show {
         my ($self, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({    Action => 'Command',
-                                       Command => 'database show'}, _format_cb($callback, \&Asterisk::AMI::Shared::format_db_show), $timeout, $userdata);
+                                       Command => 'database show' }, _format_cb($callback, \&Asterisk::AMI::Shared::format_db_show), $timeout, $userdata);
 }
 
 sub db_del {
@@ -205,7 +205,7 @@ sub db_deltree {
                 my %action = (  Action => 'DBDelTree',
                                 Family => $family );
 
-                $action{'Key'} = $key if (defined $key);
+                $action{Key} = $key if (defined $key);
 
                 return $self->send_action(\%action, _basic_cb($callback), $timeout, $userdata);
         } else {
@@ -231,8 +231,8 @@ sub _get_var_cb {
 
                 my %vargot = (  Channel => $channel,
                                 Variable => $variable,
-                                GOOD => $resp->{'GOOD'},
-                                Value => $resp->{'Value'}
+                                GOOD => $resp->{Success},
+                                Value => $resp->{Value}
                         );
 
                 $callback->($ami, \%vargot, $userdata);
@@ -271,8 +271,8 @@ sub _exten_state_cb {
 
                 my %extstate = ( Exten => $exten,
                                  Context => $context,
-                                 GOOD => $resp->{'GOOD'},
-                                 Status => $resp->{'BODY'}->{'Status'}
+                                 GOOD => $resp->{Success},
+                                 Status => $resp->{Body}->{Status}
                 );
 
                 $callback->($ami, \%extstate, $userdata);
@@ -294,7 +294,7 @@ sub park {
                         Channel => $chan1,
                         Channel2 => $chan2 );
 
-        $action{'Timeout'} = $parktime if (defined $parktime);
+        $action{Timeout} = $parktime if (defined $parktime);
 
         return $self->send_action(\%action, _basic_cb($callback), $timeout, $userdata);
 }
@@ -317,10 +317,10 @@ sub _sip_peer_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $peer = $resp->{'BODY'};
+                my $peer = $resp->{Body};
 
-                $peer->{'GOOD'} = $resp->{'GOOD'};
-                $peer->{'PeerName'} = $peername;
+                $peer->{Success} = $resp->{Success};
+                $peer->{PeerName} = $peername;
 
                 $callback->($ami, $peer, $userdata);
         };
@@ -347,10 +347,10 @@ sub _mailboxstatus_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $mailbox = $resp->{'BODY'};
-                $mailbox->{'GOOD'} = $resp->{'GOOD'};
-                $mailbox->{'Exten'} = $exten;
-                $mailbox->{'Context'} = $context;
+                my $mailbox = $resp->{Body};
+                $mailbox->{Success} = $resp->{Success};
+                $mailbox->{Exten} = $exten;
+                $mailbox->{Context} = $context;
 
                 $callback->($ami, $resp->{ActionID},  $mailbox, $userdata);
         }
@@ -362,10 +362,10 @@ sub _mailboxcount_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $mailbox = $resp->{'BODY'};
-                $mailbox->{'GOOD'} = $resp->{'GOOD'};
-                $mailbox->{'Exten'} = $exten;
-                $mailbox->{'Context'} = $context;
+                my $mailbox = $resp->{Body};
+                $mailbox->{Success} = $resp->{Success};
+                $mailbox->{Exten} = $exten;
+                $mailbox->{Context} = $context;
 
                 $callback->($ami, $mailbox, $userdata);
         }
@@ -448,8 +448,8 @@ sub _play_dtmf_cb {
 
                 my %queued = (  Channel => $channel,
                                 Digit => $digit,
-                                Message => $resp->{'Message'},
-                                GOOD => $resp->{'GOOD'}
+                                Message => $resp->{Message},
+                                GOOD => $resp->{Success}
                 );
 
                 $callback->($ami, \%queued, $userdata);
@@ -698,7 +698,7 @@ sub _module_cb {
                 my ($ami, $resp, $userdata) = @_;
 
                 my %mod = (     Module => $module,
-                                Loaded => $resp->{'GOOD'}
+                                Loaded => $resp->{Success}
                         );
 
                 $callback->($ami, \%mod, $userdata, $resp);
@@ -753,11 +753,11 @@ sub _originate_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $orig = $resp->{'EVENTS'}->[0];
+                my $orig = $resp->{Events}->[0];
 
-                $orig->{'Channel'} = $chan unless (defined $orig->{'Channel'});
-                $orig->{'Context'} = $context unless (defined $orig->{'Context'});
-                $orig->{'Exten'} = $exten unless (defined $orig->{'Exten'});
+                $orig->{Channel} = $chan unless (defined $orig->{Channel});
+                $orig->{Context} = $context unless (defined $orig->{Context});
+                $orig->{Exten} = $exten unless (defined $orig->{Exten});
 
                 $callback->($ami, $orig, $userdata, $resp);
         };
@@ -774,10 +774,10 @@ sub originate {
                         Async => 1
                         );
 
-        $action{'CallerID'} = $callerid if (defined $callerid);
+        $action{CallerID} = $callerid if (defined $callerid);
 
         if (defined $ctime) {
-                $action{'Timeout'} = $ctime * 1000;
+                $action{Timeout} = $ctime * 1000;
 
                 if ($timeout) {
                         $timeout = $ctime + $timeout;
@@ -917,8 +917,8 @@ commands ( [ TIMEOUT ] )
 
         Returns a hash reference of commands available through the AMI. TIMEOUT is optional
 
-        $hashref->{'CommandName'}->{'Desc'}        Contains the command description
-                                   {'Priv'}        Contains list of required privileges.
+        $hashref->{CommandName}->{Desc}        Contains the command description
+                                   {Priv}        Contains list of required privileges.
 
 db_show ( [ TIMEOUT ] )
 
@@ -1026,10 +1026,10 @@ parked_calls ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
 
-        $hashref->{lotnumber}->{'Channel'}
-                               {'Timeout'}
-                               {'CallerID'}
-                               {'CallerIDName'}
+        $hashref->{lotnumber}->{Channel}
+                               {Timeout}
+                               {CallerID}
+                               {CallerIDName}
 
 sip_peers ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1040,16 +1040,16 @@ sip_peers ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
 
-        $hashref->{peername}->{'Channeltype'}
-                              {'ChanObjectType'}
-                              {'IPaddress'}
-                              {'IPport'}
-                              {'Dynamic'}
-                              {'Natsupport'}
-                              {'VideoSupport'}
-                              {'ACL'}
-                              {'Status'}
-                              {'RealtimeDevice'}
+        $hashref->{peername}->{Channeltype}
+                              {ChanObjectType}
+                              {IPaddress}
+                              {IPport}
+                              {Dynamic}
+                              {Natsupport}
+                              {VideoSupport}
+                              {ACL}
+                              {Status}
+                              {RealtimeDevice}
 
 sip_peer ( PEERNAME [, CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1061,38 +1061,38 @@ sip_peer ( PEERNAME [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
 
-        $hashref->{'SIPLastMsg'}
-                  {'SIP-UserPhone'}
-                  {'Dynamic'}
-                  {'TransferMode'}
-                  {'SIP-NatSupport'}
-                  {'Call-limit'}
-                  {'CID-CallingPres'}
-                  {'LastMsgsSent'}
-                  {'Status'}
-                  {'Address-IP'}
-                  {'RegExpire'}
-                  {'ToHost'}
-                  {'Codecs'},
-                  {'Default-addr-port'}
-                  {'SIP-DTMFmode'}
-                  {'Channeltype'}
-                  {'ChanObjectType'}
-                  {'AMAflags'}
-                  {'SIP-AuthInsecure'}
-                  {'SIP-VideoSupport'}
-                  {'Callerid'}
-                  {'Address-Port'}
-                  {'Context'}
-                  {'ObjectName'}
-                  {'ACL'}
-                  {'Default-addr-IP'}
-                  {'SIP-PromiscRedir'}
-                  {'MaxCallBR'}
-                  {'MD5SecretExist'}
-                  {'SIP-CanReinvite'}
-                  {'CodecOrder'}
-                  {'SecretExist'}
+        $hashref->{SIPLastMsg}
+                  {SIP-UserPhone}
+                  {Dynamic}
+                  {TransferMode}
+                  {SIP-NatSupport}
+                  {Call-limit}
+                  {CID-CallingPres}
+                  {LastMsgsSent}
+                  {Status}
+                  {Address-IP}
+                  {RegExpire}
+                  {ToHost}
+                  {Codecs},
+                  {Default-addr-port}
+                  {SIP-DTMFmode}
+                  {Channeltype}
+                  {ChanObjectType}
+                  {AMAflags}
+                  {SIP-AuthInsecure}
+                  {SIP-VideoSupport}
+                  {Callerid}
+                  {Address-Port}
+                  {Context}
+                  {ObjectName}
+                  {ACL}
+                  {Default-addr-IP}
+                  {SIP-PromiscRedir}
+                  {MaxCallBR}
+                  {MD5SecretExist}
+                  {SIP-CanReinvite}
+                  {CodecOrder}
+                  {SecretExist}
 
 sip_notify ( PEER, EVENT [, CALLBACK, TIMEOUT, USERDATA ])
 
@@ -1115,9 +1115,9 @@ mailboxcount ( EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
 
-        $hashref->{'Mailbox'}
-                  {'NewMessages'}
-                  {'OldMessages'}
+        $hashref->{Mailbox}
+                  {NewMessages}
+                  {OldMessages}
 
 mailboxstatus ( EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
         
@@ -1144,25 +1144,25 @@ queues ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
 
-        $hashref->{queue}->{'Max'}
-                           {'Calls'}
-                           {'Holdtime'}
-                           {'Completed'}
-                           {'Abandoned'}
-                           {'ServiceLevel'}
-                           {'ServicelevelPerf'}
-                           {'Weight'}
-                           {'MEMBERS'}->{name}->{'Location'}
-                                                {'Membership'}
-                                                {'Penalty'}
-                                                {'CallsTaken'}
-                                                {'LastCall'}
-                                                {'Status'}
-                                                {'Paused'}
-                           {'ENTRIES'}->{position}->{'Channel'}
-                                                    {'CallerID'}
-                                                    {'CallerIDName'}
-                                                    {'Wait'}
+        $hashref->{queue}->{Max}
+                           {Calls}
+                           {Holdtime}
+                           {Completed}
+                           {Abandoned}
+                           {ServiceLevel}
+                           {ServicelevelPerf}
+                           {Weight}
+                           {MEMBERS}->{name}->{Location}
+                                                {Membership}
+                                                {Penalty}
+                                                {CallsTaken}
+                                                {LastCall}
+                                                {Status}
+                                                {Paused}
+                           {ENTRIES}->{position}->{Channel}
+                                                    {CallerID}
+                                                    {CallerIDName}
+                                                    {Wait}
 
 queue_status ( QUEUE [, CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1174,25 +1174,25 @@ queue_status ( QUEUE [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure
 
-        $hashref->{'Max'}
-                  {'Calls'}
-                  {'Holdtime'}
-                  {'Completed'}
-                  {'Abandoned'}
-                  {'ServiceLevel'}
-                  {'ServicelevelPerf'}
-                  {'Weight'}
-                  {'MEMBERS'}->{name}->{'Location'}
-                                       {'Membership'}
-                                       {'Penalty'}
-                                       {'CallsTaken'}
-                                       {'LastCall'}
-                                       {'Status'}
-                                       {'Paused'}
-                  {'ENTRIES'}->{position}->{'Channel'}
-                                           {'CallerID'}
-                                           {'CallerIDName'}
-                                           {'Wait'}
+        $hashref->{Max}
+                  {Calls}
+                  {Holdtime}
+                  {Completed}
+                  {Abandoned}
+                  {ServiceLevel}
+                  {ServicelevelPerf}
+                  {Weight}
+                  {MEMBERS}->{name}->{Location}
+                                       {Membership}
+                                       {Penalty}
+                                       {CallsTaken}
+                                       {LastCall}
+                                       {Status}
+                                       {Paused}
+                  {ENTRIES}->{position}->{Channel}
+                                           {CallerID}
+                                           {CallerIDName}
+                                           {Wait}
 
 queue_member_pause ( QUEUE, MEMBER [, CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1245,18 +1245,18 @@ channels ( [ CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
 
-        $hashref->{channel}->{'Context'}
-                             {'CallerID'}
-                             {'CallerIDNum'}
-                             {'CallerIDName'}
-                             {'Account'}
-                             {'State'}
-                             {'Context'} 
-                             {'Extension'}
-                             {'Priority'}
-                             {'Seconds'}
-                             {'Link'}
-                             {'Uniqueid'}
+        $hashref->{channel}->{Context}
+                             {CallerID}
+                             {CallerIDNum}
+                             {CallerIDName}
+                             {Account}
+                             {State}
+                             {Context} 
+                             {Extension}
+                             {Priority}
+                             {Seconds}
+                             {Link}
+                             {Uniqueid}
 
 chan_status ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
         
@@ -1268,18 +1268,18 @@ chan_status ( CHANNEL [, CALLBACK, TIMEOUT, USERDATA ] )
 
         Hash reference structure:
         
-        $hashref->{'Channel'}
-                  {'CallerID'}
-                  {'CallerIDNum'}
-                  {'CallerIDName'}
-                  {'Account'}
-                  {'State'}
-                  {'Context'} 
-                  {'Extension'}
-                  {'Priority'}
-                  {'Seconds'}
-                  {'Link'}
-                  {'Uniqueid'}
+        $hashref->{Channel}
+                  {CallerID}
+                  {CallerIDNum}
+                  {CallerIDName}
+                  {Account}
+                  {State}
+                  {Context} 
+                  {Extension}
+                  {Priority}
+                  {Seconds}
+                  {Link}
+                  {Uniqueid}
 
 transfer ( CHANNEL, EXTENSION, CONTEXT [, CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1301,14 +1301,14 @@ meetme_list ( [ CALLBACK, TIMEOUT, USERDATA ] )
         TIMEOUT is optional.
 
         Hash reference:
-        $hashref->{RoomNum}->{MemberChannels}->{'Muted'}
-                                               {'Role'}
-                                               {'Talking'}
-                                               {'UserNumber'}
-                                               {'CallerIDName'}
-                                               {'MarkedUser'}
-                                               {'CallerIDNum'}
-                                               {'Admin'}
+        $hashref->{RoomNum}->{MemberChannels}->{Muted}
+                                               {Role}
+                                               {Talking}
+                                               {UserNumber}
+                                               {CallerIDName}
+                                               {MarkedUser}
+                                               {CallerIDNum}
+                                               {Admin}
 
 meetme_members ( ROOMNUM [, CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1322,14 +1322,14 @@ meetme_members ( ROOMNUM [, CALLBACK, TIMEOUT, USERDATA ] )
         TIMEOUT is optional.
 
         Hash reference:
-        $hashref->{MemberChannels}->{'Muted'}
-                                    {'Role'}
-                                    {'Talking'}
-                                    {'UserNumber'}
-                                    {'CallerIDName'}
-                                    {'MarkedUser'}
-                                    {'CallerIDNum'}
-                                    {'Admin'}
+        $hashref->{MemberChannels}->{Muted}
+                                    {Role}
+                                    {Talking}
+                                    {UserNumber}
+                                    {CallerIDName}
+                                    {MarkedUser}
+                                    {CallerIDNum}
+                                    {Admin}
 
 meetme_mute ( CONFERENCE, USERNUM [, CALLBACK, TIMEOUT, USERDATA ] )
 
@@ -1444,29 +1444,29 @@ voicemail_list ( [ CALLBACK, TIMEOUT, USERDATA ] )
         TIMEOUT is optional.
 
         Hash reference:
-        $hashref->{context}->{mailbox}->{'AttachmentFormat'}
-                                        {'TimeZone'}
-                                        {'Pager'}
-                                        {'SayEnvelope'}
-                                        {'ExitContext'}
-                                        {'AttachMessage'}
-                                        {'SayCID'}
-                                        {'ServerEmail'}
-                                        {'CanReview'}
-                                        {'DeleteMessage'}
-                                        {'UniqueID'}
-                                        {'Email'}
-                                        {'MaxMessageLength'}
-                                        {'CallOperator'}
-                                        {'SayDurationMinimum'}
-                                        {'NewMessageCount'}
-                                        {'Language'}
-                                        {'MaxMessageCount'}
-                                        {'Fullname'}
-                                        {'Callback'}
-                                        {'MailCommand'}
-                                        {'VolumeGain'}
-                                        {'Dialout'}
+        $hashref->{context}->{mailbox}->{AttachmentFormat}
+                                        {TimeZone}
+                                        {Pager}
+                                        {SayEnvelope}
+                                        {ExitContext}
+                                        {AttachMessage}
+                                        {SayCID}
+                                        {ServerEmail}
+                                        {CanReview}
+                                        {DeleteMessage}
+                                        {UniqueID}
+                                        {Email}
+                                        {MaxMessageLength}
+                                        {CallOperator}
+                                        {SayDurationMinimum}
+                                        {NewMessageCount}
+                                        {Language}
+                                        {MaxMessageCount}
+                                        {Fullname}
+                                        {Callback}
+                                        {MailCommand}
+                                        {VolumeGain}
+                                        {Dialout}
 
 module_check ( MODULE [, CALLBACK, TIMEOUT, USERDATA ] )
 

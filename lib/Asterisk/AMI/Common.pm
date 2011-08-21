@@ -39,7 +39,7 @@ sub commands {
         my $action = $self->action({ Action => 'ListCommands' }, $timeout);
 
         #Early bail out on bad response
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_commands($action);
 }
@@ -52,8 +52,8 @@ sub db_get {
                                         Key => $key }, $timeout);
 
 
-        if ($action->{'GOOD'}) {
-                return $action->{'EVENTS'}->[0]->{'Val'};
+        if ($action->{Success}) {
+                return $action->{Events}->[0]->{'Val'};
         }
 
         return;
@@ -74,7 +74,7 @@ sub db_show {
         my $action = $self->action({    Action => 'Command',
                                         Command => 'database show'}, $timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_db_show($action);
 }
@@ -131,7 +131,7 @@ sub get_var {
                                         Channel => $channel,
                                         Variable => $variable }, $timeout);
 
-        if ($action->{'GOOD'}) {
+        if ($action->{Success}) {
                 return $action->{'BODY'}->{'Value'};
         }
 
@@ -161,7 +161,7 @@ sub exten_state {
                                         Exten   => $exten,
                                         Context => $context }, $timeout);
 
-        if ($action->{'GOOD'}) {
+        if ($action->{Success}) {
                 return $action->{'BODY'}->{'Status'};
         }
 
@@ -185,7 +185,7 @@ sub parked_calls {
 
         my $action = $self->action({ Action => 'ParkedCalls' }, $timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_parked_calls($action);
 }
@@ -195,7 +195,7 @@ sub sip_peers {
 
         my $action = $self->action({ Action => 'Sippeers' }, $timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_sip_peers($action);;
 }
@@ -206,7 +206,7 @@ sub sip_peer {
         my $action = $self->action({    Action => 'SIPshowpeer',
                                         Peer => $peername }, $timeout);
 
-        if ($action->{'GOOD'}) {
+        if ($action->{Success}) {
                 return $action->{'BODY'};
         }
 
@@ -227,7 +227,7 @@ sub mailbox_count {
         my $action = $self->action({    Action => 'MailboxCount',
                                         Mailbox => $exten . '@' . $context }, $timeout);
 
-        if ($action->{'GOOD'}) {
+        if ($action->{Success}) {
                 return $action->{'BODY'};
         }
 
@@ -241,7 +241,7 @@ sub mailboxstatus {
                                         Mailbox => $exten . '@' . $context }, $timeout);
 
 
-        if ($action->{'GOOD'}) {
+        if ($action->{Success}) {
                 return $action->{'BODY'}->{'Waiting'};
         }
 
@@ -261,7 +261,7 @@ sub queues {
 
         my $action = $self->action({ Action => 'QueueStatus' }, $timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_queues($action);
 }
@@ -273,7 +273,7 @@ sub queue_status {
                                         Queue => $queue }, $timeout);
 
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_queue_status($action);
 }
@@ -325,7 +325,7 @@ sub channels {
 
         my $action = $self->action({Action => 'Status'},$timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_channels($action);
 }
@@ -336,7 +336,7 @@ sub chan_status {
         my $action = $self->action({    Action  => 'Status',
                                         Channel => $channel}, $timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_chan_status($action);
 }
@@ -363,7 +363,7 @@ sub meetme_list {
         if (defined($amiver) && $amiver >= 1.1) {
                 my $action = $self->action({Action => 'MeetmeList'}, $timeout);
 
-                return unless ($action->{'GOOD'});
+                return unless ($action->{Success});
 
                 return Asterisk::AMI::Shared::format_meetme_list($action);
         #Compat mode for 1.4
@@ -371,7 +371,7 @@ sub meetme_list {
                 #List of all conferences
                 my $action = $self->action({ Action => 'Command', Command => 'meetme' }, $timeout);
 
-                return unless ($action->{'GOOD'});
+                return unless ($action->{Success});
 
                 #List of conferences
                 my @confs = Asterisk::AMI::Shared::parse_meetme_list_1_4($action);
@@ -399,7 +399,7 @@ sub meetme_members {
                 my $action = $self->action({    Action => 'MeetmeList',
                                                 Conference => $conf }, $timeout);
 
-                return unless ($action->{'GOOD'});
+                return unless ($action->{Success});
 
                 return Asterisk::AMI::Shared::format_meetme_members($action);
         #1.4 Compat
@@ -407,7 +407,7 @@ sub meetme_members {
                 my $action = $self->action({   Action => 'Command',
                                                 Command => 'meetme list ' . $conf . ' concise' });
 
-                return unless ($action->{'GOOD'});
+                return unless ($action->{Success});
 
                 return Asterisk::AMI::Shared::format_meetme_members_1_4($action);
         }
@@ -527,7 +527,7 @@ sub voicemail_list {
 
         my $action = $self->action({ Action => 'VoicemailUsersList' }, $timeout);
 
-        return unless ($action->{'GOOD'});
+        return unless ($action->{Success});
 
         return Asterisk::AMI::Shared::format_voicemail_list($action);
 }
@@ -544,7 +544,7 @@ sub module_check {
                 my $resp = $self->action({      Action => 'Command',
                                                 Command => 'module show like ' . $module }, $timeout);
 
-                return unless (defined $resp && $resp->{'GOOD'});
+                return unless (defined $resp && $resp->{Success});
 
                 return Asterisk::AMI::Shared::check_module_check_1_4($resp);
         }
@@ -961,7 +961,7 @@ queues ( [ TIMEOUT ] )
         $hashref->{queue}->{'Max'}
                            {'Calls'}
                            {'Holdtime'}
-                           {'Completed'}
+                           {Complete}
                            {'Abandoned'}
                            {'ServiceLevel'}
                            {'ServicelevelPerf'}
@@ -991,7 +991,7 @@ queue_status ( QUEUE [, TIMEOUT ] )
         $hashref->{'Max'}
                   {'Calls'}
                   {'Holdtime'}
-                  {'Completed'}
+                  {Complete}
                   {'Abandoned'}
                   {'ServiceLevel'}
                   {'ServicelevelPerf'}

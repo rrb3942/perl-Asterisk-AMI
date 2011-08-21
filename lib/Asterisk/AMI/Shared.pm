@@ -31,7 +31,7 @@ sub format_db_show {
 
         my %database;
 
-        foreach my $dbentry (@{$response->{'CMD'}}) {
+        foreach my $dbentry (@{$response->{Cmd}}) {
                 if ($dbentry =~ /^(.+?)\s*:\s*([^.]+)$/ox) {
                         my $family = $1;
                         my $val = $2;
@@ -57,7 +57,7 @@ sub format_parked_calls {
 
         my %parkinglots;
 
-        foreach my $lot (@{$response->{'EVENTS'}}) {
+        foreach my $lot (@{$response->{Events}}) {
                 delete $lot->{'ActionID'};
                 delete $lot->{'Event'};
 
@@ -77,7 +77,7 @@ sub format_sip_peers {
 
         my $peers;
 
-        foreach my $peer (@{$response->{'EVENTS'}}) {
+        foreach my $peer (@{$response->{Events}}) {
                 delete $peer->{'ActionID'};
                 delete $peer->{'Event'};
 
@@ -97,7 +97,7 @@ sub format_queues {
 
         my %queues;
 
-        foreach my $event (@{$response->{'EVENTS'}}) {
+        foreach my $event (@{$response->{Events}}) {
 
                 my $qevent = $event->{'Event'};
                 my $queue = $event->{'Queue'};
@@ -116,7 +116,7 @@ sub format_queues {
 
                         delete $event->{'Name'};
 
-                        $queues{$queue}->{'MEMBERS'}->{$name} = $event;
+                        $queues{$queue}->{Memebers}->{$name} = $event;
 
                 } elsif ($qevent eq 'QueueEntry') {
 
@@ -124,7 +124,7 @@ sub format_queues {
 
                         delete $event->{'Position'};
                         
-                        $queues{$queue}->{'ENTRIES'}->{$pos} = $event;
+                        $queues{$queue}->{Entries}->{$pos} = $event;
                 }
 
         }
@@ -138,7 +138,7 @@ sub format_queue_status {
 
         my %queueobj;
 
-        foreach my $event (@{$response->{'EVENTS'}}) {
+        foreach my $event (@{$response->{Events}}) {
 
                 my $qevent = $event->{'Event'};
 
@@ -156,7 +156,7 @@ sub format_queue_status {
                         delete $event->{'Name'};
                         delete $event->{'Queue'};
 
-                        $queueobj{'MEMBERS'}->{$name} = $event;
+                        $queueobj{Memebers}->{$name} = $event;
 
                 } elsif ($qevent eq 'QueueEntry') {
 
@@ -165,7 +165,7 @@ sub format_queue_status {
                         delete $event->{'Queue'};
                         delete $event->{'Position'};
                         
-                        $queueobj{'ENTRIES'}->{$pos} = $event;
+                        $queueobj{Entries}->{$pos} = $event;
                 }
 
         }
@@ -179,7 +179,7 @@ sub format_channels {
 
         my %channels;
 
-        foreach my $chan (@{$response->{'EVENTS'}}) {
+        foreach my $chan (@{$response->{Events}}) {
                 #Clean out junk
                 delete $chan->{'Event'};
                 delete $chan->{'Privilege'};
@@ -201,7 +201,7 @@ sub format_chan_status {
 
         my $status;
 
-        $status = $response->{'EVENTS'}->[0];
+        $status = $response->{Events}->[0];
 
         delete $status->{'ActionID'};
         delete $status->{'Event'};
@@ -215,7 +215,7 @@ sub format_meetme_list {
 
         my %meetmes;
 
-        foreach my $member (@{$response->{'EVENTS'}}) {
+        foreach my $member (@{$response->{Events}}) {
                 my $conf = $member->{'Conference'};
                 my $chan = $member->{'Channel'};
                 delete $member->{'Conference'};
@@ -233,10 +233,10 @@ sub parse_meetme_list_1_4 {
         my ($response) = @_;
 
         #Get rid of header and footer of cli
-        shift @{$response->{'CMD'}};
-        pop @{$response->{'CMD'}};
+        shift @{$response->{Cmd}};
+        pop @{$response->{Cmd}};
 
-        my @meetmes = map { my @split = split /\s{2,}/x; $split[0] } @{$response->{'CMD'}};
+        my @meetmes = map { my @split = split /\s{2,}/x; $split[0] } @{$response->{Cmd}};
 
         return \@meetmes;
 }
@@ -246,7 +246,7 @@ sub format_meetme_members {
 
         my %meetme;
 
-        foreach my $member (@{$response->{'EVENTS'}}) {
+        foreach my $member (@{$response->{Events}}) {
                 my $chan = $member->{'Channel'};
                 delete $member->{'Conference'};
                 delete $member->{'ActionID'};
@@ -264,7 +264,7 @@ sub format_meetme_members_1_4 {
 
         my %meetme;
 
-        foreach my $line (@{$response->{'CMD'}}) {
+        foreach my $line (@{$response->{Cmd}}) {
                 my @split = split /\!/x, $line;
                                 
                 my $member;
@@ -300,7 +300,7 @@ sub format_voicemail_list {
 
         my %vmusers;
 
-        foreach my $box (@{$response->{'EVENTS'}}) {
+        foreach my $box (@{$response->{Events}}) {
                 my $context = $box->{'VMContext'};
                 my $user = $box->{'VoiceMailbox'};
 
@@ -318,7 +318,7 @@ sub check_module_check_1_4 {
 
         my ($resp) = @_;
 
-        if ($resp->{'CMD'}->[-1] =~ /(\d+)\ .*/x) {
+        if ($resp->{Cmd}->[-1] =~ /(\d+)\ .*/x) {
 
                 return 0 if ($1 == 0);
 

@@ -5,9 +5,25 @@ Revision history for Perl extension Asterisk::AMI.
 
         -INCOMPATIBLE Support for old Callback and Timeout syntax has been removed.
 
-        -INCOMPATIBLE 'PARSED' key in response has been replaced with 'BODY'
+	-INCOMPATIBLE 'Blocking' config option replaced with 'Block'
 
-        - Original user Action is now stored in {'ACTION'} of the response object. This can be useful when attempting to diagnose
+	-INCOMPATIBLE 'UseSSL' config option replaced with 'Ssl'
+
+	-INCOMPATIBLE 'BUFFERSIZE' config option replaced with 'MaxId'
+
+        -INCOMPATIBLE 'PARSED' key in response has been replaced with 'Body'
+
+	-INCOMPATIBLE 'GOOD' key in response has been replace with 'Success'
+
+	-INCOMPATIBLE 'EVENTS' key in response has been replace with 'Events'
+
+	-INCOMPATIBLE 'CMD' key in response has been replaced with 'Cmd'
+
+	-INCOMPATIBLE 'Completed' key in response has been replaced with 'Complete'
+
+	-INCOMPATIBLE Empty values in Events are now set to undef instead of ''
+
+        - Original user Action is now stored in {'Request'} of the response object. This can be useful when attempting to diagnose
         a failing action.
 
         - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but it is safe for use in an event based application.
@@ -20,6 +36,8 @@ Revision history for Perl extension Asterisk::AMI.
 
         -INCOMPATIBLE Changed queue_member_pause to no longer accept a pause value and instead just pauses the member.
 
+	- Internal code cleanup
+
         - Added method queue_member_unpause to unpause a queue member.
 
         - Removed Asterisk::AMI::Common::Dev. New methods will just be added to Asterisk::AMI::Common and a note
@@ -28,7 +46,7 @@ Revision history for Perl extension Asterisk::AMI.
         - Abstracted some of the logic in Asterisk::AMI::Common to a seperate module so that it may be shared with
         Asterisk::AMI::Async.
 
-        - New constructor option AutoDiscard. When enabled (set to 1) it will discard responses for any action sent that
+        - New constructor option AutoDrop. When enabled (set to 1) it will discard responses for any action sent that
         did not register a callback
 
         - New constructor option Default_CB allows for setting a default callback subroutine for all actions.
