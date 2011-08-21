@@ -3,22 +3,22 @@ Revision history for Perl extension Asterisk::AMI.
 0.3
         - AJAM support added. 
 
-        - Support for old Callback and Timeout syntax has been removed.
+        -INCOMPATIBLE Support for old Callback and Timeout syntax has been removed.
 
-        - 'PARSED' key in response has been replaced with 'BODY'
+        -INCOMPATIBLE 'PARSED' key in response has been replaced with 'BODY'
 
         - Original user Action is now stored in {'ACTION'} of the response object. This can be useful when attempting to diagnose
         a failing action.
 
         - Added Asterisk::AMI::Async. Similiar to Asterisk::AMI::Common but it is safe for use in an event based application.
 
-	- Renamed mailboxcount to mailbox_count to be consistent with other method names
+	-INCOMPATIBLE Renamed mailboxcount to mailbox_count to be consistent with other method names
 
-        - Removed method queue_member_toggle
+        -INCOMPATIBLE Removed method queue_member_toggle
 
-        - Removed method play_digits
+        -INCOMPATIBLE Removed method play_digits
 
-        - Changed queue_member_pause to no longer accept a pause value and instead just pauses the member.
+        -INCOMPATIBLE Changed queue_member_pause to no longer accept a pause value and instead just pauses the member.
 
         - Added method queue_member_unpause to unpause a queue member.
 
@@ -33,7 +33,7 @@ Revision history for Perl extension Asterisk::AMI.
 
         - New constructor option Default_CB allows for setting a default callback subroutine for all actions.
 
-        - Default Authentication method changed to MD5 instead of plaintext.
+        -INCOMPATIBLE Default Authentication method changed to MD5 instead of plaintext.
 
         - The 'OriginateHack' is now on by default which also meas call events are enabled by default
 
@@ -45,21 +45,25 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Look at the broken pipe issue (Done, needs testing)
 
-        - Huge Doc changes, breakout config options into groups. Make less 'Scary'
+        - Huge Doc changes, breakout config options into groups. Make less 'Scary' (Mostly Done?)
 
-	- HTTP Auth for AJAM
+	- HTTP Auth for AJAM (This is a maybe)
 
-	- Update error messages with peeraddr:peerport to handle ajam
-
-        - error handling broken in Asterisk::AMI::Mananger??? (why?, we dont overwrite any of this stuff for the parent)
+	- Update error messages with peeraddr:peerport to handle ajam (Done)
 
         - Better handling when Blocking => 1 or 0 for various things, disconnects. (Done, needs testing)
 
-        - Async - Autodiscard default, Default_cb = warn_on_bad, fast_ variants for some 
+        - Async - Autodiscard default (?), Default_cb = warn_on_bad (?), fast_ variants for some 
 
         - more Async - dbget, get_var, should return varname,val and chan, exten_state should return exten + val, sip_peer should have peername + val,
 
         - more Async - mailbox status, mailbox + val, queue_status queuenum + val, meetme_members
+
+	KNOWN ISSUES
+
+        - Warnings are not generated for errors from error callbacks with Asterisk::AMI::Manager (Perl bug? Should work).
+	The errors are still passed up the callback stack. (Work around? Always warn when not AJAM?)
+
 0.2.5
         - Fix RT#65782 Consume all memory on dropped connection.
 0.2.4

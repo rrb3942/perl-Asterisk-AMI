@@ -145,7 +145,6 @@ sub DESTROY {
         delete $self->{linger_timer};
 
         $self->SUPER::DESTROY;
-
 }
 1;
 
@@ -169,7 +168,6 @@ Asterisk::AMI::Manager - Provides TCP IO layer to Asterisk::AMI
                                                 PeerPort => '5038',
                                                 Username => 'admin',
                                                 Secret  =>  'supersecret',
-                                                AJAM => 1
                                 );
 
         die "Unable to connect to asterisk" unless ($astman);
