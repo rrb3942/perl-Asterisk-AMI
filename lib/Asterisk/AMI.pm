@@ -176,7 +176,7 @@ sub _on_disconnect {
         }
 
         #Call all callbacks as if they had timed out
-        _
+        
         $self->_clear_cbs();
 
         if (exists $self->{config}->{on_disconnect}) {
@@ -425,15 +425,7 @@ sub _wait_response {
         #Already got it?
         if ($self->{rbuf}->{$id}->{Complete}) {
                 my $resp = $self->{rbuf}->{$id};
-                delete $self->{cbs}->{$id};
-                delete $self->{rbuf}->{$id};
-                delete $self->{timers}->{$id};
-                delete $self->{permit}->{$id};
-
-                #If ajam is enabled make sure the http request is ended
-                if ($self->{config}->{ajam}) {
-                        $self->{handle}->request_cancel($id);
-                }
+		$self->cancel($id);
 
                 return $resp;
         }
@@ -443,15 +435,7 @@ sub _wait_response {
 
         my $cb = sub {
                 my $response = $self->{rbuf}->{$id};
-                delete $self->{cbs}->{$id};
-                delete $self->{rbuf}->{$id};
-                delete $self->{timers}->{$id};
-                delete $self->{permit}->{$id};
-
-                #If ajam is enabled make sure the http request is ended
-                if ($self->{config}->{ajam}) {
-                        $self->{handle}->request_cancel($id);
-                }
+		$self->cancel($id);
 
                 $process->($response);
         };
@@ -490,8 +474,7 @@ sub send_action {
         $self->{lastid} = $id;
 
         #Delete anything that might be in the buffer
-        delete $self->{rbuf}->{$id};
-        delete $self->{cbs}->{$id};
+	$self->cancel($id);
 
         #Store a copy of initial request
         $self->{rbuf}->{$id}->{Request} = $actionhash;
@@ -555,16 +538,7 @@ sub send_action {
         if (defined $callback) {
                 $self->{cbs}->{$id} = sub {
                         my $response = $self->{rbuf}->{$id};
-                        delete $self->{cbs}->{$id};
-                        delete $self->{rbuf}->{$id};
-                        delete $self->{timers}->{$id};
-                        delete $self->{permit}->{$id};
-                        delete $self->{login_buf}->{$id};
-
-                        #If ajam is enabled make sure the http request is ended
-                        if ($self->{config}->{ajam}) {
-                                $self->{handle}->request_cancel($id);
-                        }
+			$self->cancel($id);
 
                         $callback->($self, $response, $store);
                 };
@@ -734,7 +708,6 @@ sub _login_block {
 
         #If a challenge exists do handle it first before the login
         if (%{$challenge}) {
-
                 #Get challenge response
                 my $chresp = $self->action($challenge,$timeout);
 
@@ -905,6 +878,24 @@ sub _clear_cbs {
         return 1;
 }
 
+sub cancel {
+	my ($self, $actionid) = @_;
+
+	$actionid = $self->{lastid} unless (defined $actionid);
+
+	delete $self->{cbs}->{$actionid};
+	delete $self->{rbuf}->{$actionid};
+	delete $self->{timers}->{$actionid};
+	delete $self->{permit}->{$actionid};
+	delete $self->{login_buf}->{$actionid};
+
+	#If ajam is enabled make sure the http request is ended
+	if ($self->{config}->{ajam}) {
+		$self->{handle}->request_cancel($actionid);
+	}
+
+	return 1;
+}
 
 #Runs the AnyEvent loop
 sub loop {
@@ -1546,6 +1537,18 @@ simple_action ( ACTION [, TIMEOUT ] )
         and timeout. If no ACTIONID is specified the ACTIONID of the last action sent will be used. If no TIMEOUT is
         given it blocks, reading in packets until the action completes. This will remove the response from the buffer.
 
+cancel ( [ ACTIONID ] )
+
+	Cancels the last action. Removes all callbacks (without fireing them), timers and buffers for the specified ACTIONID or
+	the last action sent. Also disregards any further response from Asterisk for that ActionID. In the case of using
+	AJAM also attempts to cancel the HTTP request.
+
+	Always returns 1.	 
+
+id () 
+
+        Returns the ID set in the constuctor or undef if no ID was set.
+
 disconnect ()
 
         Logoff and disconnects from the AMI. Returns 1 on success and 0 if any errors were encountered.
@@ -1591,10 +1594,6 @@ destroy ()
 loop ()
 
         Starts an eventloop via AnyEvent.
-
-id () 
-
-        Returns the ID set in the constuctor or undef if no ID was set.
 
 =head1 See Also
 

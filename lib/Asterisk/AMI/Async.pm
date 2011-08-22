@@ -39,62 +39,29 @@ sub fast_action {
         return $ami->send_action($action, undef, undef, $arg1);
 }
 
-#Pass on the 'goodness' value
-sub _basic_cb {
-        my ($callback) = @_;
-
-        return sub {
-                        my ($ami, $response, $userdata) = @_;
-
-			if ($response->{Success}) {
-	                        $callback->($ami, $response->{ActionID}, $response->{Success}, $userdata);
-			} else {
-				$callback->($ami, $response->{ActionID}, undef, $userdata);
-			}
-                }
-}
-
-#Checks original action for keys like 'Channel', 'Extension', and 'Context' and passes them 
-#On through the response object
-sub _generic_cb {
-        my ($callback) = @_;
-
-        return sub {
-                my ($ami, $resp, $userdata) = @_;
-
-                my $generic = $resp->{Body};
-
-                $generic->{Success} = $resp->{Success};
-
-		foreach (keys %{$resp->{Request}}) {
-			if (/^(?:Exten|Context|Channel)/) {
-				$generic->{$_} = $resp->{Request}->{$_};
-			}
-		}
-
-                $callback->($ami, $resp->{ActionID},  $generic, $userdata);
-        }
-}
-
 #Checks original action for keys like 'Channel', 'Extension', and 'Context' and passes them 
 #On through the response object
 sub _generic_body_cb {
         my ($callback) = @_;
 
+	return unless ($callback);
+
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $generic = $resp->{Body};
+		if ($resp->{Success}) {
+	                my $generic = $resp->{Body};
 
-                $generic->{Success} = $resp->{Success};
-
-		foreach (keys %{$resp->{Request}}) {
-			if (/^(?:Exten|Context|Channel)/) {
-				$generic->{$_} = $resp->{Request}->{$_};
+			foreach (keys %{$resp->{Request}}) {
+				if (/^(?:Exten|Context|Channel)/) {
+					$generic->{$_} = $resp->{Request}->{$_};
+				}
 			}
-		}
 
-                $callback->($ami, $resp->{ActionID},  $generic, $userdata);
+	                $callback->($ami, $resp, $generic, $userdata);
+		} else {			
+	                $callback->($ami, $resp, undef, $userdata);
+		}
         }
 }
 
@@ -102,13 +69,15 @@ sub _generic_body_cb {
 sub _format_cb {
         my ($callback, $shared) = @_;
 
+	return unless ($callback);
+
         return sub {
                         my ($ami, $response, $userdata) = @_;
 
 			if ($response->{Success}) {
-	                        $callback->($ami, $response->{ActionID}, $shared->($response), $userdata);
+	                        $callback->($ami, $response, $shared->($response), $userdata);
 			} else {
-				$callback->($ami, $response->{ActionID}, undef, $userdata);
+				$callback->($ami, $response, undef, $userdata);
 			}
                 }
 }
@@ -120,7 +89,7 @@ sub attended_transfer {
                                         Channel => $channel,
                                         Exten   => $exten,
                                         Context => $context,
-                                        Priority => 1 }, _basic_cb($callback), $timeout, $userdata);
+                                        Priority => 1 }, $callback, $timeout, $userdata);
 }
 
 sub bridge {
@@ -129,7 +98,7 @@ sub bridge {
         return $self->send_action({     Action  => 'Bridge',
                                         Channel1 => $chan1,
                                         Channel2 => $chan2,
-                                        Tone    => 'Yes' }, _basic_cb($callback), $timeout, $userdata);
+                                        Tone    => 'Yes' }, $callback, $timeout, $userdata);
 }
 
 sub commands {
@@ -144,13 +113,17 @@ sub _db_get_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my %dbgot = (   Family => $family,
-                                Key => $key,
-                                GOOD => $resp->{Success},
-                                Value => $resp->{Events}->[0]->{Val}
-                        );
+		if ($resp->{Success}) {
 
-                $callback->($ami, \%dbgot, $userdata);
+	                my %dbgot = (   Family => $family,
+        	                        Key => $key,
+               	           		Val => $resp->{Events}->[0]->{Val}
+               	         	);
+
+                	$callback->($ami, $resp, \%dbgot, $userdata);
+		} else {
+                	$callback->($ami, $resp, undef, $userdata);
+		}
         };
 }
 
@@ -168,7 +141,7 @@ sub db_put {
         return $self->send_action({     Action  => 'DBPut',
                                         Family  => $family,
                                         Key     => $key,
-                                        Val     => $value }, _basic_cb($callback), $timeout, $userdata);
+                                        Val     => $value }, $callback, $timeout, $userdata);
 }
 
 sub db_show {
@@ -186,10 +159,10 @@ sub db_del {
         if (defined($ver) && $ver >= 1.1) {
                 return $self->send_action({     Action => 'DBDel',
                                                 Family => $family,
-                                                Key => $key }, _basic_cb($callback), $timeout, $userdata);
+                                                Key => $key }, $callback, $timeout, $userdata);
         } else {
                 return $self->send_action({     Action => 'Command',
-                                                Command => 'database del ' . $family . ' ' . $key }, _basic_cb($callback), $timeout, $userdata);
+                                                Command => 'database del ' . $family . ' ' . $key }, $callback, $timeout, $userdata);
         }
 
         return;
@@ -207,7 +180,7 @@ sub db_deltree {
 
                 $action{Key} = $key if (defined $key);
 
-                return $self->send_action(\%action, _basic_cb($callback), $timeout, $userdata);
+                return $self->send_action(\%action, $callback, $timeout, $userdata);
         } else {
                 
                 my $cmd = 'database deltree ' . $family;
@@ -217,7 +190,7 @@ sub db_deltree {
                 }
 
                 return $self->send_action({     Action => 'Command',
-                                                Command => $cmd }, _basic_cb($callback), $timeout, $userdata);
+                                                Command => $cmd }, $callback, $timeout, $userdata);
         }
 
         return;
@@ -229,13 +202,16 @@ sub _get_var_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my %vargot = (  Channel => $channel,
-                                Variable => $variable,
-                                GOOD => $resp->{Success},
-                                Value => $resp->{Value}
-                        );
+		if ($resp->{Success}) {
+	                my %vargot = (  Channel => $channel,
+        	                        Variable => $variable,
+                        	        Value => $resp->{Value}
+                       		 );
 
-                $callback->($ami, \%vargot, $userdata);
+	                $callback->($ami, $resp, \%vargot, $userdata);
+		} else {
+	                $callback->($ami, $resp, undef, $userdata);
+		}
         };
 }
 
@@ -253,14 +229,14 @@ sub set_var {
         return $self->send_action({     Action => 'Setvar',
                                         Channel => $channel,
                                         Variable => $varname,
-                                        Value => $value }, _basic_cb($callback), $timeout, $userdata);
+                                        Value => $value }, $callback, $timeout, $userdata);
 }
 
 sub hangup {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'Hangup',
-                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub _exten_state_cb {
@@ -269,13 +245,16 @@ sub _exten_state_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my %extstate = ( Exten => $exten,
-                                 Context => $context,
-                                 GOOD => $resp->{Success},
-                                 Status => $resp->{Body}->{Status}
-                );
+		if ($resp->{Success}) {
+	                my %extstate = ( Exten => $exten,
+        	                         Context => $context,
+               	        	         Status => $resp->{Body}->{Status}
+               		 	);
 
-                $callback->($ami, \%extstate, $userdata);
+	                $callback->($ami, $resp, \%extstate, $userdata);
+		} else {
+	                $callback->($ami, $resp, undef, $userdata);			
+		}
         };
 }
 
@@ -296,7 +275,7 @@ sub park {
 
         $action{Timeout} = $parktime if (defined $parktime);
 
-        return $self->send_action(\%action, _basic_cb($callback), $timeout, $userdata);
+        return $self->send_action(\%action, $callback, $timeout, $userdata);
 }
 
 sub parked_calls {
@@ -317,12 +296,15 @@ sub _sip_peer_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $peer = $resp->{Body};
+		if ($resp->{Success}) {
+	                my $peer = $resp->{Body};
 
-                $peer->{Success} = $resp->{Success};
-                $peer->{PeerName} = $peername;
+	                $peer->{PeerName} = $peername;
 
-                $callback->($ami, $peer, $userdata);
+        	        $callback->($ami, $resp, $peer, $userdata);
+		} else {
+        	        $callback->($ami, $resp, undef, $userdata);
+		}
         };
 }
 
@@ -338,59 +320,29 @@ sub sip_notify {
 
         return $self->send_action({     Action => 'SIPnotify',
                                         Channel => 'SIP/' . $peer,
-                                        Variable => 'Event=' . $event }, _basi_cb($callback), $timeout, $userdata);
-}
-
-sub _mailboxstatus_cb {
-        my ($callback, $exten, $context) = @_;
-
-        return sub {
-                my ($ami, $resp, $userdata) = @_;
-
-                my $mailbox = $resp->{Body};
-                $mailbox->{Success} = $resp->{Success};
-                $mailbox->{Exten} = $exten;
-                $mailbox->{Context} = $context;
-
-                $callback->($ami, $resp->{ActionID},  $mailbox, $userdata);
-        }
-}
-
-sub _mailboxcount_cb {
-        my ($callback, $exten, $context) = @_;
-
-        return sub {
-                my ($ami, $resp, $userdata) = @_;
-
-                my $mailbox = $resp->{Body};
-                $mailbox->{Success} = $resp->{Success};
-                $mailbox->{Exten} = $exten;
-                $mailbox->{Context} = $context;
-
-                $callback->($ami, $mailbox, $userdata);
-        }
+                                        Variable => 'Event=' . $event }, $callback, $timeout, $userdata);
 }
 
 sub mailboxcount {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'MailboxCount',
-                                        Mailbox => $exten . '@' . $context }, _mailboxcount_cb($callback, $exten, $context), $timeout, $userdata);
+                                        Mailbox => $exten . '@' . $context }, _generic_body_cb($callback, $exten, $context), $timeout, $userdata);
 }
 
 sub mailboxstatus {
         my ($self, $exten, $context, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'MailboxStatus',
-                                        Mailbox => $exten . '@' . $context }, _mailboxstatus_cb($callback, $exten, $context), $timeout, $userdata);
+                                        Mailbox => $exten . '@' . $context }, _generic_body_cb($callback, $exten, $context), $timeout, $userdata);
 }
 
-sub set_chan_timeout {
+sub chan_timeout {
         my ($self, $channel, $chantimeout, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'AbsoluteTimeout',
                                         Channel => $channel,
-                                        Timeout => $chantimeout }, _basi_cb($callback), $timeout, $userdata);
+                                        Timeout => $chantimeout }, $callback, $timeout, $userdata);
 }
 
 sub queues {
@@ -412,7 +364,7 @@ sub queue_member_pause {
         return $self->send_action({     Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => 1 }, _basic_cb($callback), $timeout, $userdata);
+                                        Paused => 1 }, $callback, $timeout, $userdata);
 }
 
 sub queue_member_unpause {
@@ -421,7 +373,7 @@ sub queue_member_unpause {
         return $self->send_action({     Action => 'QueuePause',
                                         Queue => $queue,
                                         Interface => $member,
-                                        Paused => 0 }, _basic_cb($callback), $timeout, $userdata);
+                                        Paused => 0 }, $callback, $timeout, $userdata);
 }
 
 sub queue_add {
@@ -429,7 +381,7 @@ sub queue_add {
 
         return $self->send_action({     Action => 'QueueAdd',
                                         Queue => $queue,
-                                        Interface => $member }, _basic_cb($callback), $timeout, $userdata);
+                                        Interface => $member }, $callback, $timeout, $userdata);
 }
 
 sub queue_remove {
@@ -437,7 +389,7 @@ sub queue_remove {
 
         return $self->send_action({     Action => 'QueueRemove',
                                         Queue => $queue,
-                                        Interface => $member }, _basic_cb($callback), $timeout, $userdata);
+                                        Interface => $member }, $callback, $timeout, $userdata);
 }
 
 sub _play_dtmf_cb {
@@ -446,13 +398,15 @@ sub _play_dtmf_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my %queued = (  Channel => $channel,
-                                Digit => $digit,
-                                Message => $resp->{Message},
-                                GOOD => $resp->{Success}
-                );
+		if ($resp->{Success}) {
+	                my %queued = (  Channel => $channel,
+                                	Digit => $digit,
+                	);
 
-                $callback->($ami, \%queued, $userdata);
+                	$callback->($ami, $resp, \%queued, $userdata);
+		} else {
+                	$callback->($ami, $resp, undef, $userdata);
+		}
         };
 }
 
@@ -484,7 +438,7 @@ sub transfer {
                                         Channel => $channel,
                                         Exten => $exten,
                                         Context => $context,
-                                        Priority => 1 }, _basic_cb($callback), $timeout, $userdata);
+                                        Priority => 1 }, $callback, $timeout, $userdata);
 
 }
 
@@ -516,16 +470,20 @@ sub meetme_list {
                                         $callback->($self, \%meetmes, $userdata);
                                 }
 
+				my @resps;
+
                                 #Callback to handle each meetme room request
                                 my $mmcb = sub {
                                         my ($ami, $meetme, $confnum) = @_;
+
+					push $meetme, @resps;
 
                                         #Looks like we timed out?
                                         return unless ($count);
 
                                         unless ($meetme) {
                                                 undef $count;
-                                                $callback->($ami, $actionid, undef, $userdata);
+                                                $callback->($ami, \@resps, undef, $userdata);
                                         }
 
                                         #Looks good, add to list
@@ -537,7 +495,7 @@ sub meetme_list {
                                         #More to go?
                                         unless ($count) {
                                                 #Done, do final callback to user
-                                                $callback->($ami, \%meetmes, $userdata);
+                                                $callback->($ami, \@resps, \%meetmes, $userdata);
                                         }
                                 };
 
@@ -581,7 +539,7 @@ sub meetme_mute {
 
         return $self->send_action({     Action => 'MeetmeMute',
                                         Meetme => $conf,
-                                        Usernum => $user }, _basic_cb($callback), $timeout, $userdata);
+                                        Usernum => $user }, $callback, $timeout, $userdata);
 }
 
 sub meetme_unmute {
@@ -589,7 +547,7 @@ sub meetme_unmute {
 
         return $self->send_action({     Action => 'MeetmeUnmute',
                                         Meetme => $conf,
-                                        Usernum => $user }, _basic_cb($callback), $timeout, $userdata);
+                                        Usernum => $user }, $callback, $timeout, $userdata);
 }
 
 sub mute_chan {
@@ -600,7 +558,7 @@ sub mute_chan {
         return $self->send_action({     Action => 'MuteAudio',
                                         Channel => $chan,
                                         Direction => $dir,
-                                        State => 'on' }, _basic_cb($callback), $timeout, $userdata);
+                                        State => 'on' }, $callback, $timeout, $userdata);
 }
 
 sub unmute_chan {
@@ -611,7 +569,7 @@ sub unmute_chan {
         return $self->send_action({     Action => 'MuteAudio',
                                         Channel => $chan,
                                         Direction => $dir,
-                                        State => 'off' }, _basic_cb($callback), $timeout, $userdata);
+                                        State => 'off' }, $callback, $timeout, $userdata);
 }
 
 sub monitor {
@@ -621,28 +579,28 @@ sub monitor {
                                         Channel => $channel,
                                         File => $file,
                                         Format => 'wav',
-                                        Mix => '1' }, _basic_cb($callback), $timeout, $userdata);
+                                        Mix => '1' }, $callback, $timeout, $userdata);
 }
 
 sub monitor_stop {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'StopMonitor',
-                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub monitor_pause {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'PauseMonitor',
-                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub monitor_unpause {
         my ($self, $channel, $callback, $timeout, $userdata) = @_;
 
         return $self->send_action({     Action => 'UnpauseMonitor',
-                                        Channel => $channel }, _basic_cb($callback), $timeout, $userdata);
+                                        Channel => $channel }, $callback, $timeout, $userdata);
 }
 
 sub monitor_change {
@@ -650,7 +608,7 @@ sub monitor_change {
 
         return $self->send_action({     Action => 'ChangeMonitor',
                                         Channel => $channel,
-                                        File => $file }, _basic_cb($callback), $timeout, $userdata);
+                                        File => $file }, $callback, $timeout, $userdata);
 }
 
 sub mixmonitor_mute {
@@ -661,7 +619,7 @@ sub mixmonitor_mute {
         return $self->send_action({     Action => 'MixMonitorMute',
                                         Direction => $dir,
                                         Channel => $channel,
-                                        State => 1 }, _basic_cb($callback), $timeout, $userdata);
+                                        State => 1 }, $callback, $timeout, $userdata);
 }
 
 sub mixmonitor_unmute {
@@ -672,7 +630,7 @@ sub mixmonitor_unmute {
         return $self->send_action({     Action => 'MixMonitorMute',
                                         Direction => $dir,
                                         Channel => $channel,
-                                        State => 0 }, _basic_cb($callback), $timeout, $userdata);
+                                        State => 0 }, $callback, $timeout, $userdata);
 }
 
 sub text {
@@ -680,7 +638,7 @@ sub text {
 
         return $self->send_action({     Action => 'SendText',
                                         Channel => $chan,
-                                        Message => $message }, _basic_cb($callback), $timeout, $userdata);
+                                        Message => $message }, $callback, $timeout, $userdata);
 }
 
 sub voicemail_list {
@@ -697,11 +655,7 @@ sub _module_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my %mod = (     Module => $module,
-                                Loaded => $resp->{Success}
-                        );
-
-                $callback->($ami, \%mod, $userdata, $resp);
+	        $callback->($ami, $resp, $module, $userdata);
         };
 }
 
@@ -753,13 +707,17 @@ sub _originate_cb {
         return sub {
                 my ($ami, $resp, $userdata) = @_;
 
-                my $orig = $resp->{Events}->[0];
+		if ($resp->{Success}) {
+	                my $orig = $resp->{Events}->[0];
 
-                $orig->{Channel} = $chan unless (defined $orig->{Channel});
-                $orig->{Context} = $context unless (defined $orig->{Context});
-                $orig->{Exten} = $exten unless (defined $orig->{Exten});
+        	        $orig->{Channel} = $chan unless (defined $orig->{Channel});
+	                $orig->{Context} = $context unless (defined $orig->{Context});
+	                $orig->{Exten} = $exten unless (defined $orig->{Exten});
 
-                $callback->($ami, $orig, $userdata, $resp);
+	                $callback->($ami, $resp, $orig, $userdata);
+		} else {
+	                $callback->($ami, $resp, undef, $userdata);
+		}
         };
 }
 
