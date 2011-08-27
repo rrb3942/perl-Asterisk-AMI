@@ -41,7 +41,7 @@ sub _configure {
         #weaken $self;
 
         #$self->{HTTP_READ} = sub { $self->_http_read(@_) };
-        $self->{COOKIES} = {};
+        $self->{cookies} = {};
         return 1;
 }
 
@@ -52,7 +52,7 @@ sub _on_error {
         
         $self->destroy();
 
-        $self->{SOCKERR} = 1;
+        $self->{sockerr} = 1;
 
         return;
 }
@@ -63,14 +63,14 @@ sub _get_ami_ver {
         return unless (defined $headers->{'server'});
 
         #Initialize the key to indicate we atleast tried to find the version
-        $self->{AMIVER} = undef;
+        $self->{amiver} = undef;
 
         if ($headers->{'server'} =~ /Asterisk\/(\d)\.(\d)\..*/ ) {
                 if ($1 >= 1)  {
                         if ($2 > 4) {
-                                $self->{AMIVER} = 1.1;
+                                $self->{amiver} = 1.1;
                         } else {
-                                $self->{AMIVER} = 1.0;
+                                $self->{amiver} = 1.0;
                         }
                 } else {
                         warnings::warnif('Asterisk::AMI',
@@ -87,8 +87,8 @@ sub _get_ami_ver {
 sub _http_read {
         my ($self, $data, $headers) = @_;
 
-        #If AMIVER does not exist examine headers to determine our version
-        $self->_get_ami_ver($headers) unless (exists $self->{AMIVER});
+        #If amiver does not exist examine headers to determine our version
+        $self->_get_ami_ver($headers) unless (exists $self->{amiver});
 
         #2XX Responses are ok, anything else we don't really know how to handle
         if ($headers->{'Status'} > 199 && $headers->{'Status'} < 300) {
@@ -96,7 +96,7 @@ sub _http_read {
         } else {
 
                 #Place ourselves in an error condition
-                $self->{SOCKERR} = 1;
+                $self->{sockerr} = 1;
 
                 #Internal AnyEvent::HTTP Errors
                 if ($headers->{'Status'} > 549 && $headers->{'Status'} < 600) {
@@ -139,18 +139,18 @@ sub push_write {
 	#Make sure requests clean up after themselves;
 	weaken($self);
 	my $read = sub {
-		delete $self->{OUTSTANDING}->{$id};
+		delete $self->{outstanding}->{$id};
 		$self->_http_read(@_);
 	};
 
         if ($self->{use_get}) {
                 #store the request guard so that we can cancel_request
-                $self->{OUTSTANDING}->{$id} = http_get $self->{url}, _build_action($action),
-                                                                        cookie_jar => $self->{COOKIES}, $read;
+                $self->{outstanding}->{$id} = http_get $self->{url}, _build_action($action),
+                                                                        cookie_jar => $self->{cookies}, $read;
         } else {
                 #store the request guard so that we can cancel_request
-                $self->{OUTSTANDING}->{$id} = http_post $self->{url}, _build_action($action), 
-                                                                        cookie_jar => $self->{COOKIES}, $read;
+                $self->{outstanding}->{$id} = http_post $self->{url}, _build_action($action), 
+                                                                        cookie_jar => $self->{cookies}, $read;
         }
 
         return 1;
@@ -159,13 +159,13 @@ sub push_write {
 #Cancels a current http request
 sub request_cancel {
         my ($self, $id) = @_;
-        delete $self->{OUTSTANDING}->{$id};
+        delete $self->{outstanding}->{$id};
 }
 
 #Returns server AMI version
 sub amiver {
         my ($self) = @_;
-        return $self->{AMIVER};
+        return $self->{amiver};
 }
 
 #Should only be passed a logoff action
@@ -175,7 +175,7 @@ sub linger_destroy {
         my ($self, $logoff) = @_;
 
         #Nuke current requests
-        delete $self->{OUTSTANDING};
+        delete $self->{outstanding};
 
         #Don't care what we get back, just that we close up
         my $circle = sub { $self->destroy };
@@ -183,10 +183,10 @@ sub linger_destroy {
         #Store our request guards so if we hit our timeout they will get canceled
         if ($self->{use_get}) {
                 $self->{linger_request} = http_get $self->{url}, _build_action($logoff),
-                                                                cookie_jar => $self->{COOKIES}, $circle;
+                                                                cookie_jar => $self->{cookies}, $circle;
         } else {
                 $self->{linger_request} = http_post $self->{url}, _build_action($logoff), 
-                                                                cookie_jar => $self->{COOKIES}, $circle;
+                                                                cookie_jar => $self->{cookies}, $circle;
         }
 
         #Set a timer for the max time we will stick around
@@ -205,7 +205,7 @@ sub destroy {
 sub DESTROY {   
         my ($self) = @_;
         #Cancel all requests
-        delete $self->{OUTSTANDING};
+        delete $self->{outstanding};
         #Make sure to get rid of the lingering stuff
         delete $self->{linger_request};
         delete $self->{linger_timer};
