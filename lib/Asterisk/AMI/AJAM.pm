@@ -11,6 +11,8 @@ use URI::Escape;
 use AnyEvent;
 use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
+use MIME::Base64;
+use Digest::MD5 qw/md5/;
 
 #Duh
 use version; our $VERSION = qv(0.2.9_01);
@@ -29,19 +31,40 @@ sub new {
         return;
 }
 
+#Generate a nonce
+#terribly not secure, but should atleast be unique enough
+sub _nonce {
+	return md5( rand(1000000) . time . rand(10000000) );
+}
+
 #Sets variables for this object Also checks for minimum settings Returns 1 if everything was set, 0 if options were 
 #missing
 sub _configure {
         my ($self, %config) = @_;
 
+	my @required = ( 'peeraddr', 'peerport', 'uri', 'username', 'secrect', 'ssl' );
+
         while (my ($key, $value) = each %config) {
                 $self->{lc($key)} = $value;
         }
 
-        #weaken $self;
+	#Make we have all we need
+	foreach (@required) {
+		return unless (defined $self->{$_});
+	}
 
-        #$self->{HTTP_READ} = sub { $self->_http_read(@_) };
+	$self->{url} = do { $self->{ssl} ? 'https' : 'http' } .  '://' . $self->{peeraddr} . ':' . $self->{peerport} . $self->{uri};
+
+	#Preload some auth headers incase they are needed
+	$self->{auth}->{username} = $self->{username};
+	$self->{auth}->{nc} = 0;
+	$self->{auth}->{qop} = 'auth';
+	$self->{auth}->{algorithm} = 'MD5';
+	$self->{auth}->{uri} = $self->{uri};
+	$self->{auth}->{Authorization} = 'Digest';
+
         $self->{cookies} = {};
+
         return 1;
 }
 
@@ -135,21 +158,44 @@ sub push_write {
         my ($self, $action) = @_;
 
 	my $id = $action->{'ActionID'};
+	my $stringified = _build_action($action);
 
 	#Make sure requests clean up after themselves;
 	weaken($self);
 	my $read = sub {
+		#Short circuit for http auth support
+		my $headers = $_[2];
+
 		delete $self->{outstanding}->{$id};
-		$self->_http_read(@_);
+
+		if ($headers->{Status} == 401) {
+		#Attempt http authentication and retry the request
+			#Check if we support auth type
+			if (lc($headers->{'WWW-authenticate'}) != 'digest' || lc($headers->{'algorithm'}) != 'md5') {
+				$self->_on_error("Received 401 response with an unsupported authentication method (no digest or md5 support)");
+				return;
+			}
+
+			my %resp;
+			my @slice = ( 'nonce', 'realm', 'opaque' );
+			#Read essential headers from response and use as base for our own
+			@{$self->{auth}}{@slice} = @$headers{@slice};
+
+			$self->{auth}->{nc}++;			
+			#delete;
+
+		} else {
+			$self->_http_read(@_);
+		}
 	};
 
         if ($self->{use_get}) {
                 #store the request guard so that we can cancel_request
-                $self->{outstanding}->{$id} = http_get $self->{url}, _build_action($action),
+                $self->{outstanding}->{$id} = http_get $self->{url}, $stringified,
                                                                         cookie_jar => $self->{cookies}, $read;
         } else {
                 #store the request guard so that we can cancel_request
-                $self->{outstanding}->{$id} = http_post $self->{url}, _build_action($action), 
+                $self->{outstanding}->{$id} = http_post $self->{url}, $stringified, 
                                                                         cookie_jar => $self->{cookies}, $read;
         }
 

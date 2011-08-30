@@ -69,7 +69,8 @@ sub _configure {
 
         #Change defaults if AJAM used
         if ($self->{config}->{ajam}) {
-		$defaults{peeraddr} = 'http://127.0.0.1:8088/rawman';
+		$defaults{peerport} = '8088';
+		$defaults{uri} = '/rawman';
                 $defaults{keepalive} = 20;
         }
 
@@ -225,7 +226,12 @@ sub _connect {
         #Make connection/create handle
         if ($self->{config}->{ajam}) {
                 if (eval { require Asterisk::AMI::AJAM } ) {
-                        $hdl{url} = $self->{config}->{peeraddr};
+                        $hdl{peeraddr} = $self->{config}->{peeraddr};
+                        $hdl{peerport} = $self->{config}->{peerport};
+                        $hdl{uri} = $self->{config}->{uri};
+                        $hdl{username} = $self->{config}->{username};
+                        $hdl{secret} = $self->{config}->{secret};
+                        $hdl{ssl} = $self->{config}->{ssl};
                         $hdl{use_get} = $self->{config}->{use_get};
                         $self->{handle} = Asterisk::AMI::AJAM->new(%hdl);
                 } else {
