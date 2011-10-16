@@ -674,21 +674,25 @@ sub db_show {
 
         my $database;
 
+	#Remove summary line
+	delete $action->{'CMD'}->[-1];
+
         foreach my $dbentry (@{$action->{'CMD'}}) {
-                if ($dbentry =~ /^(.+?)\s*:\s*([^.]+)$/ox) {
-                        my $family = $1;
-                        my $val = $2;
-                        
-                        my @split = split /\//ox,$family;
+		my ($family, $val) = split /\s*:\s*/, $dbentry, 2;
 
-                        my $key = pop(@split);
+                my @split = split /\//ox,$family;
 
-                        $family = join('/', @split);
+                my $key = pop(@split);
 
-                        $family = substr($family, 1);
+                $family = join('/', @split);
 
-                        $database->{$family}->{$key} = $val;
-                }
+                $family = substr($family, 1);
+
+		if ($val eq '<bad value>' || $val eq '') {
+			$val = undef;
+		}
+
+                $database->{$family}->{$key} = $val;
         }
 
         return $database;
