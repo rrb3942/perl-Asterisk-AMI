@@ -1,6 +1,10 @@
 Revision history for Perl extension Asterisk::AMI.
+0.2.7	- Fix version declaration to conform to examples in documentation
+
 0.2.6	- Fix RT#71704 Populate empty values in db_show with undef instead of ignoring the entry completely
+
 0.2.5   - Fix RT#65782 Consume all memory on dropped connection.
+
 0.2.4
         - Due to a bug introduced in 0.2.3 get_event would return a reference to the current Asterisk::AMI object instead of the event. 
 0.2.3
