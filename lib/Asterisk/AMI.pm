@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.5
+0.2.6
 
 =head1 SYNOPSIS
 
@@ -589,7 +589,7 @@ the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=per
 
 =head1 LICENSE
 
-Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+Copyright (C) 2011 by Ryan Bullock (rrb3942@gmail.com)
 
 This module is free software.  You can redistribute it and/or modify it under the terms of the Artistic License 2.0.
 
@@ -614,7 +614,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version; our $VERSION = qv(0.2.5);
+use version; our $VERSION = qv(0.2.6);
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something

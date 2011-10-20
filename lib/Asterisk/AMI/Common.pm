@@ -6,7 +6,7 @@ Asterisk::AMI::Common - Extends Asterisk::AMI to provide simple access to common
 
 =head1 VERSION
 
-0.2.5
+0.2.6
 
 =head1 SYNOPSIS
 
@@ -566,7 +566,7 @@ or the cpan request tracker at https://rt.cpan.org/Public/Bug/Report.html?Queue=
 
 =head1 LICENSE
 
-Copyright (C) 2010 by Ryan Bullock (rrb3942@gmail.com)
+Copyright (C) 2011 by Ryan Bullock (rrb3942@gmail.com)
 
 This module is free software.  You can redistribute it and/or
 modify it under the terms of the Artistic License 2.0.
@@ -584,7 +584,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI);
 
-use version; our $VERSION = qv(0.2.5);
+use version; our $VERSION = qv(0.2.6);
 
 sub new {
         my ($class, %options) = @_;
