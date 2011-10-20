@@ -71,7 +71,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI::Common);
 
-use version; our $VERSION = qv("v0.2.7");
+use version 0.77; our $VERSION = version->declare("v0.2.7");
 
 sub new {
 	my ($class, %options) = @_;
