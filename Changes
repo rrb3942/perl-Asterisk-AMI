@@ -1,14 +1,19 @@
 Revision history for Perl extension Asterisk::AMI.
-0.2.7	- Fix version declaration to conform to examples in documentation
+0.2.8	- Fix Github#6 Update loop() method to create a loop via an AnyEvent conditional variable instead of the loop() method.
 
-0.2.6	- Fix RT#71704 Populate empty values in db_show with undef instead of ignoring the entry completely
+	- Added break() method to exit the loop entered by the loop() method.
+
+	- Fixed documentation of the destroy() method.
+
+0.2.7	- Fix version declaration to conform to examples in documentation.
+
+0.2.6	- Fix RT#71704 Populate empty values in db_show with undef instead of ignoring the entry completely.
 
 0.2.5   - Fix RT#65782 Consume all memory on dropped connection.
 
-0.2.4
-        - Due to a bug introduced in 0.2.3 get_event would return a reference to the current Asterisk::AMI object instead of the event. 
-0.2.3
-        - The Carp module is now required.
+0.2.4	- Due to a bug introduced in 0.2.3 get_event would return a reference to the current Asterisk::AMI object instead of the event. 
+
+0.2.3	- The Carp module is now required.
 
         - Switched certain warnings to now use carp where appropriate.
 
@@ -66,13 +71,11 @@ Revision history for Perl extension Asterisk::AMI.
 
         - Updated cmd_server.pl to use new syntax and variable passing
 
-0.2.2
-	- Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
-	  issue where if sleep was called for a period before a blocking call after connecting that the resulting 
-	  blocking call would return a timeout (rt #61148).
+0.2.2	- Added a call to AE::now_update in blocking methods to force the time for the event loop to update. Fixes an
+	issue where if sleep was called for a period before a blocking call after connecting that the resulting 
+	blocking call would return a timeout (rt #61148).
 
-0.2.1
-	- Fixed some errors in the documentation
+0.2.1	- Fixed some errors in the documentation
 
 	- Fixed a bug where we would leave an empty value in callbacks on a get_response if the response was already in the
 	buffer. Only error message for this happend once the Asterisk::AMI object went away and attempted to flush all
@@ -81,8 +84,7 @@ Revision history for Perl extension Asterisk::AMI.
 	- Require AnyEvent 5.2 or newer, as a feature we rely on was introduced in that release. Note, I have only tested
 	as far back as version 5.26.
 
-0.2.0
-	- Added new syntax for using callbacks with the send_action method. Old syntax still works.
+0.2.0	- Added new syntax for using callbacks with the send_action method. Old syntax still works.
 	Check documentation for this method for more details.
 
 	- Changed method of parsing from a regex to a simple split. This was possible due to previous
@@ -101,16 +103,15 @@ Revision history for Perl extension Asterisk::AMI.
 	- Switch to the Artistic License 2
 
 	- Improved Package for CPAN, META.yml now included
-0.1.10
-	- Added exception for the 'Originate' command while using the 'Async' option.
+
+0.1.10	- Added exception for the 'Originate' command while using the 'Async' option.
 
 	- Added option 'OriginateHack', which makes changes to allow using the 'Originate' action with the 'Async'
 	option.
 	
 	- Added new subroutine 'loop', calls an event loop via AnyEvent.
 
-0.1.9
-	- Fixed a bug when the cli command 'database show' was used with a small asterisk database (single entry)
+0.1.9	- Fixed a bug when the cli command 'database show' was used with a small asterisk database (single entry)
 	that would cause the response to not be parsed correctly, causing it to never complete. Also affected
 	AMI::Common::db_show();
 
@@ -125,8 +126,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Fixed some more typos in the documentation
 
-0.1.8
-	- Added support for 'MD5' challenge authenticaiton
+0.1.8	- Added support for 'MD5' challenge authenticaiton
 
 	- Added SSL support
 
@@ -135,9 +135,7 @@ Revision history for Perl extension Asterisk::AMI.
 	- Fixed some bad grammar/spelling/typos in documentation,
 	most likely added a few more as well
 
-0.1.7
-
-	- Removed Asterisk::AMI::completed(). Seemed pointless with callbacks.
+0.1.7	- Removed Asterisk::AMI::completed(). Seemed pointless with callbacks.
 
 	- Added TCP_Keepalive option, enables socket level TCP keepalive for detecting dead connections.
 
@@ -161,15 +159,13 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Some general code cleanups
 
-0.1.6 
-	- Fixes calling wrong modules (leftover from name change)
+0.1.6 	- Fixes calling wrong modules (leftover from name change)
 
 	- Adds backwards compatability for perl 5.8
 
-0.1.5
-	- Bad test, which broken installing from cpan
-0.1.4
-	- Changed namespace from AMI to Asterisk::AMI
+0.1.5	- Bad test, which broken installing from cpan
+
+0.1.4	- Changed namespace from AMI to Asterisk::AMI
 
 	- Massive Internal changes. Entire core re-written to use AnyEvent. This module is still usuable without an event loop, but now can integrate
 	easily into any event loop supported by AnyEvent.
@@ -195,8 +191,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- New example server called 'cmd_server.pl' which allows for a few basic commands. It demonstrates the use of callbacks.
 
-0.1.3
-	- Changed version requirements from 5.10 to 5.8. Those running 5.8 may need to install the 'version' and 'parent'
+0.1.3	- Changed version requirements from 5.10 to 5.8. Those running 5.8 may need to install the 'version' and 'parent'
 	pragmas. (install version and install parent in cpan).
 
 	- Now using "\015\012" as the end of line delimiter, more portable and better practice than "\r\n"
@@ -219,8 +214,7 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- New Module AMI::Common:Dev contains additional functions for working with Asterisk 1.6+
 
-0.1.2
-	- All AMI Objects can now also be used a normal IO Handles. It is not recommended
+0.1.2	- All AMI Objects can now also be used a normal IO Handles. It is not recommended
 	that you read and write directly to them. This was added so you can add the AMI
 	object to something like IO::Select for single threaded server applications
 

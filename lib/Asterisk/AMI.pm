@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.7
+0.2.7_1
 
 =head1 SYNOPSIS
 
@@ -564,15 +564,19 @@ error ()
 
         Returns 1 if there are currently errors on the socket, 0 if everything is ok.
 
-destroy ( [ FATAL ] )
+destroy ()
 
-        Destroys the contents of all buffers and removes any current callbacks that are set. If FATAL is true
-        it will also destroy our IO handle and its associated watcher. Mostly used internally. Useful if you want to
-        ensure that our IO handle watcher gets removed.
+        Destroys the contents of all buffers and removes any current callbacks that are set.
+	Mostly used internally. Useful if you want to ensure that our IO handle watcher gets removed.
+	Gets called automatically when our object goes out of scope.
 
 loop ()
 
-        Starts an eventloop via AnyEvent.
+        Starts an event loop via AnyEvent.
+
+break ()
+
+	Breaks/exits the current event loop. The program will continue from where the event loop was invoked.
 
 =head1 See Also
 
@@ -614,7 +618,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version 0.77; our $VERSION = version->declare("v0.2.7");
+use version 0.77; our $VERSION = version->declare("v0.2.7_1");
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
@@ -1591,9 +1595,19 @@ sub destroy {
         return 1;
 }
 
-#Runs the AnyEvent loop
+#Run event loop via anyevent
 sub loop {
-        return AnyEvent->loop;
+	$_[0]->{tmp_loop} = AnyEvent->condvar;
+	my $exit = $_[0]->{tmp_loop}->recv;
+	delete $_[0]->{tmp_loop};
+	return $exit;
+}
+
+#Ends exits loops
+sub break {
+	if (defined $_[0]->{tmp_loop}) {
+		$_[0]->{tmp_loop}->send(1);
+	}
 }
 
 #Bye bye
