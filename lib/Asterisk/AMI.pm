@@ -19,9 +19,8 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
         
         die "Unable to connect to asterisk" unless ($astman);
 
-        my $action = $astman->({ Action => 'Command',
-                                 Command => 'sip show peers'
-                                });
+        my $action = $astman->action({	Action => 'Command',
+                                 	Command => 'sip show peers' });
 
 =head1 DESCRIPTION
 
@@ -485,7 +484,7 @@ To retrieve in a callback:
         sub actioncb { my ($ami, $response) = @_; print 'Got Action Reponse: ',$response->{'Response'},"\r\n"; }
 
         #Send an action
-        my $action = $astman->({ Action => 'Ping' }, \&actioncb);
+        my $action = $astman->send_action({ Action => 'Ping' }, \&actioncb);
 
         #Do all of you other eventy stuff here, or before all this stuff, whichever ..............
 
