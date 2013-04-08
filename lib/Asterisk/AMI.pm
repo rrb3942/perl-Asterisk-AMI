@@ -1163,6 +1163,7 @@ sub _build_action {
                         next;
                 #Exception of Orignate Async
                 } elsif ($lkey eq 'async' && $value == 1) {
+                        $value = 'true';
                         $async = 1;
                 #Clean out user ActionIDs
                 } elsif ($lkey eq 'actionid') {
