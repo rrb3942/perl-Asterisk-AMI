@@ -497,7 +497,8 @@ sub send_action {
 		if ($lkey eq 'action')  {
 			$atype = $value;
                 #Exception of Orignate Async
-                } elsif ($lkey eq 'async' && $value == 1) {
+                } elsif ($lkey eq 'async' && ($value == 1 || $value eq 'true')) {
+                	$value = 'true';
                         $async = 1;
                 #Clean out user ActionIDs
                 } elsif ($lkey eq 'actionid') {
