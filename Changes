@@ -5,6 +5,8 @@ Revision history for Perl extension Asterisk::AMI.
 
 	- Fixed documentation of the destroy() method.
 
+	- Correctly send 'true' instead of '1' for Async parameter of Originate Action (revmischa)
+
 0.2.7	- Fix version declaration to conform to examples in documentation.
 
 0.2.6	- Fix RT#71704 Populate empty values in db_show with undef instead of ignoring the entry completely.
