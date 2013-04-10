@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.8
+0.2.9
 
 =head1 SYNOPSIS
 
@@ -617,7 +617,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version 0.77; our $VERSION = version->declare("v0.2.8");
+use version 0.77; our $VERSION = version->declare("v0.2.9");
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
