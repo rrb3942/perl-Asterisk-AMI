@@ -6,7 +6,7 @@ Asterisk::AMI::Common::Dev - Extends Asterisk::AMI::Common to include functions 
 
 =head1 VERSION
 
-0.2.8
+0.2.9
 
 =head1 SYNOPSIS
 
@@ -71,7 +71,7 @@ use strict;
 use warnings;
 use parent qw(Asterisk::AMI::Common);
 
-use version 0.77; our $VERSION = version->declare("v0.2.8");
+use version 0.77; our $VERSION = version->declare("v0.2.9");
 
 sub new {
 	my ($class, %options) = @_;
