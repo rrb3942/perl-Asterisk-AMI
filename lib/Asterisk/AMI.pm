@@ -973,7 +973,8 @@ sub _handle_packet {
                 #Dispatch depending on packet type
                 if (exists $parsed{'ActionID'}) {
                         $self->_handle_action(\%parsed);
-                } elsif (exists $parsed{'Event'}) {
+                }
+                if (exists $parsed{'Event'}) {
                         $self->_handle_event(\%parsed);
                 }
         }
