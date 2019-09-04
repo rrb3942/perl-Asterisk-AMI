@@ -6,7 +6,7 @@ Asterisk::AMI - Perl module for interacting with the Asterisk Manager Interface
 
 =head1 VERSION
 
-0.2.9
+0.3.0
 
 =head1 SYNOPSIS
 
@@ -617,7 +617,7 @@ use Scalar::Util qw/weaken/;
 use Carp qw/carp/;
 
 #Duh
-use version 0.77; our $VERSION = version->declare("v0.2.9");
+use version 0.77; our $VERSION = version->declare("v0.3.0");
 
 #Used for storing events while reading command responses Events are stored as hashes in the array Example 
 #$self->{EVETNBUFFER}->{'Event'} = Something
@@ -901,7 +901,7 @@ sub _on_connect {
 
         my ($self, $fh, $line) = @_;
 
-        if ($line =~ /^Asterisk\ Call\ Manager\/([0-9]\.[0-9])$/ox) {
+        if ($line =~ /^Asterisk\sCall\sManager\/([0-9]\.[0-9])/ox) {
                 $self->{AMIVER} = $1;
         } else {
                 warnings::warnif('Asterisk::AMI', "Unknown Protocol/AMI Version from $self->{CONFIG}->{PEERADDR}:$self->{CONFIG}->{PEERPORT}");
@@ -956,19 +956,23 @@ sub _handle_packet {
                 my %parsed;
 
                 foreach my $line (split /\015\012/ox, $packet) {
+                        #Regular output, split on :\
+                        my ($key, $value) = split /:\ /x, $line, 2;
                         #Is this our command output?
-                        if ($line =~ s/--END\ COMMAND--$//ox) {
+                        if ($key eq 'Output' && $self->{AMIVER} >= 5.0) {
+                                push(@{$parsed{'CMD'}},split(/\x20*\x0A/ox, $value));
+                        }
+                        elsif ($line =~ s/--END\ COMMAND--$//ox) {
                                 $parsed{'COMPLETED'} = 1;
 
                                 push(@{$parsed{'CMD'}},split(/\x20*\x0A/ox, $line));
                         } else {
-                                #Regular output, split on :\
-                                my ($key, $value) = split /:\ /x, $line, 2;
-
+                                
                                 $parsed{$key} = $value;
-
                         }
                 }
+
+                $parsed{'COMPLETED'} = 1;
 
                 #Dispatch depending on packet type
                 if (exists $parsed{'ActionID'}) {
