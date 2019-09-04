@@ -956,6 +956,8 @@ sub _handle_packet {
                 my %parsed;
 
                 foreach my $line (split /\015\012/ox, $packet) {
+                        #Regular output, split on :\
+                        my ($key, $value) = split /:\ /x, $line, 2;
                         #Is this our command output?
                         if ($key eq 'Output' && $self->{AMIVER} >= 5.0) {
                                 push(@{$parsed{'CMD'}},split(/\x20*\x0A/ox, $value));
@@ -965,11 +967,8 @@ sub _handle_packet {
 
                                 push(@{$parsed{'CMD'}},split(/\x20*\x0A/ox, $line));
                         } else {
-                                #Regular output, split on :\
-                                my ($key, $value) = split /:\ /x, $line, 2;
-
+                                
                                 $parsed{$key} = $value;
-
                         }
                 }
 
