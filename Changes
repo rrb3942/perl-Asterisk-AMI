@@ -1,4 +1,6 @@
 Revision history for Perl extension Asterisk::AMI.
+0.3.0   - Added support for protocol version AMI 5
+
 0.2.9   - Correctly send 'true' instead of '1' for Async parameter of Originate Action (revmischa)
 
 0.2.8	- Fix Github#6 Update loop() method to create a loop via an AnyEvent conditional variable instead of the loop() method.
